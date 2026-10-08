@@ -1,9 +1,9 @@
 # ziya — status
-updated: 2026-10-08 20:10
-doing: waiting on Railway Masumi URL + OpenAI access; keys set locally: MASUMI_API_KEY, APIFY_TOKEN (ElevenLabs being added)
-touching: .env (local), memory/
+updated: 2026-10-08 21:40
+doing: skeleton done on branch `feat/ziya-skeleton` (not committed yet); next Masumi
+touching: buyer/, shared/, memory/
 blocked on: Masumi hosted URL (Ziya will paste), OpenAI access (none yet)
-next: Masumi /health + test escrow once URL is in; buyer FastAPI skeleton on :8000 (/tasks, /events, /approvals)
+next: hosted Masumi /health, register buyer+seller agents, one test escrow; then MasumiPayments.lock/refund
 done today:
-- fixed unrelated-histories git main
 - topic, roles, protocol, firewall, demo, checkpoints decided and logged
+- skeleton: buyer/seller/voice/dashboard/tests; 11 tests pass; acts 1-3 verified live (simulated)

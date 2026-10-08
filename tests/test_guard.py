@@ -1,0 +1,54 @@
+import pytest
+
+from buyer.guard import Verdict, WalletGuard
+from buyer.ledger import Ledger
+from buyer.payments import SimulatedPayments
+from shared.models import StartJobResponse
+
+START = StartJobResponse(status="success", job_id="j-1", price=7)
+
+
+def make_guard():
+    ledger = Ledger(":memory:")
+    ledger.create_deal("d-1", "t-1", "{}", "http://seller")
+    payments = SimulatedPayments(ledger)
+    return WalletGuard(ledger, payments, cap=10, approval_over=8), ledger, payments
+
+
+@pytest.mark.parametrize("amount,verdict", [(7, Verdict.allow), (9, Verdict.needs_approval),
+                                            (25, Verdict.block), (0, Verdict.block)])
+def test_evaluate(amount, verdict):
+    guard, _, _ = make_guard()
+    assert guard.evaluate(amount, "t-1", budget=20).verdict is verdict
+
+
+@pytest.mark.anyio
+async def test_cap_blocks_even_when_asked_to_pay():
+    guard, _, payments = make_guard()
+    out = await guard.pay("d-1", 25, "t-1", 20, "seller", START)
+    assert out.kind == "blocked"
+    assert (await payments.balances())["buyer"] == 100
+
+
+@pytest.mark.anyio
+async def test_never_pays_twice():
+    guard, _, payments = make_guard()
+    first = await guard.pay("d-1", 7, "t-1", 20, "seller", START)
+    second = await guard.pay("d-1", 7, "t-1", 20, "seller", START)
+    assert (first.kind, second.kind) == ("locked", "already_paid")
+    assert (await payments.balances())["buyer"] == 93
+
+
+@pytest.mark.anyio
+async def test_crash_between_intent_and_record_does_not_double_pay():
+    guard, ledger, payments = make_guard()
+    await payments.lock("d-1", 7, "seller", START)  # money moved, then process died before ledger update
+    ledger.update("d-1", status="paying", price=7)
+    out = await guard.pay("d-1", 7, "t-1", 20, "seller", START)
+    assert out.kind == "already_paid"
+    assert (await payments.balances())["buyer"] == 93
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
