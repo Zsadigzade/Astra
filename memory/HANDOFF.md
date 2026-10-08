@@ -1,6 +1,28 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 22:37 · codex
+updated: 2026-10-08 23:20 · claude (for samir) — UNCOMMITTED, see below
+
+## Uncommitted work on this tree (2026-10-08 23:20)
+- **Backend (core logic, Murad please review):** new `backend/app/buyer/controls.py`; `GET /controls`, `PUT /controls`
+  in `buyer/app.py`; `Orchestrator` now takes `controls` and reads `controls.max_rounds`; new event type
+  `controls_updated` in `core/models.py`; `/health` guard values are read live from the guard.
+  Rules: dashboard can only TIGHTEN the guard (cap never above env `GUARD_CAP`, approval line never above cap);
+  `paused` makes `POST /tasks` return 423 (in-flight deals finish); changes are runtime-only (reset on restart).
+  Tests: `backend/tests/test_controls.py`; full suite 133 passing.
+- **Frontend redesign:** light/dark "deal control room" (components/, hooks/, lib/ under `frontend/src`);
+  state derived from SSE in `lib/eventReducer.js`; theme persisted in localStorage. No contract changes besides the above.
+  Tests: `npm test` (22 pass), `npm run build` passes.
+- **Root `package.json`:** `npm start` from the project root installs frontend deps and opens the dashboard (frontend only).
+- **Verified by hand in a headless browser (SIMULATED):** Act 1 via approval path (`SELLER_FLOOR=9`), Act 2 blocked, Act 4 refunded,
+  offline state, theme persistence, no horizontal scroll at 390/1000/1440 px.
+- **Not verified:** reconnecting state, explorer link / scheduled release / cached or live Apify display / AI fallback / audio
+  (covered only by reducer tests), Act 3 from the UI (terminal-only by design). plan.md boxes D02-D05 are NOT ticked: they need
+  a team check on every laptop (D01) and a live Masumi node (D05).
+
+## For Murad
+- You own the backend, so please read the `controls.py` / `app.py` / `orchestrator.py` / `models.py` diff before it merges.
+- Contract additions are in INTERFACES.md (`/controls`, `controls_updated`). Existing endpoints, payloads and event names are unchanged.
+- The guard itself (`guard.py`) and payments were not touched.
 
 ## Latest changes on main
 - Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.

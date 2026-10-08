@@ -42,6 +42,10 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 
 ## Run
 
+Dashboard only, from the project root, one command: `npm start` (installs frontend deps if needed, serves
+http://localhost:5173 and opens it). It needs the backend on :8000 to show live data; without it the page
+reports the buyer as unreachable.
+
 ```bash
 cp .env.example .env                                 # fill in keys; never commit .env
 cd backend
@@ -126,7 +130,7 @@ The integrations are implemented; live provider checks still require credentials
   is `frontend/src/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
 
 Offline validation from `backend/`: `uv run pytest`. From `frontend/`: run
-`node --test src/audioQueue.test.js` and `npm run build`.
+`node --test src/*.test.js` and `npm run build`.
 
 ## Layout
 

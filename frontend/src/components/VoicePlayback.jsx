@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AudioQueue } from "./audioQueue";
+import { AudioQueue } from "../audioQueue";
+import Icon from "./Icons.jsx";
 
 // Mount once next to the negotiation transcript. Do not add parallel audio players.
 export default function VoicePlayback({ events, buyerUrl }) {
@@ -15,21 +16,25 @@ export default function VoicePlayback({ events, buyerUrl }) {
 
   useEffect(() => { queue.current?.ingest(events); }, [events, buyerUrl]);
 
-  const message = state.muted ? "Muted; new lines stay text only."
+  const message = state.muted ? "Muted. New lines stay text only."
     : state.blocked ? "Browser paused audio. Press Play voices to continue."
-    : state.playing ? "Playing voices in conversation order."
+    : state.playing ? "Playing voices in order."
     : state.enabled ? "Ready for the next voice line."
-    : "Press Play voices to enable audio. Text is always available.";
+    : "Voices off. The transcript is always available.";
 
   return (
-    <section aria-label="Conversation audio">
-      <button type="button" onClick={() => queue.current?.play()}
-        disabled={state.enabled && !state.muted}>Play voices</button>{" "}
-      <button type="button" onClick={() => queue.current?.stop()}>Stop</button>{" "}
-      <button type="button" aria-pressed={state.muted}
-        onClick={() => queue.current?.setMuted(!state.muted)}>{state.muted ? "Unmute" : "Mute"}</button>
-      <p role="status">{message} {state.queued > 0 && `${state.queued} queued.`}
-        {state.skipped > 0 && ` ${state.skipped} unavailable clip(s) skipped.`}</p>
-    </section>
+    <div className="voice" role="group" aria-label="Conversation audio">
+      <div className="row">
+        <button type="button" className="btn btn-sm" onClick={() => queue.current?.play()}
+          disabled={state.enabled && !state.muted}><Icon name="play" size={13} /> Play voices</button>
+        <button type="button" className="btn btn-sm" onClick={() => queue.current?.stop()}><Icon name="stop" size={13} /> Stop</button>
+        <button type="button" className="btn btn-sm" aria-pressed={state.muted}
+          onClick={() => queue.current?.setMuted(!state.muted)}>
+          <Icon name={state.muted ? "volume-off" : "volume"} size={13} /> {state.muted ? "Unmute" : "Mute"}</button>
+      </div>
+      <p role="status" className="voice-state">{message}
+        {state.queued > 0 && ` ${state.queued} queued.`}
+        {state.skipped > 0 && ` ${state.skipped} clip${state.skipped > 1 ? "s" : ""} unavailable, skipped.`}</p>
+    </div>
   );
 }

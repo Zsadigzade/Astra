@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.buyer.controls import Controls, ControlsUpdate
 from app.buyer.events import EventBus
 from app.buyer.guard import WalletGuard
 from app.buyer.ledger import Ledger
@@ -33,11 +34,12 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     bus = EventBus(ledger, simulated=s.simulated)
     guard = WalletGuard(ledger, make_payments(s, ledger, masumi_http), s.guard_cap, s.guard_approval_over)
     tts = TTS(s)
+    controls = Controls(s, guard)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         client = http or httpx.AsyncClient(timeout=30)
-        app.state.orch = Orchestrator(s, ledger, bus, guard, client, lambda c: make_negotiator(s, c), tts)
+        app.state.orch = Orchestrator(s, ledger, bus, guard, client, lambda c: make_negotiator(s, c), tts, controls)
         await app.state.orch.resume_unfinished()
         yield
         if http is None:
@@ -49,15 +51,31 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     app.state.bus = bus
     app.state.ledger = ledger
     app.state.guard = guard
+    app.state.controls = controls
 
     @app.get("/health")
     async def health():
         return {"ok": True, "payments_mode": s.payments_mode, "simulated": s.simulated, "llm_mode": s.llm_mode,
-                "tts_mode": s.tts_mode, "guard": {"cap": s.guard_cap, "approval_over": s.guard_approval_over}}
+                "tts_mode": s.tts_mode, "guard": {"cap": guard.cap, "approval_over": guard.approval_over}}
 
     @app.post("/tasks", response_model=TaskCreated)
     async def create_task(task: TaskCreate, request: Request):
+        if controls.paused:
+            raise HTTPException(423, "agents are paused; resume them to start a new task")
         return await request.app.state.orch.create_task(task)
+
+    @app.get("/controls")
+    async def get_controls():
+        return controls.snapshot()
+
+    @app.put("/controls")
+    async def put_controls(update: ControlsUpdate):
+        try:
+            snap = controls.apply(update)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        bus.emit("controls_updated", **update.model_dump(exclude_none=True))
+        return snap
 
     @app.post("/approvals/{deal_id}")
     async def approve(deal_id: str, decision: ApprovalDecision, request: Request):

@@ -46,8 +46,10 @@ Source of truth for payloads: `backend/app/core/models.py`. Change it = tell the
 - `GET /events` SSE, `data:` = `Event` {id, ts, type, task_id, deal_id, simulated, staged, data}; replays history on connect.
   types: task_created, negotiation{speaker: max|viktor, text, price, action, audio_url, backend?, fallback_reason?}, quote{price}, needs_approval{price, reason},
   approved, blocked{reason}, escrow_locked{ref, price}, already_paid, delivered{items, source, result}, verified{ok, checks},
-  released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, error{message}
+  released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, controls_updated{changed fields}, error{message}
 - `POST /approvals/{deal_id}` body {approve: bool}; 404 if nothing pending
+- `GET /controls` -> {paused, guard:{cap, approval_over, cap_ceiling}, max_rounds, max_rounds_ceiling, modes:{payments, simulated, llm, tts, model}}.
+  `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. **Tighten-only**: cap can never exceed the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
 - demo scripts under `backend/scripts/`: `up.py` (both servers), `act.py` (one act in terminal), `masumi_check.py` (read-only node check)
@@ -70,5 +72,6 @@ Source of truth for payloads: `backend/app/core/models.py`. Change it = tell the
 - `frontend/src/VoicePlayback.jsx` accepts `{events, buyerUrl}`; mount once without parallel per-line audio players. Explicit Play, ordered clips, replay deduplication, Stop/Mute and error skipping.
 
 ### dashboard — owner: mais
+- also uses `GET|PUT /controls` (launch form, spending limits, pause switch). Frontend state is derived from SSE in `frontend/src/lib/eventReducer.js` (unit-tested).
 - runs: `cd frontend && npm run dev` (:5173); `VITE_BUYER_URL` overrides buyer URL
 - consumes buyer `/events`, `/tasks`, `/approvals/{deal_id}`, `/audio/*`
