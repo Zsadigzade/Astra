@@ -3,11 +3,11 @@
 updated: 2026-10-08 23:53 · ziya · full system check and fixes
 
 ## Current verification
-- Audited merged team commits through 8a24b38 plus the fixes recorded in [SYSTEM_CHECK.md](SYSTEM_CHECK.md); final fetch found no newer origin/main commits.
+- Audited team commits through 8a24b38 plus fixes recorded in [SYSTEM_CHECK.md](SYSTEM_CHECK.md). Murad's UI update 2d0d987 also passed merged frontend/browser revalidation; its API-era scripted-mode label was corrected for subscription Codex.
 - 255 backend tests, 32 frontend tests and production build pass. Eleven fresh HTTP/Edge browser checks pass with zero page errors: honest release, con block, refund, approval/decline, controls, offline/reconnect, theme and responsive widths.
 - Actual runner rehearsal: one staged buyer crash, one restart, seller survives, one lock, one recovery and one release at 7; SIMULATED balances 93/7/0. Reset preserves the original ledger byte-for-byte and starts empty.
 - Fresh live-provider Act 1: three Codex turns, 20 genuine cached Apify listings verified, seven new ElevenLabs clips served, SIMULATED release in 22.8s. Earlier merged-dashboard replay played five saved clips once in order without overlap.
-- Hosted Railway Masumi now passes health. Authenticated /payment-source returns 401; user is checking local MASUMI_API_KEY against deployed ADMIN_KEY. Live escrow remains unverified.
+- Hosted Railway Masumi now passes health, authentication and Preprod source checks. Full local readiness fails on missing MASUMI_AGENT_ID and missing/invalid SELLER_VKEY; registration, wallet funding and live escrow remain unverified.
 
 ## Audit fixes
 - Lost payment replies retain paying intent for idempotent restart; buyer shutdown cancels owned work before closing HTTP resources and preserves pending approvals.

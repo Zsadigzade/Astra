@@ -13,7 +13,6 @@ function Row({ row }) {
       <div className="tl-main">
         <div className="tl-top">
           <strong>{row.title}</strong>
-          {row.staged && <em className="staged-tag">Staged</em>}
           <time dateTime={new Date(row.ts * 1000).toISOString()}>{clock(row.ts)}</time>
           <button type="button" className="icon-btn" aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} developer details for ${row.title}`}
             onClick={() => setOpen((o) => !o)}><Icon name="chevron" size={14} className={open ? "flip" : ""} /></button>
@@ -33,7 +32,7 @@ function Row({ row }) {
 export default function EventTimeline({ rows }) {
   const shown = rows.slice(0, 40);
   return (
-    <section className="card" aria-labelledby="tl-h">
+    <section className="card timeline-card" aria-labelledby="tl-h">
       <div className="card-head"><h2 id="tl-h" className="card-title">Timeline</h2><span className="muted">{rows.length} events</span></div>
       {shown.length === 0 ? <p className="muted">Events appear here as a deal progresses.</p> : (
         <ol className="timeline">{shown.map((r) => <Row key={eventKey(r.event)} row={r} />)}</ol>

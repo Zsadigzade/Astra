@@ -18,7 +18,7 @@ export default function AgentIdentity({ who, view }) {
     <div className={`identity identity-${who}`}>
       <span className={`avatar ${speaking ? "is-speaking" : ""}`} aria-hidden="true">{w.name[0]}</span>
       <div className="identity-text">
-        <div className="identity-name"><strong>{w.name}</strong><span>{w.role}</span></div>
+        <div className="identity-name"><strong>{w.name}</strong><span>{w.role}{lastLine?.provenance === "scripted" ? " · Scripted" : ""}</span></div>
         <div className="identity-meta">
           <span className="num offer">{tada(view.prices[who], 1)}</span>
           <span className="identity-state">{speaking ? "Speaking" : state}</span>
