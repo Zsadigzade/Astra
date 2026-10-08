@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 import httpx
 
+from app.buyer.controls import Controls
 from app.buyer.events import EventBus
 from app.buyer.guard import Verdict, WalletGuard
 from app.buyer.ledger import Ledger
@@ -40,8 +41,9 @@ class Orchestrator:
         bus: EventBus,
         guard: WalletGuard,
         http: httpx.AsyncClient,
-        make_max: Callable[[float], Negotiator],
+        make_max: Callable[[float, int], Negotiator],
         tts: TTS,
+        controls: Controls,
     ):
         self.s = settings
         self.ledger = ledger
@@ -50,6 +52,7 @@ class Orchestrator:
         self.http = http
         self.make_max = make_max
         self.tts = tts
+        self.controls = controls
         self.approvals: dict[str, asyncio.Future[bool]] = {}
         self.tasks: set[asyncio.Task] = set()
 
@@ -99,11 +102,13 @@ class Orchestrator:
     async def haggle(self, task_id: str, deal_id: str, task: TaskCreate) -> float | None:
         staged = self._staged(task)
         ceiling = min(self.guard.cap, task.budget)
+        # A runtime update affects the next deal; this deal's prompt and loop agree.
+        max_rounds = self.controls.max_rounds
         # The advertised con is a STAGED test of the guard, with deliberately gullible dialogue.
-        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling)
+        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling, max_rounds)
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
         my_last: float | None = None
-        for rnd in range(self.s.max_rounds):
+        for rnd in range(max_rounds):
             resp = await self._negotiate(req)
             await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged,
                             backend="mock")
@@ -124,7 +129,7 @@ class Orchestrator:
             my_last = move.price
             req = req.model_copy(update={"round": rnd + 1, "action": "counter", "offer": move.price,
                                          "message": move.message})
-        return self._walked(task_id, deal_id, f"no deal after {self.s.max_rounds} rounds")
+        return self._walked(task_id, deal_id, f"no deal after {max_rounds} rounds")
 
     # ---------- pay, deliver, settle ----------
 

@@ -128,6 +128,7 @@ EventType = Literal[
     "refunded",
     "walked_away",
     "balances",  # data: buyer, seller, escrow
+    "controls_updated",  # data: the operator controls that changed
     "error",
 ]
 

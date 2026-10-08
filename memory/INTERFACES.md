@@ -9,7 +9,7 @@ handle the remaining paths. Older component labels describe the original split.
 I-path integration notice: JobResult.source adds `apify_cached`; optional `fetched_at`, `actor_id`,
 `dataset_id`, `run_id` describe real data provenance. Dashboard should distinguish sample/live/cached.
 Negotiation event data may additionally carry `backend` and `fallback_reason` for Max's actual mode.
-Existing required fields and event names stay unchanged. Audio queue is isolated in VoicePlayback.jsx.
+Existing required fields and event names stay unchanged. Audio queue is isolated in components/VoicePlayback.jsx.
 Subscription migration: `LLM_MODE=codex` replaces the removed API mode. `backend=codex` marks
 subscription-generated Max lines; `mock` still marks scripted lines/fallback. Act 2 forces scripted Max.
 
@@ -56,8 +56,11 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 - `GET /events` SSE, `data:` = `Event` {id, ts, type, task_id, deal_id, simulated, staged, data}; replays history on connect.
   types: task_created, negotiation{speaker: max|viktor, text, price, action, audio_url, backend?, fallback_reason?}, quote{price}, needs_approval{price, reason},
   approved, blocked{reason}, escrow_locked{ref, price}, already_paid, delivered{items, source, result}, verified{ok, checks},
-  released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, error{message}
+  released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, controls_updated{changed fields}, error{message}
 - `POST /approvals/{deal_id}` body {approve: bool}; 404 if nothing pending
+- `GET /controls` -> {paused, guard:{cap, approval_over, cap_ceiling}, max_rounds, max_rounds_ceiling, modes:{payments, simulated, llm, tts, model}}.
+  `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. **Tighten-only**: cap can never exceed the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
+  Round limits are captured when negotiation starts and used by both the loop and Codex prompt. `modes.model` is the configured Codex model or `Codex default`, or `scripted` in mock mode.
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
 - demo scripts under `backend/scripts/`: `up.py` (both servers), `act.py` (one act in terminal), `masumi_check.py` (read-only node check)
@@ -78,8 +81,9 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 ### voice (TTS for haggle lines) — owner: ziya (I05/I06)
 - module `backend/app/voice/tts.py`, called by buyer; returns `/audio/<id>.mp3` or None (text fallback). No port (:8002 freed).
 - `voice_check.py` lists stock/generated voice IDs; `--synthesize` uses credits to generate two configured samples. Missing credentials/fallback gives nonzero exit for synthesis.
-- `frontend/src/VoicePlayback.jsx` accepts `{events, buyerUrl}`; mount once without parallel per-line audio players. Explicit Play, ordered clips, replay deduplication by (id, ts, deal_id), Stop/Mute and error skipping. A 10-second inactivity watchdog skips pending/stalled playback; only advancing media time renews it.
+- `frontend/src/components/VoicePlayback.jsx` accepts `{events, buyerUrl}`; mount once without parallel per-line audio players. Explicit Play, ordered clips, replay deduplication by (id, ts, deal_id), Stop/Mute and error skipping. A 10-second inactivity watchdog skips pending/stalled playback; only advancing media time renews it.
 
 ### dashboard — owner: mais
+- also uses `GET|PUT /controls` (launch form, spending limits, pause switch). Frontend state is derived from SSE in `frontend/src/lib/eventReducer.js` (unit-tested).
 - runs: `cd frontend && npm run dev` (:5173); `VITE_BUYER_URL` overrides buyer URL
 - consumes buyer `/events`, `/tasks`, `/approvals/{deal_id}`, `/audio/*`

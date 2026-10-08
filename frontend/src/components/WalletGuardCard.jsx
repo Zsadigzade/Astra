@@ -1,0 +1,82 @@
+import { tada } from "../lib/formatters.js";
+import Icon from "./Icons.jsx";
+
+const ICON = {
+  ready: "shield", checking: "shield-clock", safe: "shield-check", approval: "shield-clock", blocked: "shield-alert",
+  escrow: "shield-check", verify_failed: "shield-alert", release_scheduled: "shield-check", released: "shield-check",
+  refunded: "refresh", no_payment: "shield",
+};
+
+function Tip({ text, children }) {
+  return (
+    <span className="tip" tabIndex={0}>
+      {children}
+      <span role="tooltip" className="tip-body">{text}</span>
+    </span>
+  );
+}
+
+// Where the price sits against the approval line and the hard cap. Real values only.
+function PriceRail({ price, approval, cap }) {
+  if (cap == null || approval == null) return null;
+  const max = Math.max(cap * 1.25, (price ?? 0) * 1.08, 1);
+  const pos = (v) => `${Math.min(100, (v / max) * 100)}%`;
+  const zone = price == null ? "none" : price > cap ? "over" : price > approval ? "approval" : "auto";
+  return (
+    <div className="rail" role="img"
+      aria-label={price == null ? `Approval line ${approval} tADA, hard cap ${cap} tADA` : `Price ${price} tADA against approval line ${approval} and hard cap ${cap} tADA`}>
+      <div className="rail-track">
+        <span className="rail-zone rail-auto" style={{ width: pos(approval) }} />
+        <span className="rail-zone rail-approval" style={{ left: pos(approval), width: `calc(${pos(cap)} - ${pos(approval)})` }} />
+        <span className="rail-zone rail-over" style={{ left: pos(cap), right: 0 }} />
+        {price != null && <span className={`rail-dot rail-dot-${zone}`} style={{ left: pos(price) }} />}
+      </div>
+      <div className="rail-legend">
+        <span>Auto up to <b className="num">{approval}</b></span>
+        <span>Human to <b className="num">{cap}</b></span>
+        <span>Blocked above</span>
+      </div>
+    </div>
+  );
+}
+
+export default function WalletGuardCard({ view, controls }) {
+  const g = view.guard;
+  const cap = controls?.guard.cap;
+  const approval = controls?.guard.approval_over;
+  const b = view.balances;
+  const price = view.agreed ?? view.prices.current;
+
+  return (
+    <section className="card guard" aria-labelledby="guard-h">
+      <h2 id="guard-h" className="card-title">Wallet guard</h2>
+
+      <div className={`guard-status guard-${g.tone}`} role="status">
+        <span className="guard-ico"><Icon name={ICON[g.status]} size={20} /></span>
+        <div>
+          <strong>{g.title}</strong>
+          <p>{g.message}</p>
+        </div>
+      </div>
+
+      <PriceRail price={price} approval={approval} cap={cap} />
+
+      <dl className="rows">
+        <div><dt>Current offer</dt><dd className="num">{tada(view.prices.current, 1)}</dd></div>
+        <div><dt>Agreed price</dt><dd className="num">{tada(view.agreed, 1)}</dd></div>
+        <div><dt>Task budget</dt><dd className="num">{tada(view.task?.budget, 1)}</dd></div>
+        <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Automatic approval</Tip></dt><dd className="num">{tada(approval, 1)}</dd></div>
+        <div><dt><Tip text="No price above this is ever paid, whatever the AI agreed to. Enforced in code.">Hard spending cap</Tip></dt><dd className="num">{tada(cap, 1)}</dd></div>
+      </dl>
+
+      <h3 className="sub-title">Balances</h3>
+      {b ? (
+        <dl className="rows">
+          <div><dt>Buyer (Max)</dt><dd className="num">{tada(b.buyer, 1)}</dd></div>
+          <div><dt><Tip text="Funds locked until the delivery is verified.">Escrow</Tip></dt><dd className="num">{tada(b.escrow, 1)}</dd></div>
+          <div><dt>Seller (Viktor)</dt><dd className="num">{tada(b.seller, 1)}</dd></div>
+        </dl>
+      ) : <p className="muted">Balances appear after the first payment step.</p>}
+    </section>
+  );
+}

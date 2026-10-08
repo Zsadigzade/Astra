@@ -42,6 +42,10 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 
 ## Run
 
+Dashboard only, from the project root, one command: `npm start` (installs frontend deps if needed, serves
+http://localhost:5173 and opens it). It needs the backend on :8000 to show live data; without it the page
+reports the buyer as unreachable.
+
 ```bash
 cp .env.example .env                                 # fill in keys; never commit .env
 cd backend
@@ -148,10 +152,10 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
 - In the dashboard, **Play voices** enables ordered playback. Duplicate SSE events do not replay
   clips, including across reused ledger IDs; missing clips or 10 seconds without playback progress
   are skipped. Stop/Mute keeps the transcript usable. The reusable component
-  is `frontend/src/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
+  is `frontend/src/components/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
 
 Offline validation from `backend/`: `uv run pytest`. From `frontend/`: run
-`node --test src/audioQueue.test.js src/eventIdentity.test.js` and `npm run build`.
+`npm test` (audio queue, event identity, event reducer, theme) and `npm run build`.
 
 Validation: 144 Python tests, 15 frontend tests, and production build pass. Headless Edge completed
 Act 1 over real buyer/seller HTTP: 20 **CACHED APIFY** rentals verified, **SIMULATED** escrow released,

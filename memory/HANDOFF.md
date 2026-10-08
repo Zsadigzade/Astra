@@ -1,19 +1,22 @@
-# Handoff — `main` and shared working tree
+# Handoff — integrated main
 
-updated: 2026-10-08 23:26 · runner reliability (reconciled parallel session updates)
+updated: 2026-10-08 23:32 · ziya · merge validation in progress
 
 ## Latest verified changes
 - Subscription Max verified: live checker + Act 1 settled at 7, all three Max turns Codex, 20 cached flats verified, SIMULATED release. Five clips played; two TTS connection failures used text.
 - 68 focused backend tests, 15 frontend tests and build pass; timeout/cancellation tests include real Windows process-tree cleanup. Local LLM_MODE=codex; no API key or SDK.
-- Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.
+- Consolidation in progress: local subscription/reliability commits + remote dashboard/operator controls; remaining Masumi checker branch will be merged before deletion.
 - Local legacy root folders archived under ignored `backend/data/legacy-workspace/20261008-224546`; dependencies moved to `frontend/node_modules`. Frontend build and backend imports verified.
 
-## Shared working tree (not yet committed)
-- Ledger mode isolation and runner safety are implemented together. Both adapters bind the ledger's payment mode before recovery; reset uses the same mode inspection and preserves a timestamped backup.
+## Reliability and operator controls
+- Ledger mode isolation and runner safety are committed in 7f2ea64 and integrated together. Both adapters bind the ledger's payment mode before recovery; reset uses the same mode inspection and preserves a timestamped backup.
 - Verified: 213 full backend tests at 23:22, then 48 ledger/runner tests after the final integration. Runner session verified **215 full backend tests in 15.07s at 23:24**, including 27 runner regressions, with `LEDGER_PATH=:memory:` and isolated temporary test files. These are offline/fake-service checks; they do not complete all-laptop rehearsals or prove live Preprod escrow.
-- Parallel model/configuration/dependency and dashboard changes remain owned by their active sessions. Coordinate through [reliability status](status/reliability.md), [runner status](status/runner-reliability.md) and [Ziya's status](status/ziya.md); preserve their edits and running services.
+- Prior owner validation is recorded in reliability and runner status files; merged-code validation is recorded below when complete.
 
 ## What works
+- Redesigned dashboard with light/dark themes, event-derived deal state, persistent honesty labels and shared audio queue; operator controls provide GET/PUT /controls, pause and runtime spending/round limits within configured ceilings.
+- Controls reset on restart; pause rejects new tasks (423), while in-flight deals finish. Round limits are captured per negotiation. Root `npm start` installs frontend dependencies and opens the dashboard only.
+- Incoming dashboard owner verified SIMULATED approval, blocked con, junk refund, offline view, persisted theme and 390/1000/1440px layout. Reconnect, live Masumi links/scheduled release and all-laptop acceptance remain unverified.
 - Product "The Haggle": buyer Max (:8000, `backend/app/buyer/`) haggles with seller Viktor (:8001, `backend/app/seller/`), wallet guard pays into escrow, verifier checks 20 Praha 7 flats, release or refund. SSE `/events`.
 - Backend commands run from `backend/`. One command: `uv run python scripts/up.py [--reset] [--crash]`; terminal demo: `scripts/act.py honest|con|junk`.
 - All 4 acts verified live in SIMULATED mode: deal at 7 released; con at 25 BLOCKED (cap 10); crash after paying → buyer auto-restarts → `already_paid`, deal released, paid once; junk refunded.

@@ -4,7 +4,7 @@ Start with HANDOFF for current facts and plan.md for unassigned work. Status fil
 owner-reported snapshots: check their timestamps before assuming someone has claimed a task.
 DECISIONS and TRAPS preserve history; later entries may supersede earlier ones.
 
-- [HANDOFF.md](HANDOFF.md) — current state of `main` and uncommitted shared work. Read first.
+- [HANDOFF.md](HANDOFF.md) — current integrated state of `main` and validation limits. Read first.
 - [DECISIONS.md](DECISIONS.md) — append-only decision log (what, why, who, when).
 - [INTERFACES.md](INTERFACES.md) — contracts between components: endpoints, payloads, env vars, ports.
 - [TRAPS.md](TRAPS.md) — append-only: what broke and how to avoid it.

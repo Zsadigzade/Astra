@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/audioQueue.test.js src/eventIdentity.test.js src/lib/eventReducer.test.js src/lib/theme.test.js"
   },
   "dependencies": {
     "react": "18.3.1",

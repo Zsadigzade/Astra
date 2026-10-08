@@ -1,9 +1,9 @@
 # ziya — status
-updated: 2026-10-08 23:25
-doing: subscription-only migration complete; live Codex Max and fallback/guard checks passed
-touching: Codex runtime, negotiation/config/tests/dependencies, env/docs/memory, dashboard provenance
-blocked on: no I-path credential blocker; payment deployment continues in its separate session
-next: rehearse with subscription Max; optional subscription Viktor remains I04
+updated: 2026-10-08 23:30
+doing: merge diverged main and remaining feature work, resolve conflicts, verify and push; ETA 20 minutes
+touching: merge conflicts, dashboard subscription/event integration, backend tests, team memory, Git branches
+blocked on: nothing
+next: run merged checks, push main without force, delete only branches whose tips are merged
 done today:
 - scripts/up.py + scripts/act.py; all 4 acts verified live in SIMULATED mode
 - 22:07 masumi mode Act 1+3 rehearsed over real HTTP vs fake node: 1 payment, 1 purchase, already_paid after crash
