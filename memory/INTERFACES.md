@@ -59,8 +59,10 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
   released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, controls_updated{changed fields}, error{message}
 - `POST /approvals/{deal_id}` body {approve: bool}; 404 if nothing pending
 - `GET /controls` -> {paused, guard:{cap, approval_over, cap_ceiling}, max_rounds, max_rounds_ceiling, modes:{payments, simulated, llm, tts, model}}.
-  `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. **Tighten-only**: cap can never exceed the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
+  `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. Cap may be adjusted within the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
   Round limits are captured when negotiation starts and used by both the loop and Codex prompt. `modes.model` is the configured Codex model or `Codex default`, or `scripted` in mock mode.
+- Task budgets must be positive and finite. Guard checks reject nonfinite money or limits independently. Lost payment replies preserve `paying` intent for idempotent recovery; shutdown cancels owned tasks while retaining persisted approval/payment state.
+- Masumi `released` with `release: scheduled` requires confirmed result submission/release state; otherwise the funded deal stays recoverable. Dashboard keeps scheduled and errored funded amounts in escrow totals, distinct from completed releases.
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
 - demo scripts under `backend/scripts/`: `up.py` (both servers), `act.py` (one act in terminal), `masumi_check.py` (read-only node check)

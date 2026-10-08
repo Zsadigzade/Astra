@@ -3,7 +3,8 @@ import StatusBadge from "./StatusBadge.jsx";
 
 export default function UsageSummary({ view, budget }) {
   const u = view.usage;
-  const spent = u.released + u.locked;
+  // The budget belongs to the current task; lifetime usage below spans all deals.
+  const spent = view.refund ? 0 : view.escrow?.price ?? 0;
   const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
 
   return (
@@ -11,7 +12,7 @@ export default function UsageSummary({ view, budget }) {
       <h2 id="usage-h" className="card-title">Usage</h2>
 
       <div className="progress-head">
-        <span>Committed</span>
+        <span>Task committed</span>
         <strong className="num">{tada(spent, 1)} <small>of {tada(budget, 1)}</small></strong>
       </div>
       <div className="progress" role="progressbar" aria-label="Budget committed" aria-valuemin={0} aria-valuemax={budget} aria-valuenow={spent}>
@@ -21,9 +22,10 @@ export default function UsageSummary({ view, budget }) {
       <dl className="rows">
         <div><dt>Task budget</dt><dd className="num">{tada(budget, 1)}</dd></div>
         <div><dt>Agreed amount</dt><dd className="num">{tada(view.agreed, 1)}</dd></div>
-        <div><dt>Released</dt><dd className="num">{tada(u.released, 1)}</dd></div>
-        <div><dt>In escrow</dt><dd className="num">{tada(u.locked, 1)}</dd></div>
-        <div><dt>Refunded</dt><dd className="num">{tada(u.refunded, 1)}</dd></div>
+        <div><dt>Released (all deals)</dt><dd className="num">{tada(u.released, 1)}</dd></div>
+        <div><dt>In escrow (all deals)</dt><dd className="num">{tada(u.locked, 1)}</dd></div>
+        {u.scheduled > 0 && <div><dt>Release scheduled (in escrow)</dt><dd className="num">{tada(u.scheduled, 1)}</dd></div>}
+        <div><dt>Refunded (all deals)</dt><dd className="num">{tada(u.refunded, 1)}</dd></div>
       </dl>
 
       {u.lines > 0 && (

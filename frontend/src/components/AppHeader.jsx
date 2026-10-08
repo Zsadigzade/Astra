@@ -20,7 +20,7 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
   const buyer = { name: "Buyer", state: stream === "live" ? "online" : stream };
   const seller = { name: "Seller", state: sellerState };
   const payments = controls
-    ? { name: "Payments", state: "online", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
+    ? { name: "Payments", state: stream === "live" ? "online" : "unknown", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
     : { name: "Payments", state: "unknown" };
   const paused = controls?.paused;
 
@@ -38,15 +38,15 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
         <div className="header-mid">
           <ConnectionStatus items={[buyer, seller, payments]} />
           <div className="honesty">
-            {controls?.modes.simulated && <StatusBadge tone="warning" icon="info" title="Money is a local ledger, not on-chain">SIMULATED MONEY</StatusBadge>}
-            {controls && controls.modes.llm !== "openai" && <StatusBadge tone="neutral" icon="info" title="Max and Viktor follow scripted personas, not a language model">SCRIPTED AGENTS</StatusBadge>}
+            {(controls?.modes.simulated ?? view.simulated) && <StatusBadge tone="warning" icon="info" title="Money is a local ledger, not on-chain">SIMULATED MONEY</StatusBadge>}
+            {controls?.modes.llm === "mock" && <StatusBadge tone="neutral" icon="info" title="Max and Viktor follow scripted personas, not a language model">SCRIPTED AGENTS</StatusBadge>}
             {view.staged && <StatusBadge tone="warning" icon="info" title="This scenario forces seller behaviour for the demo">STAGED SCENARIO</StatusBadge>}
           </div>
         </div>
 
         <div className="header-actions">
           <button type="button" className={`btn btn-sm ${paused ? "btn-danger-solid" : ""}`} onClick={onTogglePause}
-            disabled={!controls || pauseBusy} aria-pressed={!!paused}
+            disabled={!controls || pauseBusy || stream !== "live"} aria-pressed={!!paused}
             title="Pausing stops new tasks from starting. Deals already in flight finish safely.">
             <Icon name={paused ? "play" : "pause"} size={14} />
             {paused ? "Resume agents" : "Pause agents"}

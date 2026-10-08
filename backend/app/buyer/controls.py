@@ -1,7 +1,7 @@
 """Operator controls for the buyer agent, adjustable from the dashboard at runtime.
 
-The dashboard may only tighten the wallet guard: the env-configured GUARD_CAP is a ceiling
-the API cannot raise, so a compromised UI cannot widen what the AI is allowed to spend.
+The env-configured GUARD_CAP is a ceiling the API cannot raise. Runtime limits may be
+adjusted within that ceiling; they never expand the configured spending authority.
 """
 
 from pydantic import BaseModel, Field, model_validator

@@ -25,7 +25,7 @@ class JobSpec(BaseModel):
 
 class TaskCreate(BaseModel):
     text: str = "Find me 20 flats in Prague 7 under 25,000 CZK"
-    budget: float = 20
+    budget: float = Field(default=20, gt=0, allow_inf_nan=False)
     job: JobSpec = Field(default_factory=JobSpec)
     demo_mode: DemoMode = DemoMode.honest
 

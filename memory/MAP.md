@@ -8,6 +8,7 @@ DECISIONS and TRAPS preserve history; later entries may supersede earlier ones.
 - [DECISIONS.md](DECISIONS.md) — append-only decision log (what, why, who, when).
 - [INTERFACES.md](INTERFACES.md) — contracts between components: endpoints, payloads, env vars, ports.
 - [TRAPS.md](TRAPS.md) — append-only: what broke and how to avoid it.
+- [SYSTEM_CHECK.md](SYSTEM_CHECK.md) — integrated team-commit audit, fixes, provider/browser/recovery evidence and remaining live-payment limits.
 - [status/ziya.md](status/ziya.md) — Ziya's last reported work and blockers.
 - [status/murad.md](status/murad.md) — Murad's last reported work; owner maintains this file.
 - [status/mais.md](status/mais.md) — Mais's last reported work; owner maintains this file.

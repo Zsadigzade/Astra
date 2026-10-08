@@ -74,6 +74,14 @@ class Orchestrator:
         fut.set_result(ok)
         return True
 
+    async def shutdown(self) -> None:
+        # Cancel owned work before closing HTTP resources. Payment intent and approval
+        # state remain in SQLite for the next startup; cancellation is not a deal failure.
+        pending = tuple(self.tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
     async def resume_unfinished(self) -> None:
         """Act 3: after a crash, finish open deals. guard.pay sees them paid and does not pay twice."""
         for deal in self.ledger.unfinished():
@@ -93,7 +101,9 @@ class Orchestrator:
         except Exception as e:
             log.exception("deal %s failed", deal_id)
             # A settled deal stays settled; a funded one stays resumable (Ledger.unfinished).
-            if self.ledger.get(deal_id)["status"] not in SETTLED:
+            # A failed lock response can mean the provider accepted the payment but its
+            # reply was lost. Keep the persisted intent so restart resolves it idempotently.
+            if self.ledger.get(deal_id)["status"] not in (*SETTLED, "paying"):
                 self.ledger.update(deal_id, status="error")
             self.bus.emit("error", task_id, deal_id, message=str(e))
 

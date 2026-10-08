@@ -61,7 +61,8 @@ class MasumiClient:
         if missing_ok and r.status_code == 404:
             return None
         if r.is_error:
-            raise MasumiError(f"{method} {path} -> {r.status_code}: {r.text[:300]}")
+            # Provider bodies may echo credentials; errors also reach dashboard events.
+            raise MasumiError(f"{method} {path} -> HTTP {r.status_code}")
         data = r.json()
         return data.get("data", data) if isinstance(data, dict) else data
 

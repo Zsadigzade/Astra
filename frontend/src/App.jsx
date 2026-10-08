@@ -30,6 +30,7 @@ export default function App() {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);
   const [pauseBusy, setPauseBusy] = useState(false);
+  const [pauseError, setPauseError] = useState(null);
 
   const offline = status !== "live";
   const disabledReason = offline ? "Connect to the buyer service to run a scenario."
@@ -62,8 +63,15 @@ export default function App() {
   };
 
   const togglePause = async () => {
+    if (offline || !controls || pauseBusy) return;
     setPauseBusy(true);
-    try { await api.updateControls({ paused: !controls.paused }); await refresh(); } finally { setPauseBusy(false); }
+    setPauseError(null);
+    try {
+      await api.updateControls({ paused: !controls.paused });
+      await refresh();
+    } catch (e) {
+      setPauseError(e.message);
+    } finally { setPauseBusy(false); }
   };
 
   return (
@@ -71,6 +79,7 @@ export default function App() {
       <AppHeader stream={status} sellerState={sellerState} controls={controls} view={view} theme={theme}
         onToggleTheme={toggle} onTogglePause={togglePause} pauseBusy={pauseBusy} />
       <ConnectionAlert status={status} onRetry={retry} />
+      {pauseError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not change agent pause state</strong><span>{pauseError}</span></div></div>}
       {launchError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not start the scenario</strong><span>{launchError}</span></div></div>}
 
       <main className="layout">
