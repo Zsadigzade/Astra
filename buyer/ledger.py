@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Iterator
 
 # Deal lifecycle. "paying" = guard started a lock and may have crashed mid-call.
-OPEN_STATUSES = ("paying", "locked", "delivered")
+# "agreed" = price settled, maybe waiting for a human approval that a restart lost.
+OPEN_STATUSES = ("agreed", "paying", "locked", "delivered")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS deals (
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS deals (
     approved    INTEGER NOT NULL DEFAULT 0,
     job_id      TEXT,
     escrow_ref  TEXT,
+    start_json  TEXT,
     updated     REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -37,6 +39,9 @@ class Ledger:
         self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        cols = {r["name"] for r in self.db.execute("PRAGMA table_info(deals)")}
+        if "start_json" not in cols:  # ledgers created before the column existed
+            self.db.execute("ALTER TABLE deals ADD COLUMN start_json TEXT")
 
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:
@@ -69,7 +74,9 @@ class Ledger:
         return [dict(r) for r in self.db.execute("SELECT * FROM deals ORDER BY updated DESC")]
 
     def unfinished(self) -> list[dict[str, Any]]:
-        q = f"SELECT * FROM deals WHERE status IN ({','.join('?' * len(OPEN_STATUSES))})"
+        # A funded deal that errored still holds escrow: resume it, never strand the money.
+        q = (f"SELECT * FROM deals WHERE status IN ({','.join('?' * len(OPEN_STATUSES))}) "
+             "OR (status = 'error' AND escrow_ref IS NOT NULL)")
         return [dict(r) for r in self.db.execute(q, OPEN_STATUSES)]
 
     def spent(self, task_id: str, exclude_deal: str | None = None) -> float:

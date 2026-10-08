@@ -28,6 +28,8 @@ from voice.tts import TTS
 
 log = logging.getLogger("astra.buyer")
 APPROVAL_TIMEOUT = 300  # seconds the dashboard has to approve
+JOB_TIMEOUT = 45 * 60  # seconds to wait for delivery
+SETTLED = ("released", "refunded", "blocked", "walked")
 
 
 class Orchestrator:
@@ -54,7 +56,8 @@ class Orchestrator:
     # ---------- entry points ----------
 
     async def create_task(self, task: TaskCreate) -> TaskCreated:
-        task_id, deal_id = f"t-{uuid.uuid4().hex[:8]}", f"d-{uuid.uuid4().hex[:8]}"
+        # deal_id doubles as Masumi identifierFromPurchaser: hex, 14-26 chars
+        task_id, deal_id = f"t-{uuid.uuid4().hex[:8]}", uuid.uuid4().hex[:20]
         self.ledger.create_deal(deal_id, task_id, task.model_dump_json(), self.s.seller_url)
         self.bus.emit("task_created", task_id, deal_id, staged=self._staged(task), text=task.text,
                       budget=task.budget, demo_mode=task.demo_mode)
@@ -86,7 +89,9 @@ class Orchestrator:
             return await coro
         except Exception as e:
             log.exception("deal %s failed", deal_id)
-            self.ledger.update(deal_id, status="error")
+            # A settled deal stays settled; a funded one stays resumable (Ledger.unfinished).
+            if self.ledger.get(deal_id)["status"] not in SETTLED:
+                self.ledger.update(deal_id, status="error")
             self.bus.emit("error", task_id, deal_id, message=str(e))
 
     # ---------- haggle ----------
@@ -134,8 +139,13 @@ class Orchestrator:
                 if not approved:
                     return await self._blocked(task_id, deal_id, task, price, "human declined", staged)
 
-        start = await self._start_job(seller, deal_id, price, task)
-        self.ledger.update(deal_id, job_id=start.job_id)
+        # Reuse the stored start: a restarted seller would issue a new job and blockchainIdentifier,
+        # and the escrow already locked against the old one would never match.
+        if deal["start_json"]:
+            start = StartJobResponse.model_validate_json(deal["start_json"])
+        else:
+            start = await self._start_job(seller, deal_id, price, task)
+            self.ledger.update(deal_id, job_id=start.job_id, start_json=start.model_dump_json())
         out = await self.guard.pay(deal_id, price, task_id, task.budget, seller, start, approved=approved)
         if out.kind == "blocked":
             return await self._blocked(task_id, deal_id, task, price, out.reason, staged)
@@ -143,9 +153,9 @@ class Orchestrator:
             return await self._blocked(task_id, deal_id, task, price, out.reason, staged)
         if out.kind == "already_paid":
             self.bus.emit("already_paid", task_id, deal_id, staged, ref=out.ref, price=price,
-                          message=f"deal {deal_id} already paid, not paying again")
+                          message=f"deal {deal_id} already paid, not paying again", **out.info)
         else:
-            self.bus.emit("escrow_locked", task_id, deal_id, staged, ref=out.ref, price=price)
+            self.bus.emit("escrow_locked", task_id, deal_id, staged, ref=out.ref, price=price, **out.info)
         await self._emit_balances(task_id, deal_id)
 
         if self.s.crash_after_lock and out.kind == "locked":
@@ -166,14 +176,14 @@ class Orchestrator:
         ok, checks = verify(status.result, task.job)
         self.bus.emit("verified", task_id, deal_id, staged, ok=ok, checks=checks)
         if ok:
-            await self.guard.release(deal_id)
+            info = await self.guard.release(deal_id)
             self.ledger.update(deal_id, status="released")
-            self.bus.emit("released", task_id, deal_id, staged, price=deal["price"])
+            self.bus.emit("released", task_id, deal_id, staged, price=deal["price"], **info)
         else:
-            await self.guard.refund(deal_id)
+            info = await self.guard.refund(deal_id)
             self.ledger.update(deal_id, status="refunded")
             self.bus.emit("refunded", task_id, deal_id, staged, price=deal["price"],
-                          failed=[k for k, v in checks.items() if not v])
+                          failed=[k for k, v in checks.items() if not v], **info)
         await self._emit_balances(task_id, deal_id)
 
     # ---------- helpers ----------
@@ -191,13 +201,16 @@ class Orchestrator:
         return StartJobResponse.model_validate(r.json())
 
     async def _poll(self, seller: str, job_id: str) -> StatusResponse:
-        while True:
+        # Masumi mode waits for on-chain confirmation (minutes), so the limit is generous.
+        deadline = asyncio.get_running_loop().time() + JOB_TIMEOUT
+        while asyncio.get_running_loop().time() < deadline:
             r = await self.http.get(f"{seller}/status", params={"job_id": job_id})
             r.raise_for_status()
             st = StatusResponse.model_validate(r.json())
             if st.status in ("completed", "failed"):
                 return st
             await asyncio.sleep(self.s.poll_seconds)
+        return StatusResponse(job_id=job_id, status="failed")
 
     async def _wait_for_approval(self, task_id, deal_id, price, reason, staged) -> bool:
         fut = asyncio.get_running_loop().create_future()

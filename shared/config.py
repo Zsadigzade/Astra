@@ -24,6 +24,12 @@ class Settings:
     payments_mode: str = field(default_factory=lambda: os.getenv("PAYMENTS_MODE", "simulated"))
     masumi_payment_url: str = field(default_factory=lambda: os.getenv("MASUMI_PAYMENT_URL", ""))
     masumi_api_key: str = field(default_factory=lambda: os.getenv("MASUMI_API_KEY", ""))
+    masumi_network: str = field(default_factory=lambda: os.getenv("MASUMI_NETWORK", "Preprod"))
+    masumi_agent_id: str = field(default_factory=lambda: os.getenv("MASUMI_AGENT_ID", ""))  # seller's registry id
+    seller_vkey: str = field(default_factory=lambda: os.getenv("SELLER_VKEY", ""))  # seller selling wallet vkey
+    masumi_poll_seconds: float = field(default_factory=lambda: _f("MASUMI_POLL_SECONDS", 5))
+    masumi_pay_by_minutes: float = field(default_factory=lambda: _f("MASUMI_PAY_BY_MINUTES", 20))
+    masumi_submit_minutes: float = field(default_factory=lambda: _f("MASUMI_SUBMIT_MINUTES", 40))
 
     # Wallet guard (tADA). Enforced in code, never by the LLM.
     guard_cap: float = field(default_factory=lambda: _f("GUARD_CAP", 10))

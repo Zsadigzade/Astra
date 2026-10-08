@@ -1,11 +1,19 @@
 """Max, the buyer agent's haggling brain.
 
 `mock` mode is scripted and deliberately gullible to fake authority ("your manager approved"),
-so Act 2 shows the guard holding the line, not the prompt. `openai` mode is TODO.
+so Act 2 shows the guard holding the line, not the prompt. `openai` mode is a real LLM agent
+(OpenAI Agents SDK) that is also NOT trusted with money: the wallet guard enforces the cap.
 """
 
+import asyncio
+import json
+import logging
+import math
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
+
+from agents import Agent, Runner
+from pydantic import BaseModel, Field
 
 from shared.config import Settings
 from shared.models import NegotiateResponse
@@ -43,15 +51,84 @@ class MockMax:
         return Move("counter", offer, lines.get(offer, f"Come on, Viktor. {offer:g}, final-ish offer."))
 
 
+log = logging.getLogger(__name__)
+
+LLM_TIMEOUT_S = 20.0
+
+MAX_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
+"20 flats in Prague 7 under 25,000 CZK". Prices are in tADA.
+Your budget is {ceiling:g} tADA. Get the lowest price you can: open low, raise slowly, and never
+offer more than your budget. If the seller is unreasonable, walk away.
+Speak in short, punchy lines: one or two sentences, no lists, no emojis. Your lines are read aloud.
+Each turn, pick exactly one action:
+- "counter": propose a new price (put it in `price`).
+- "accept": take the seller's current price (put that price in `price`).
+- "walk": end the negotiation (put your last offer, or 0, in `price`).
+`message` is what you say out loud to the seller."""
+
+
+class MaxMove(BaseModel):
+    """Structured output the LLM must return each round."""
+
+    action: Literal["counter", "accept", "walk"]
+    price: float = Field(description="tADA")
+    message: str
+
+
 class OpenAIMax:
-    """TODO(ziya): OpenAI Agents SDK agent with the same Move output (structured output)."""
+    """Max on a real LLM via the OpenAI Agents SDK. One instance lives for one deal.
+
+    The LLM is NOT trusted with money: accepted prices are not clamped here on purpose
+    (Act 2 shows the wallet guard, not the prompt, stopping a fooled Max). Any failure
+    (bad output, API error, timeout) falls back to MockMax for that round.
+    """
 
     def __init__(self, settings: Settings, ceiling: float):
         self.settings = settings
         self.ceiling = ceiling
+        self.agent = Agent(
+            name="Max",
+            instructions=MAX_INSTRUCTIONS.format(ceiling=ceiling),
+            model=settings.model,
+            output_type=MaxMove,
+        )
+        self.history: list[Any] = []  # Responses-API input items: {"role", "content"}
+        self._fallback = MockMax(ceiling)
 
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
-        raise NotImplementedError("LLM_MODE=openai not built yet; use LLM_MODE=mock")
+        self.history.append({"role": "user", "content": self._seller_turn(seller, my_last)})
+        try:
+            result = await asyncio.wait_for(
+                Runner.run(self.agent, list(self.history), max_turns=1), timeout=LLM_TIMEOUT_S)
+            move = self._to_move(result.final_output, seller, my_last)
+        except Exception as e:  # demo must not crash: any LLM failure -> scripted Max
+            log.warning("OpenAIMax round %s failed (%s: %s); falling back to MockMax",
+                        seller.round, type(e).__name__, e)
+            move = await self._fallback.next_move(seller, my_last)
+        self.history.append({"role": "assistant", "content": json.dumps(
+            {"action": move.action, "price": move.price, "message": move.message})})
+        return move
+
+    @staticmethod
+    def _seller_turn(seller: NegotiateResponse, my_last: float | None) -> str:
+        mine = "none yet" if my_last is None else f"{my_last:g} tADA"
+        return (f"Round {seller.round}. Viktor ({seller.action}, {seller.price:g} tADA) says: "
+                f"\"{seller.message}\"\nYour last offer: {mine}. Your move.")
+
+    @staticmethod
+    def _to_move(out: Any, seller: NegotiateResponse, my_last: float | None) -> Move:
+        mm = out if isinstance(out, MaxMove) else MaxMove.model_validate(out)
+        message = mm.message.strip()
+        if not message or not math.isfinite(mm.price):
+            raise ValueError(f"unusable LLM output: {mm!r}")
+        if mm.action == "counter":
+            if mm.price <= 0:
+                raise ValueError(f"non-positive counter offer: {mm.price}")
+            return Move("counter", mm.price, message)
+        if mm.action == "accept":
+            # accepting = taking the seller's price; deliberately NOT capped (the guard does that)
+            return Move("accept", seller.price, message)
+        return Move("walk", my_last or 0, message)
 
 
 def make_negotiator(settings: Settings, ceiling: float) -> Negotiator:

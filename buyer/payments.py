@@ -3,22 +3,28 @@
 Every method is idempotent per deal_id, so a crash-and-retry can never move money twice.
 """
 
-from dataclasses import dataclass
-from typing import Protocol
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 import httpx
 
 from buyer.ledger import Ledger
 from shared.config import Settings
+from shared.masumi import MasumiClient, MasumiError, tx_link
 from shared.models import StartJobResponse
 
 BUYER_START_BALANCE = 100.0  # tADA, simulated wallet only
+BUYER_TOPUP_BELOW = 20.0  # rehearsals drain the simulated wallet; refill on startup
+
+log = logging.getLogger("astra.payments")
 
 
 @dataclass
 class LockResult:
     ref: str
     already: bool  # True = this deal was already paid; nothing moved now
+    info: dict[str, Any] = field(default_factory=dict)  # extra event data (tx link, on-chain state)
 
 
 class InsufficientFunds(Exception):
@@ -29,8 +35,8 @@ class Payments(Protocol):
     simulated: bool
 
     async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult: ...
-    async def release(self, deal_id: str) -> None: ...
-    async def refund(self, deal_id: str) -> None: ...
+    async def release(self, deal_id: str) -> dict[str, Any]: ...
+    async def refund(self, deal_id: str) -> dict[str, Any]: ...
     async def balances(self) -> dict[str, float]: ...
 
 
@@ -51,6 +57,10 @@ class SimulatedPayments:
             """
         )
         ledger.db.execute("INSERT OR IGNORE INTO sim_wallets VALUES ('buyer', ?)", (BUYER_START_BALANCE,))
+        bal = ledger.db.execute("SELECT balance FROM sim_wallets WHERE name = 'buyer'").fetchone()["balance"]
+        if bal < BUYER_TOPUP_BELOW:
+            ledger.db.execute("UPDATE sim_wallets SET balance = ? WHERE name = 'buyer'", (BUYER_START_BALANCE,))
+            log.warning("[SIMULATED] top-up: buyer wallet %g -> %g tADA", bal, BUYER_START_BALANCE)
 
     def _add(self, db, name: str, delta: float) -> None:
         db.execute("INSERT OR IGNORE INTO sim_wallets VALUES (?, 0)", (name,))
@@ -69,20 +79,21 @@ class SimulatedPayments:
             db.execute("INSERT INTO sim_escrows VALUES (?,?,?,?,?)", (deal_id, amount, seller, "locked", ref))
             return LockResult(ref=ref, already=False)
 
-    async def _settle(self, deal_id: str, to_seller: bool) -> None:
+    async def _settle(self, deal_id: str, to_seller: bool) -> dict[str, Any]:
         with self.ledger.tx() as db:
             row = db.execute("SELECT * FROM sim_escrows WHERE deal_id = ?", (deal_id,)).fetchone()
             if not row or row["status"] != "locked":
-                return  # already settled: idempotent
+                return {}  # already settled: idempotent
             self._add(db, row["seller"] if to_seller else "buyer", row["amount"])
             status = "released" if to_seller else "refunded"
             db.execute("UPDATE sim_escrows SET status = ? WHERE deal_id = ?", (status, deal_id))
+        return {}
 
-    async def release(self, deal_id: str) -> None:
-        await self._settle(deal_id, to_seller=True)
+    async def release(self, deal_id: str) -> dict[str, Any]:
+        return await self._settle(deal_id, to_seller=True)
 
-    async def refund(self, deal_id: str) -> None:
-        await self._settle(deal_id, to_seller=False)
+    async def refund(self, deal_id: str) -> dict[str, Any]:
+        return await self._settle(deal_id, to_seller=False)
 
     async def balances(self) -> dict[str, float]:
         db = self.ledger.db
@@ -96,40 +107,60 @@ class SimulatedPayments:
 
 
 class MasumiPayments:
-    """Masumi Preprod escrow. TODO(ziya): fill in once the hosted payment service answers /health.
+    """Masumi Preprod escrow via the hosted payment service (buyer = purchasing side).
 
-    Unverified assumptions, check against the Masumi docs before relying on them:
-    - auth header name is `token`
-    - buyer locks funds with POST /purchase using fields from the seller's start_job response,
-      identifierFromPurchaser = deal_id (that is our idempotency key on-chain too)
-    - release is time-based (unlock time) unless the buyer requests a refund before it
-    - whether a payment request can carry a per-job (negotiated) amount
+    - lock: idempotent. Looks the purchase up by the seller's blockchainIdentifier first; the
+      identifierFromPurchaser is our deal_id, so a restarted buyer finds its own purchase.
+    - release: Masumi has no buyer-triggered release. The seller submits the result hash and funds
+      unlock for the seller after unlockTime. We report that state and time (`settles_at`).
+    - refund: buyer requests a refund; if the seller already submitted a result this becomes a
+      dispute the seller must authorize. Decided 21:45: Act 4 runs SIMULATED.
     """
 
     simulated = False
 
-    def __init__(self, settings: Settings):
-        self.base = settings.masumi_payment_url.rstrip("/")
-        self.headers = {"token": settings.masumi_api_key}
+    def __init__(self, settings: Settings, ledger: Ledger, http: httpx.AsyncClient | None = None):
+        self.ledger = ledger
+        self.client = MasumiClient(settings.masumi_payment_url, settings.masumi_api_key,
+                                   settings.masumi_network, http)
+
+    def _ref(self, deal_id: str) -> str:
+        deal = self.ledger.get(deal_id)
+        if not deal or not deal["escrow_ref"]:
+            raise MasumiError(f"deal {deal_id} has no Masumi purchase")
+        return deal["escrow_ref"]
 
     async def health(self) -> dict:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{self.base}/health", headers=self.headers)
-            r.raise_for_status()
-            return r.json()
+        return await self.client.health()
 
     async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult:
-        raise NotImplementedError("TODO(ziya): look up purchase by deal_id, else POST /purchase")
+        bid = start.blockchainIdentifier
+        if not bid:
+            raise MasumiError("seller returned no blockchainIdentifier (is the seller in masumi mode?)")
+        existing = await self.client.resolve_purchase(bid)
+        if existing:
+            return LockResult(ref=bid, already=True, info=_state(existing))
+        purchase = await self.client.create_purchase(start.model_dump(), deal_id, amount)
+        return LockResult(ref=bid, already=False, info=_state(purchase))
 
-    async def release(self, deal_id: str) -> None:
-        raise NotImplementedError("TODO(ziya): Masumi releases after unlock time; confirm flow")
+    async def release(self, deal_id: str) -> dict[str, Any]:
+        purchase = await self.client.resolve_purchase(self._ref(deal_id))
+        return {**_state(purchase), "release": "scheduled", "settles_at": (purchase or {}).get("unlockTime")}
 
-    async def refund(self, deal_id: str) -> None:
-        raise NotImplementedError("TODO(ziya): request refund before unlock time")
+    async def refund(self, deal_id: str) -> dict[str, Any]:
+        return _state(await self.client.request_refund(self._ref(deal_id)))
 
     async def balances(self) -> dict[str, float]:
-        raise NotImplementedError("TODO(ziya): wallet balances from payment service")
+        raise NotImplementedError("Masumi balances not wired; show tx links instead")
 
 
-def make_payments(settings: Settings, ledger: Ledger) -> Payments:
-    return MasumiPayments(settings) if settings.payments_mode == "masumi" else SimulatedPayments(ledger)
+def _state(record: dict[str, Any] | None) -> dict[str, Any]:
+    record = record or {}
+    return {"on_chain_state": record.get("onChainState"), "tx_url": tx_link(record),
+            "next_action": (record.get("NextAction") or {}).get("requestedAction")}
+
+
+def make_payments(settings: Settings, ledger: Ledger, http: httpx.AsyncClient | None = None) -> Payments:
+    if settings.payments_mode == "masumi":
+        return MasumiPayments(settings, ledger, http)
+    return SimulatedPayments(ledger)

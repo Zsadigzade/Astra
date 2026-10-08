@@ -23,13 +23,15 @@ from shared.models import ApprovalDecision, TaskCreate, TaskCreated
 from voice.tts import TTS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # status polling would drown the event log
 
 
-def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None = None,
+               masumi_http: httpx.AsyncClient | None = None) -> FastAPI:
     s = settings or get_settings()
     ledger = Ledger(s.ledger_path)
     bus = EventBus(ledger, simulated=s.simulated)
-    guard = WalletGuard(ledger, make_payments(s, ledger), s.guard_cap, s.guard_approval_over)
+    guard = WalletGuard(ledger, make_payments(s, ledger, masumi_http), s.guard_cap, s.guard_approval_over)
     tts = TTS(s)
 
     @asynccontextmanager

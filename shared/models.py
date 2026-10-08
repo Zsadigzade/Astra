@@ -74,8 +74,16 @@ class StartJobResponse(BaseModel):
     status: Literal["success", "error"]
     job_id: str
     price: float
-    blockchainIdentifier: str | None = None  # set in masumi mode; buyer pays against it
     message: str = ""
+    # Masumi mode only (MIP-003 names): the buyer copies these into POST /purchase.
+    blockchainIdentifier: str | None = None
+    payByTime: str | None = None
+    submitResultTime: str | None = None
+    unlockTime: str | None = None
+    externalDisputeUnlockTime: str | None = None
+    agentIdentifier: str | None = None
+    sellerVKey: str | None = None
+    inputHash: str | None = None
 
 
 JobStatus = Literal["awaiting_payment", "running", "completed", "failed"]

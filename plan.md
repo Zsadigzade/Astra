@@ -65,13 +65,12 @@
 ## 3 · 23:30–01:00 · Integrate
 
 **Ziya**
-- [ ] `MasumiPayments.lock` / `refund`
+- [x] `MasumiPayments.lock` / `refund` + seller side of Masumi payment (code done, tested on fake)
 - [ ] Act 3 crash + restart (`CRASH_AFTER_LOCK=1`) on real setup
 - [ ] OpenAI Max, only if credits arrived
 
 **Murad**
 - [ ] Viktor LLM persona (only if OpenAI)
-- [ ] Seller side of Masumi payment request
 
 **Mais**
 - [ ] Audio playback queue (lines play in order)

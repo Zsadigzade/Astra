@@ -7,8 +7,9 @@ Plain code, no LLM. Checks before any money moves:
 4. over approval line? -> pause until a human approves on the dashboard
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 from buyer.ledger import Ledger
 from buyer.payments import Payments
@@ -32,6 +33,7 @@ class PayOutcome:
     kind: str  # "locked" | "already_paid" | "blocked" | "needs_approval"
     reason: str = ""
     ref: str | None = None
+    info: dict[str, Any] = field(default_factory=dict)
 
 
 class WalletGuard:
@@ -78,13 +80,13 @@ class WalletGuard:
         self.ledger.update(deal_id, status="paying", price=amount, approved=int(approved))
         res = await self._payments.lock(deal_id, amount, seller, start)
         self.ledger.update(deal_id, status="locked", escrow_ref=res.ref)
-        return PayOutcome("already_paid" if res.already else "locked", "", res.ref)
+        return PayOutcome("already_paid" if res.already else "locked", "", res.ref, res.info)
 
-    async def release(self, deal_id: str) -> None:
-        await self._payments.release(deal_id)
+    async def release(self, deal_id: str) -> dict[str, Any]:
+        return await self._payments.release(deal_id)
 
-    async def refund(self, deal_id: str) -> None:
-        await self._payments.refund(deal_id)
+    async def refund(self, deal_id: str) -> dict[str, Any]:
+        return await self._payments.refund(deal_id)
 
     async def balances(self) -> dict[str, float]:
         return await self._payments.balances()

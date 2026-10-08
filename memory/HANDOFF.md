@@ -1,17 +1,29 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 19:32 · ziya
+updated: 2026-10-08 22:05 · ziya (describes main once the 22:05 working tree is committed)
 
 ## What works
-- No code yet. Topic, roles and seller protocol decided (see DECISIONS.md).
+- Product "The Haggle": buyer Max (:8000, `buyer/`) haggles with seller Viktor (:8001, `seller/`),
+  wallet guard pays into escrow, verifier checks 20 Praha 7 flats, release or refund. SSE `/events`.
+- One command: `uv run python scripts/up.py [--reset] [--crash]`; terminal demo: `scripts/act.py honest|con|junk`.
+- All 4 acts verified live in SIMULATED mode: deal at 7 released; con at 25 BLOCKED (cap 10);
+  crash after paying → buyer auto-restarts → `already_paid`, deal released, paid once; junk refunded.
+- Guard: cap 10, budget 20, approval >8, never pays a deal twice. Crash recovery: funded, errored and
+  awaiting-approval deals resume; seller start response stored (`start_json`) and reused.
+- Masumi mode (`PAYMENTS_MODE=masumi`): `shared/masumi.py` client, Dynamic pricing, idempotent lock,
+  release = scheduled at unlockTime. Tested only against `tests/fake_masumi.py`.
+- `LLM_MODE=openai`: Max on OpenAI Agents SDK, falls back to scripted Max per round on any error.
+- Tests: `uv run pytest` → 33 pass. Dashboard stub builds (`dashboard/`).
 
 ## What's next
-1. 21:30 checkpoint: each owner fills their INTERFACES.md section, skeletons answer HTTP.
-2. Ziya: verify hosted Masumi `/api/v1/health`, register agents, test one escrow.
-3. Murad: seller-research MIP-003 skeleton on :8001.
-4. Mais: dashboard skeleton reading buyer event feed (contract TBD with Ziya).
+1. Gate 22:15: Act 1 on every laptop (`git pull && uv sync`, `scripts/up.py --reset`, `scripts/act.py honest`).
+2. Ziya: Masumi node (own Railway deploy or mentor URL) → `scripts/masumi_check.py` → register Viktor → faucet → live Act 1. Hard stop 23:30.
+3. Murad: real Apify scrape (`APIFY_MODE=apify`), ElevenLabs voice IDs, `TTS_MODE=elevenlabs`.
+4. Mais: real dashboard layout on the SSE contract (INTERFACES.md).
 
 ## Known broken / risky
-- No OpenAI access yet (2026-10-08 20:10). Verifier and research seller need it; keep LLM calls behind `MODEL` env + mockable interface.
-- Hosted Masumi URL not yet in anyone's `.env`; `/health` unchecked.
-- No one on the team has Cardano/Masumi experience. Default PAYMENTS_MODE=simulated until escrow test passes.
+- No Masumi node yet: money is SIMULATED; masumi mode never ran against a real service.
+- No OpenAI key: `openai` mode untested live; Viktor has no LLM mode (scripted only).
+- Flats are sample data (`source: "sample"`); TTS untested against live API.
+- Seller keeps jobs in memory: never restart the seller mid-deal (TRAPS.md).
+- Reset demo data: `scripts/up.py --reset` (deletes `data/buyer.db`).
