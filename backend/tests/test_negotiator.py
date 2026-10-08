@@ -1,11 +1,10 @@
-from types import SimpleNamespace
+import json
 import asyncio
 
 import pytest
-from agents.exceptions import ModelBehaviorError
 
 import app.buyer.negotiator as neg
-from app.buyer.negotiator import MaxMove, MockMax, Move, OpenAIMax, make_negotiator
+from app.buyer.negotiator import MaxMove, MockMax, Move, CodexMax, make_negotiator
 from app.core.config import Settings
 from app.core.models import NegotiateResponse
 
@@ -15,34 +14,33 @@ def seller(price=15.0, message="15 tADA, best data in Prague.", rnd=0, action="c
 
 
 def fake_runner(monkeypatch, outputs):
-    """Replace Runner.run; each call pops the next output (an Exception is raised instead)."""
+    """Replace the local CLI boundary; no real subscription calls."""
     calls = []
 
-    async def run(agent, input, **kw):
-        calls.append({"agent": agent, "input": list(input), **kw})
+    async def run(prompt, schema, settings):
+        history = json.loads(prompt.split("Conversation (JSON):\n", 1)[1])
+        calls.append({"prompt": prompt, "input": history, "schema": schema, "settings": settings})
         out = outputs.pop(0)
         if isinstance(out, Exception):
             raise out
-        return SimpleNamespace(final_output=out)
+        return out
 
-    monkeypatch.setattr(neg.Runner, "run", run)
+    monkeypatch.setattr(neg, "run_codex", run)
     return calls
 
 
 def make_max(ceiling=10.0):
-    return OpenAIMax(Settings(llm_mode="openai", model="gpt-4o-mini"), ceiling)
+    return CodexMax(Settings(llm_mode="codex"), ceiling)
 
 
 def test_make_negotiator_picks_by_mode():
-    assert isinstance(make_negotiator(Settings(llm_mode="openai"), 10), OpenAIMax)
+    assert isinstance(make_negotiator(Settings(llm_mode="codex"), 10), CodexMax)
     assert isinstance(make_negotiator(Settings(llm_mode="mock"), 10), MockMax)
 
 
 def test_agent_configured_with_budget_and_structured_output():
     m = make_max(ceiling=10)
-    assert m.agent.output_type is MaxMove
-    assert m.agent.model == "gpt-4o-mini"
-    assert "10 tADA" in m.agent.instructions
+    assert "10 tADA" in m.instructions
 
 
 @pytest.mark.anyio
@@ -50,7 +48,8 @@ async def test_structured_output_maps_to_move(monkeypatch):
     calls = fake_runner(monkeypatch, [MaxMove(action="counter", price=6, message="Six. Take it.")])
     move = await make_max().next_move(seller(), None)
     assert move == Move("counter", 6.0, "Six. Take it.")
-    assert calls[0]["agent"].name == "Max"
+    assert calls[0]["schema"]["additionalProperties"] is False
+    assert calls[0]["schema"]["required"] == ["action", "price", "message"]
 
 
 @pytest.mark.anyio
@@ -62,7 +61,7 @@ async def test_accept_is_not_clamped_guard_does_that(monkeypatch):
 
 @pytest.mark.anyio
 async def test_exception_falls_back_to_mock(monkeypatch, caplog):
-    fake_runner(monkeypatch, [RuntimeError("no OPENAI_API_KEY")])
+    fake_runner(monkeypatch, [RuntimeError("subscription unavailable")])
     s = seller()
     move = await make_max().next_move(s, None)
     assert move == await MockMax(10).next_move(s, None)
@@ -109,33 +108,26 @@ async def test_backend_metadata_recovers_after_fallback(monkeypatch, caplog):
     assert (m.last_backend, m.fallback_reason) == ("mock", "RuntimeError")
     assert secret not in caplog.text
     await m.next_move(seller(rnd=1), 5)
-    assert (m.last_backend, m.fallback_reason) == ("openai", None)
+    assert (m.last_backend, m.fallback_reason) == ("codex", None)
 
 
 @pytest.mark.anyio
 async def test_refusal_is_marked_as_fallback(monkeypatch):
-    fake_runner(monkeypatch, [ModelBehaviorError("provider refusal body")])
+    fake_runner(monkeypatch, [ValueError("provider refusal body")])
     m = make_max()
     await m.next_move(seller(), None)
-    assert (m.last_backend, m.fallback_reason) == ("mock", "ModelBehaviorError")
+    assert (m.last_backend, m.fallback_reason) == ("mock", "ValueError")
 
 
 @pytest.mark.anyio
-async def test_timeout_cancels_request_and_marks_fallback(monkeypatch):
-    cancelled = asyncio.Event()
-
+async def test_timeout_marks_fallback(monkeypatch):
     async def run(*args, **kwargs):
-        try:
-            await asyncio.sleep(10)
-        finally:
-            cancelled.set()
+        raise TimeoutError()
 
-    monkeypatch.setattr(neg.Runner, "run", run)
-    monkeypatch.setattr(neg, "LLM_TIMEOUT_S", 0.01)
+    monkeypatch.setattr(neg, "run_codex", run)
     m = make_max()
     assert await m.next_move(seller(), None) == await MockMax(10).next_move(seller(), None)
     assert (m.last_backend, m.fallback_reason) == ("mock", "TimeoutError")
-    assert cancelled.is_set()
 
 
 @pytest.mark.anyio
@@ -143,7 +135,7 @@ async def test_external_cancellation_does_not_return_scripted_success(monkeypatc
     async def run(*args, **kwargs):
         raise asyncio.CancelledError()
 
-    monkeypatch.setattr(neg.Runner, "run", run)
+    monkeypatch.setattr(neg, "run_codex", run)
     with pytest.raises(asyncio.CancelledError):
         await make_max().next_move(seller(), None)
 
@@ -151,3 +143,9 @@ async def test_external_cancellation_does_not_return_scripted_success(monkeypatc
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+@pytest.mark.parametrize("mode", ["openai", "unknown", ""])
+def test_removed_and_unknown_modes_are_rejected(mode):
+    with pytest.raises(ValueError, match="LLM_MODE"):
+        make_negotiator(Settings(llm_mode=mode), 10)

@@ -17,9 +17,15 @@ def _f(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    # LLM: "mock" = scripted personas, "openai" = Max with scripted fallback
+    # Subscription-only LLM: "codex" uses the locally signed-in CLI; "mock" is scripted.
     llm_mode: str = field(default_factory=lambda: os.getenv("LLM_MODE", "mock"))
-    model: str = field(default_factory=lambda: os.getenv("MODEL", "gpt-4o-mini"))
+    codex_command: str = field(default_factory=lambda: os.getenv("CODEX_COMMAND", "codex"))
+    codex_model: str = field(default_factory=lambda: os.getenv("CODEX_MODEL", ""))
+    codex_timeout_seconds: float = field(default_factory=lambda: _f("CODEX_TIMEOUT_SECONDS", 30))
+
+    def __post_init__(self):
+        if self.llm_mode not in {"mock", "codex"}:
+            raise ValueError("LLM_MODE must be codex (ChatGPT subscription) or mock (scripted)")
 
     # Payments: "simulated" = local SQLite escrow, labelled SIMULATED everywhere; "masumi" = Preprod
     payments_mode: str = field(default_factory=lambda: os.getenv("PAYMENTS_MODE", "simulated"))

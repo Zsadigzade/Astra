@@ -67,6 +67,7 @@ export default function App() {
           <p key={eventKey(e)} style={{ textAlign: e.data.speaker === "max" ? "left" : "right" }}>
             <b>{e.data.speaker === "max" ? "Max" : "Viktor"}</b>: {e.data.text} {e.staged && <em>(staged)</em>}
             {e.data.backend === "mock" && <small> (scripted{e.data.fallback_reason ? " fallback" : ""})</small>}
+            {e.data.backend === "codex" && <small> (Codex subscription)</small>}
           </p>
         ))}
       </section>

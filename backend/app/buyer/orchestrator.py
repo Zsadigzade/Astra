@@ -11,7 +11,7 @@ import httpx
 from app.buyer.events import EventBus
 from app.buyer.guard import Verdict, WalletGuard
 from app.buyer.ledger import Ledger
-from app.buyer.negotiator import Negotiator
+from app.buyer.negotiator import MockMax, Negotiator
 from app.buyer.verifier import verify
 from app.core.config import Settings
 from app.core.models import (
@@ -98,7 +98,9 @@ class Orchestrator:
 
     async def haggle(self, task_id: str, deal_id: str, task: TaskCreate) -> float | None:
         staged = self._staged(task)
-        max_ = self.make_max(min(self.guard.cap, task.budget))
+        ceiling = min(self.guard.cap, task.budget)
+        # The advertised con is a STAGED test of the guard, with deliberately gullible dialogue.
+        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling)
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
         my_last: float | None = None
         for rnd in range(self.s.max_rounds):

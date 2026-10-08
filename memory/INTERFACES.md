@@ -10,19 +10,21 @@ I-path integration notice: JobResult.source adds `apify_cached`; optional `fetch
 `dataset_id`, `run_id` describe real data provenance. Dashboard should distinguish sample/live/cached.
 Negotiation event data may additionally carry `backend` and `fallback_reason` for Max's actual mode.
 Existing required fields and event names stay unchanged. Audio queue is isolated in VoicePlayback.jsx.
+Subscription migration: `LLM_MODE=codex` replaces the removed API mode. `backend=codex` marks
+subscription-generated Max lines; `mock` still marks scripted lines/fallback. Act 2 forces scripted Max.
 
 ## Environment variables
 | Name | Used by | Meaning |
 |---|---|---|
-| `OPENAI_API_KEY` | all agents | OpenAI key |
-| `MODEL` | all agents | model id, cheap default |
 | `MASUMI_PAYMENT_URL` | payments | hosted Masumi payment service base URL, ends in `/api/v1`; ours (2026-10-08 23:04): `https://masumi-payment-service-production-96e0.up.railway.app/api/v1` |
 | `MASUMI_API_KEY` | payments | ADMIN_KEY of our Masumi payment node (header `token`) |
 | `PAYMENTS_MODE` | payments | `masumi` or `simulated` |
 | `APIFY_TOKEN` | seller agents | Apify API token |
 | `ELEVENLABS_API_KEY` | seller agents | ElevenLabs key |
 | `BAD_MODE` | seller agents | superseded by task `demo_mode: junk` (2026-10-08 21:40) |
-| `LLM_MODE` | buyer | `mock` (scripted, default) or `openai` (Max on OpenAI Agents SDK; Viktor stays scripted) |
+| `LLM_MODE` | buyer | `mock` (scripted, default) or `codex` (Max via local ChatGPT subscription; Viktor stays scripted); other modes rejected |
+| `CODEX_COMMAND`, `CODEX_MODEL` | buyer | installed Codex CLI path/name; optional model (blank uses CLI default); authenticate with `codex login` |
+| `CODEX_TIMEOUT_SECONDS` | buyer | default 30s per local CLI turn; failure produces labelled scripted fallback; no API keys |
 | `GUARD_CAP` / `GUARD_APPROVAL_OVER` | buyer | hard cap per deal (10) / approval line (8), tADA |
 | `SELLER_URL` | buyer | seller base URL, default `http://localhost:8001` |
 | `SELLER_FLOOR` | seller | Viktor's lowest price (7); `9` forces the approval path |
@@ -53,7 +55,7 @@ Source of truth for payloads: `backend/app/core/models.py`. Change it = tell the
 - demo scripts under `backend/scripts/`: `up.py` (both servers), `act.py` (one act in terminal), `masumi_check.py` (read-only node check)
 - `masumi_check.py --node-only` checks node health/auth/Preprod source before registration; default also checks local seller settings. Exit 1 on incomplete checks; exit 0 does not verify registration, Dynamic pricing, balances or live escrow. Accepts local or hosted API URLs ending in `/api/v1`.
 - rehearse Masumi mode from `backend/` without a node: `uv run uvicorn tests.fake_masumi:create_fake_masumi --factory --port 3001`, then `scripts/up.py` with `PAYMENTS_MODE=masumi MASUMI_PAYMENT_URL=http://localhost:3001 MASUMI_API_KEY=test-key` (+ dummy `MASUMI_AGENT_ID` 57+ chars, `SELLER_VKEY` 56 hex)
-- `llm_check.py` requires real Max output (never scripted fallback) and checks the guard in memory; no money moves. `backend` is `openai`, `mock` or `guard`; `fallback_reason` is an exception category, not provider text.
+- `llm_check.py` requires real subscription Codex Max output (never scripted fallback) and checks the guard in memory; no money moves. `backend` is `codex`, `mock` or `guard`; `fallback_reason` is an exception category, not provider text. Codex keeps its own sign-in credentials; no OpenAI API token or SDK is used.
 
 ### seller "Viktor" (Apify flats) — owner: murad (skeleton by ziya, murad to confirm)
 - Data adapter now owned by Ziya (I01/I02); seller payment transport remains outside I scope.

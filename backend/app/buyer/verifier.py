@@ -1,4 +1,4 @@
-"""Checks a delivery against the job spec. Hard checks only; an LLM judge can be added later."""
+"""Checks a delivery against the job spec using deterministic rules."""
 
 from app.core.models import JobResult, JobSpec
 
