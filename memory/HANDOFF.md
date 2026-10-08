@@ -3,6 +3,7 @@
 updated: 2026-10-08 23:53 · ziya · full system check and fixes
 
 ## Current verification
+- 00:11 I-path audit: 315 backend tests pass on Python 3.13 and fresh Python 3.11; fresh live Codex/cached-data/seven-clip Act 1 and browser scenarios pass. Fixes cover cancellation, cache/voice validation, bounded TTS and seller-response binding; invalid legacy tasks no longer block other recovery. A 50-minute endurance run is in progress; final results will be recorded in SYSTEM_CHECK.md.
 - Audited team commits through 8a24b38 plus fixes recorded in [SYSTEM_CHECK.md](SYSTEM_CHECK.md). Murad's UI update 2d0d987 also passed merged frontend/browser revalidation; its API-era scripted-mode label was corrected for subscription Codex.
 - 255 backend tests, 32 frontend tests and production build pass. Eleven fresh HTTP/Edge browser checks pass with zero page errors: honest release, con block, refund, approval/decline, controls, offline/reconnect, theme and responsive widths.
 - Actual runner rehearsal: one staged buyer crash, one restart, seller survives, one lock, one recovery and one release at 7; SIMULATED balances 93/7/0. Reset preserves the original ledger byte-for-byte and starts empty.

@@ -81,6 +81,21 @@ async def test_invalid_output_falls_back_to_mock(monkeypatch, bad):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("bad", [
+    {"action": "counter", "price": True, "message": "One."},
+    {"action": "counter", "price": "6", "message": "Six."},
+    {"action": "counter", "price": float("nan"), "message": "Undefined."},
+    {"action": "counter", "price": float("inf"), "message": "Infinity."},
+    {"action": "counter", "price": 6, "message": "Six.", "execute": "hidden directive"},
+])
+async def test_schema_violation_is_labelled_scripted_fallback(monkeypatch, bad):
+    fake_runner(monkeypatch, [bad])
+    agent = make_max()
+    assert await agent.next_move(seller(), 5) == await MockMax(10).next_move(seller(), 5)
+    assert (agent.last_backend, agent.fallback_reason) == ("mock", "ValidationError")
+
+
+@pytest.mark.anyio
 async def test_history_grows_across_rounds(monkeypatch):
     calls = fake_runner(monkeypatch, [
         MaxMove(action="counter", price=5, message="Five."),

@@ -178,6 +178,72 @@ async def test_cancellation_during_spawn_does_not_orphan_process(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("phase", ["spawn", "terminate"])
+async def test_repeated_cancellation_waits_for_child_cleanup(monkeypatch, phase):
+    started, finish_spawn = asyncio.Event(), asyncio.Event()
+    stopping, finish_stop = asyncio.Event(), asyncio.Event()
+    directories, terminated = [], []
+
+    async def spawn(*args, **kwargs):
+        directories.append(Path(kwargs["cwd"]))
+        started.set()
+        if phase == "spawn":
+            await finish_spawn.wait()
+        return FakeProcess(args, hang=True)
+
+    async def terminate(process):
+        stopping.set()
+        await finish_stop.wait()
+        assert directories[0].is_dir(), "temporary cwd removed before child stopped"
+        terminated.append(process)
+
+    monkeypatch.setattr(runtime, "_command", lambda value: ["codex"])
+    monkeypatch.setattr(runtime.asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(runtime, "_terminate", terminate)
+    task = asyncio.create_task(runtime.run_codex("seller", {}, settings()))
+    await started.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    if phase == "terminate":
+        await stopping.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    still_waiting = not task.done() and directories[0].is_dir()
+    finish_spawn.set()
+    finish_stop.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert still_waiting, "repeated cancellation abandoned the owned cleanup task"
+    assert len(terminated) == 1
+    assert not directories[0].exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows tree utility fallback")
+@pytest.mark.anyio
+async def test_missing_taskkill_still_reaps_direct_child(monkeypatch):
+    calls = []
+
+    class Process:
+        pid = 12345
+        returncode = None
+
+        def kill(self):
+            calls.append("kill")
+
+        async def wait(self):
+            calls.append("wait")
+            self.returncode = 1
+
+    async def unavailable(*args, **kwargs):
+        raise FileNotFoundError("taskkill missing")
+
+    monkeypatch.setattr(runtime.asyncio, "create_subprocess_exec", unavailable)
+    await runtime._terminate(Process())
+    assert calls == ["kill", "wait"]
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan")])
 async def test_invalid_timeout_rejected(timeout):
     with pytest.raises(ValueError, match="TIMEOUT"):

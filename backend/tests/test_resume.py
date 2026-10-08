@@ -1,6 +1,7 @@
 """Restart recovery: funded deals are never stranded, the seller is never asked to start twice."""
 
 import asyncio
+import json
 import sqlite3
 
 import httpx
@@ -131,6 +132,63 @@ async def test_lost_lock_reply_keeps_intent_and_restart_pays_only_once(tmp_path,
     assert buyer.state.ledger.get("d1")["status"] == "released"
     assert (balance["buyer"], balance["seller"], balance["escrow"]) == (93, 7, 0)
     assert seller.paths().count("/start_job") == 1
+
+
+@pytest.mark.anyio
+async def test_legacy_invalid_task_does_not_block_other_funded_recovery(tmp_path, caplog):
+    s = settings(tmp_path)
+    ledger = seed(s, "legacy", "locked", price=7, escrow_ref="SIM-legacy", job_id="j-legacy",
+                  start_json=StartJobResponse(status="success", job_id="j-legacy", price=7).model_dump_json())
+    legacy_task = json.loads(TASK)
+    legacy_task["job"]["count"] = 201  # Valid before admission limits were introduced.
+    legacy_task["text"] = "private legacy task content"
+    ledger.update("legacy", task_json=json.dumps(legacy_task))
+    ledger.create_deal("valid", "t-valid", TASK, s.seller_url)
+    ledger.update("valid", status="locked", price=7, escrow_ref="SIM-valid", job_id="j-old",
+                  start_json=OLD_START.model_dump_json())
+    payments = SimulatedPayments(ledger)
+    await payments.lock("legacy", 7, s.seller_url, OLD_START)
+    await payments.lock("valid", 7, s.seller_url, OLD_START)
+    original_deal = ledger.get("legacy")
+    original_escrow = tuple(ledger.db.execute("SELECT * FROM sim_escrows WHERE deal_id='legacy'").fetchone())
+
+    seller = FakeSeller()
+    buyer, balance = await restart(s, seller, {"released"})
+    assert buyer.state.ledger.get("legacy") == original_deal
+    assert tuple(buyer.state.ledger.db.execute(
+        "SELECT * FROM sim_escrows WHERE deal_id='legacy'").fetchone()) == original_escrow
+    assert buyer.state.ledger.get("valid")["status"] == "released"
+    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (86, 7, 7)
+    assert seller.paths() == ["/status"]
+    errors = [event for event in buyer.state.bus.history if event.type == "error"]
+    assert len(errors) == 1 and errors[0].deal_id == "legacy"
+    assert "manual review" in errors[0].data["message"]
+    assert "private legacy task content" not in errors[0].model_dump_json() + caplog.text
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("funded", [False, True])
+@pytest.mark.parametrize("fault", [{"status": "error"}, {"price": 8}, {"job_id": " "}])
+async def test_invalid_persisted_start_never_pays_or_restarts_job(tmp_path, funded, fault):
+    s = settings(tmp_path)
+    bad_start = OLD_START.model_copy(update=fault).model_dump_json()
+    ledger = seed(s, "legacy", "locked" if funded else "agreed", price=7,
+                  escrow_ref="SIM-legacy" if funded else None, job_id="j-old", start_json=bad_start)
+    if funded:
+        await SimulatedPayments(ledger).lock("legacy", 7, s.seller_url, OLD_START)
+
+    seller = FakeSeller()
+    buyer, balance = await restart(s, seller, {"error"})
+    deal = buyer.state.ledger.get("legacy")
+    assert seller.calls == []
+    assert deal["start_json"] == bad_start and deal["job_id"] == "j-old"
+    assert deal["escrow_ref"] == ("SIM-legacy" if funded else None)
+    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (
+        (93, 0, 7) if funded else (100, 0, 0))
+    assert bool(buyer.state.ledger.unfinished()) is funded
+    types = {event.type for event in buyer.state.bus.history}
+    assert "error" in types
+    assert not types.intersection({"escrow_locked", "already_paid", "released", "refunded"})
 
 
 @pytest.mark.anyio

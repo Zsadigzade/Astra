@@ -34,13 +34,20 @@ async def check(settings, client, synthesize=False):
                 )
                 response.raise_for_status()
                 data = response.json()
+                if (not isinstance(data, dict) or not isinstance(data.get("voices"), list)
+                        or not isinstance(data.get("has_more"), bool)):
+                    raise ValueError("invalid voice discovery response")
                 for voice in data["voices"]:
+                    if (not isinstance(voice, dict) or not isinstance(voice.get("voice_id"), str)
+                            or not voice["voice_id"] or not isinstance(voice.get("name"), str)
+                            or not isinstance(voice.get("category"), str)):
+                        raise ValueError("invalid voice metadata")
                     if voice.get("category") in {"premade", "generated"}:
                         voices[voice["voice_id"]] = voice["name"]
                 if not data["has_more"]:
                     break
                 token = data.get("next_page_token")
-                if not token or token in tokens:
+                if not isinstance(token, str) or not token or token in tokens:
                     raise ValueError("invalid pagination")
                 tokens.add(token)
                 params["next_page_token"] = token
