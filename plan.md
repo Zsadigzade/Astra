@@ -21,7 +21,7 @@ is met. The baseline below describes existing code, not proof that live integrat
 ## Existing baseline
 
 - [x] **B01** Buyer and seller HTTP services, negotiation, wallet guard and verifier exist.
-- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval and crash recovery. Last recorded suite: 129 passing tests.
+- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval and crash recovery. Last recorded suite: 144 passing tests.
 - [x] **B03** Masumi adapter and seller payment flow implemented and tested against a fake node; readiness checker supports `--node-only`.
 - [x] **B04** OpenAI Agents SDK mode for Max implemented with scripted fallback; live API still unverified.
 - [x] **B05** Dashboard stub consumes SSE, starts acts 1/2/4, displays balances and supports approval/decline. Production build verified.
@@ -48,18 +48,20 @@ Never reset a ledger with unfinished payments or restart the seller mid-deal.
 
 ## Data, agents and voice — by 01:00
 
-Claimed by Ziya. Implemented adapters, provenance and readiness scripts are tested offline;
-live checks below remain open until the required credentials and real results are available.
+Claimed by Ziya. Apify and ElevenLabs passed live checks at 23:09; Act 1 completed in Edge
+with 20 cached real listings, seven live speech clips, and SIMULATED escrow. OpenAI remains blocked.
 
-- [ ] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
-- [ ] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
+- [x] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
+- [x] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
 - [ ] **I03** With OpenAI access, run Max using `LLM_MODE=openai`; verify the guard still enforces cap 10, budget 20 and approval above 8, including scripted fallback on API failure.
 - [ ] **I04** Optional after the core flow works: add Viktor's LLM persona if OpenAI access is available. Viktor currently remains scripted.
-- [ ] **I05** Configure ElevenLabs voice IDs (`VOICE_MAX`, `VOICE_VIKTOR`) in `.env` and verify live `TTS_MODE=elevenlabs` output for both speakers.
-- [x] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. Seven queue tests and frontend build pass; live speech/listening remains part of **I05**.
+- [x] **I05** Configure ElevenLabs voice IDs (`VOICE_MAX`, `VOICE_VIKTOR`) in `.env` and verify live `TTS_MODE=elevenlabs` output for both speakers.
+- [x] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. 15 frontend tests and build pass; actual Edge playback verified replay/reset IDs, Stop/Mute, missing clips and sequential real speech.
 
-Current checks: `scripts/scrape_flats.py` needs APIFY_TOKEN; `scripts/voice_check.py --synthesize`
-needs the ElevenLabs key and voice IDs. `scripts/llm_check.py` rejects scripted fallback as live success.
+Recorded Apify run: `ZNboU2b0EHUJgFaEQ`; recover its 20 listings with
+`scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ` (no new run).
+Brian/Callum voices are configured locally; `scripts/voice_check.py --synthesize` passed both.
+`scripts/llm_check.py` rejects scripted fallback as live success.
 I03/I04 live work is blocked: only a subscription, no OpenAI API key, was supplied.
 
 ## Integration and reliability — 01:00–02:30

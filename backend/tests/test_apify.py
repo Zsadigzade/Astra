@@ -59,7 +59,7 @@ async def test_live_mapping_cache_and_offline_delivery(monkeypatch, settings):
     assert all(r.headers["Authorization"] == "Bearer test-secret" for r in calls)
     assert all("test-secret" not in str(r.url) for r in calls)
     assert calls[0].url.path == "/v2/acts/swerve~sreality-scraper/runs"
-    assert json.loads(calls[0].content) == {"location": "Praha", "dealType": "rent",
+    assert json.loads(calls[0].content) == {"location": "Praha 7", "dealType": "rent",
         "propertyType": "apartment", "maxItems": 200, "maxPrice": 25000, "fetchDetails": False}
     assert calls[0].url.params["timeout"] == "90"
     assert calls[0].url.params["maxTotalChargeUsd"] == "1.1"
@@ -210,3 +210,122 @@ async def test_invalid_job_or_configuration_fails_before_spending(monkeypatch, s
     mock_http(monkeypatch, fail)
     with pytest.raises(apify.ApifyError):
         await apify.scrape(job, replace(settings, **changes))
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failure", ["insufficient", "download"])
+async def test_failed_live_result_keeps_recovery_identifiers(monkeypatch, settings, failure):
+    def handle(request):
+        if request.url.path.endswith("/runs"):
+            return httpx.Response(201, json={"data": {
+                "id": "run1", "status": "SUCCEEDED", "defaultDatasetId": "dataset1"}})
+        return (httpx.Response(503, text="test-secret") if failure == "download"
+                else httpx.Response(200, json=[row()]))
+
+    mock_http(monkeypatch, handle)
+    with pytest.raises(apify.ApifyError) as error:
+        await apify.scrape(JobSpec(count=2), settings)
+    assert error.value.run_id == "run1"
+    assert error.value.dataset_id == "dataset1"
+    assert "test-secret" not in str(error.value)
+
+
+def recovered_http(monkeypatch, *, changes=None, items=None):
+    calls = []
+    run = {"id": "run1", "actId": "actor1", "status": "SUCCEEDED",
+           "defaultDatasetId": "dataset1", "finishedAt": "2025-01-01T12:00:00.000Z",
+           **(changes or {})}
+
+    def handle(request):
+        calls.append(request)
+        assert request.method == "GET", "Recovery must never create or modify a run"
+        if "/actor-runs/" in request.url.path:
+            return httpx.Response(200, json={"data": run})
+        if "/acts/" in request.url.path:
+            return httpx.Response(200, json={"data": {"id": "actor1"}})
+        return httpx.Response(200, json=[row()] if items is None else items)
+
+    mock_http(monkeypatch, handle)
+    return calls
+
+
+@pytest.mark.anyio
+async def test_recovery_reads_existing_run_and_preserves_original_age(monkeypatch, settings):
+    calls = recovered_http(monkeypatch)
+    job = JobSpec(count=1)
+    result = await apify.recover_run(job, settings, "run1")
+    assert result.source == "apify"
+    assert result.run_id == "run1" and result.dataset_id == "dataset1"
+    assert result.actor_id == apify.ACTOR_ID
+    assert result.fetched_at == "2025-01-01T12:00:00+00:00"
+    assert len(calls) == 3
+    assert calls[-1].url.params["limit"] == "200"
+    apify.save_cache(job, result, settings)
+    cached = apify.load_cache(job, settings)
+    assert cached.source == "apify_cached" and cached.fetched_at == result.fetched_at
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("changes", [
+    {"status": "RUNNING"}, {"status": "FAILED"}, {"actId": "other_actor"},
+    {"id": "different_run"}, {"finishedAt": None}, {"finishedAt": "not-a-date"},
+    {"finishedAt": "2025-01-01T12:00:00"}, {"finishedAt": "2999-01-01T12:00:00Z"},
+])
+async def test_recovery_rejects_untrusted_or_incomplete_runs_before_dataset(monkeypatch, settings, changes):
+    calls = recovered_http(monkeypatch, changes=changes)
+    with pytest.raises(apify.ApifyError) as error:
+        await apify.recover_run(JobSpec(count=1), settings, "run1")
+    assert error.value.run_id == "run1"
+    assert all("/datasets/" not in request.url.path for request in calls)
+
+
+@pytest.mark.anyio
+async def test_recovered_records_must_still_match_requested_job(monkeypatch, settings):
+    recovered_http(monkeypatch, items=[row(price=26000)])
+    with pytest.raises(apify.ApifyError, match="Only 0") as error:
+        await apify.recover_run(JobSpec(count=1), settings, "run1")
+    assert error.value.run_id == "run1" and error.value.dataset_id == "dataset1"
+
+
+@pytest.mark.anyio
+async def test_invalid_recovery_identifier_cannot_become_request_or_link(monkeypatch, settings):
+    def fail(request):
+        pytest.fail("Invalid identifier must fail before a provider request")
+    mock_http(monkeypatch, fail)
+    with pytest.raises(apify.ApifyError) as error:
+        await apify.recover_run(JobSpec(count=1), settings, "../run?token=test-secret")
+    assert error.value.run_id is None
+    assert "test-secret" not in str(error.value)
+
+
+@pytest.mark.anyio
+async def test_cli_recovery_never_starts_run_and_prints_links_on_cache_failure(monkeypatch, settings, capsys):
+    from scripts import scrape_flats
+    calls = recovered_http(monkeypatch)
+    monkeypatch.setattr(scrape_flats, "Settings", lambda: settings)
+    monkeypatch.setattr("sys.argv", ["scrape_flats.py", "--run-id", "run1", "--count", "1"])
+
+    def no_space(*args):
+        raise OSError("test-secret must not leak")
+    monkeypatch.setattr(scrape_flats, "save_cache", no_space)
+    assert await scrape_flats.main() == 1
+    output = capsys.readouterr().out
+    assert "cannot save offline cache" in output
+    assert "https://console.apify.com/actors/runs/run1" in output
+    assert "https://console.apify.com/storage/datasets/dataset1" in output
+    assert "--run-id run1 --count 1 --max-price 25000" in output
+    assert "test-secret" not in output
+    assert all(request.method == "GET" for request in calls)
+
+
+@pytest.mark.anyio
+async def test_cli_failed_mapping_prints_recovery_links(monkeypatch, settings, capsys):
+    from scripts import scrape_flats
+    success(monkeypatch, [row()])
+    monkeypatch.setattr(scrape_flats, "Settings", lambda: settings)
+    monkeypatch.setattr("sys.argv", ["scrape_flats.py", "--count", "2"])
+    assert await scrape_flats.main() == 1
+    output = capsys.readouterr().out
+    assert "Only 1" in output
+    assert "https://console.apify.com/actors/runs/run1" in output
+    assert "https://console.apify.com/storage/datasets/dataset1" in output

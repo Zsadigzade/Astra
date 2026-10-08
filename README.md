@@ -99,10 +99,10 @@ Do not use `--reset` on a ledger with unfinished payments.
 
 ### Data, agents and voice (I path)
 
-The integrations are implemented; live provider checks still require credentials in `.env`.
+Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider keys in `.env`.
 
 - **Rental data:** set `APIFY_TOKEN`, then run `uv run python scripts/scrape_flats.py`. This live-only
-  check uses the [Sreality Actor](https://apify.com/swerve/sreality-scraper), scans at most 200 Prague
+  check uses the [Sreality Actor](https://apify.com/swerve/sreality-scraper), targets Praha 7 with at most 200
   rentals, and requires 20 unique listings explicitly in Praha 7 at or below 25,000 CZK/month.
   The run has a 90-second default deadline and requests `maxTotalChargeUsd=1.10` through the
   [Apify run API](https://docs.apify.com/api/v2/actors-runs-post). Provider charges apply.
@@ -110,7 +110,11 @@ The integrations are implemented; live provider checks still require credentials
 - A successful scrape saves real records and run/dataset/timestamp provenance to
   `APIFY_CACHE_PATH` (default `backend/data/flats-apify.json`, git-ignored). `APIFY_MODE=apify` uses live data
   with a matching saved-cache fallback; `APIFY_MODE=cached` uses only that saved data. Cached results
-  carry `source: apify_cached` and show **CACHED APIFY** in the dashboard. No real cache ships yet.
+  carry `source: apify_cached` and show **CACHED APIFY** in the dashboard. The local cache contains
+  20 verified rentals; it is not committed. On another laptop with access to the same Apify account,
+  recover it without a new scrape: `uv run python scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ`.
+  Recovery verifies the Actor, result fields and original completion time. Failure output retains
+  run/dataset links so download or validation can be retried without paying for another run.
   `APIFY_MODE=sample` remains the default and is labelled **SAMPLE**. A cache must match the exact job.
 - **Max:** `uv run python scripts/llm_check.py` checks real structured agent output and the actual
   wallet guard in memory without moving money. It fails if the key is absent or Max falls back to
@@ -121,12 +125,20 @@ The integrations are implemented; live provider checks still require credentials
   `uv run python scripts/voice_check.py --synthesize` to generate two short samples using credits.
   With `TTS_MODE=elevenlabs`, provider/timeouts/storage failures fall back to text.
   `TTS_MODEL` and `TTS_TIMEOUT_SECONDS` control the model and per-line deadline.
+  Verified stock voices: Max = Brian (`nPczCjzI2devNBz1zQrb`), Viktor = Callum (`N2lVS1w4EtoT3dr4eOWO`).
 - In the dashboard, **Play voices** enables ordered playback. Duplicate SSE events do not replay
-  clips; missing clips are skipped; Stop/Mute keeps the transcript usable. The reusable component
+  clips, including across reused ledger IDs; missing clips or 10 seconds without playback progress
+  are skipped. Stop/Mute keeps the transcript usable. The reusable component
   is `frontend/src/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
 
 Offline validation from `backend/`: `uv run pytest`. From `frontend/`: run
-`node --test src/audioQueue.test.js` and `npm run build`.
+`node --test src/audioQueue.test.js src/eventIdentity.test.js` and `npm run build`.
+
+Validation: 144 Python tests, 15 frontend tests, and production build pass. Headless Edge completed
+Act 1 over real buyer/seller HTTP: 20 **CACHED APIFY** rentals verified, **SIMULATED** escrow released,
+and all seven real ElevenLabs clips played sequentially without overlap. Separate browser checks
+cover SSE replay, reused IDs after reset, missing clips, Stop and Mute. Local rehearsal settings are
+`APIFY_MODE=cached`, `TTS_MODE=elevenlabs`, `LLM_MODE=mock`, `PAYMENTS_MODE=simulated`.
 
 ## Layout
 
@@ -160,7 +172,7 @@ What is real and what is not, as of this commit.
 | Agents       | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only; errors use a labelled scripted fallback. No API key is available for live verification. Viktor's optional LLM persona is deferred. |
 | Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway.                                                                                                  |
 | Staging      | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`.                                                                                                             |
-| Flats        | Default is **sample data**. Live Apify adapter and labelled real-cache fallback are implemented and mock-tested; no successful live scrape or real cached dataset has been obtained yet.                                            |
+| Flats        | Template default is **sample data**. Live Apify returned 20 valid Praha 7 rentals; local rehearsal uses their labelled **CACHED APIFY** snapshot. Recovery command above recreates the ignored cache.                                            |
 | Verifier     | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one.                                                                                                                |
 | Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes.                                                                                                                      |
-| Voice        | ElevenLabs TTS and ordered playback are implemented and tested with mocks. Live API generation and browser listening await a key and two voice IDs; text fallback works.                                                            |
+| Voice        | Real ElevenLabs output for both speakers decoded and played in Edge, including all seven Act 1 lines. Ordered playback, Stop/Mute and unavailable-clip recovery passed; text fallback remains available.                                                            |

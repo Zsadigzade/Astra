@@ -30,6 +30,13 @@ DISTRICT = re.compile(r"\b(?:praha|prague)\s*(\d+)\b", re.IGNORECASE)
 class ApifyError(RuntimeError):
     """Safe for display: never include provider response bodies or credentials."""
 
+    def __init__(self, message: str, *, run_id: str | None = None,
+                 dataset_id: str | None = None):
+        super().__init__(message)
+        # Only validated opaque identifiers can become recovery links.
+        self.run_id = run_id if isinstance(run_id, str) and re.fullmatch(r"[a-zA-Z0-9_-]+", run_id) else None
+        self.dataset_id = dataset_id if isinstance(dataset_id, str) and re.fullmatch(r"[a-zA-Z0-9_-]+", dataset_id) else None
+
 
 def _validate_job(job: JobSpec) -> None:
     if not re.fullmatch(r"(?:praha|prague)\s*7", job.district.strip(), re.IGNORECASE):
@@ -116,6 +123,7 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
     if not math.isfinite(timeout) or not 0 < timeout <= 300:
         raise ApifyError("APIFY_TIMEOUT_SECONDS must be positive and at most 300")
     run_id = None
+    dataset_id = None
     terminal = False
     async with httpx.AsyncClient(
         base_url=API, timeout=min(timeout, 15),
@@ -128,7 +136,7 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                     f"/acts/{ACTOR_ID.replace('/', '~')}/runs",
                     params={"timeout": math.ceil(timeout), "waitForFinish": 1,
                             "maxTotalChargeUsd": MAX_CHARGE_USD},
-                    json={"location": "Praha", "dealType": "rent", "propertyType": "apartment",
+                    json={"location": "Praha 7", "dealType": "rent", "propertyType": "apartment",
                           "maxItems": settings.apify_max_items, "maxPrice": job.max_price_czk,
                           "fetchDetails": False},
                 ))
@@ -148,9 +156,12 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                 return JobResult(flats=flats, source="apify", actor_id=ACTOR_ID,
                                  run_id=run_id, dataset_id=dataset_id,
                                  fetched_at=datetime.now(timezone.utc).isoformat())
+        except ApifyError as exc:
+            raise ApifyError(str(exc), run_id=run_id, dataset_id=dataset_id) from None
         except (httpx.HTTPError, TimeoutError, ValueError) as exc:
             # Response bodies and exception strings can contain secrets; expose only the class.
-            raise ApifyError(f"Apify rental request failed ({type(exc).__name__})") from None
+            raise ApifyError(f"Apify rental request failed ({type(exc).__name__})",
+                             run_id=run_id, dataset_id=dataset_id) from None
         finally:
             if run_id and not terminal:
                 try:
@@ -159,6 +170,61 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                         response.raise_for_status()
                 except (httpx.HTTPError, TimeoutError):
                     log.warning("Apify abort unavailable; server-side run timeout remains active")
+
+
+async def recover_run(job: JobSpec, settings: Settings, run_id: str) -> JobResult:
+    """Read an existing successful run; never start or modify an Actor run."""
+    _validate_job(job)
+    run_id = _identifier(run_id)
+    if settings.apify_actor_id != ACTOR_ID:
+        raise ApifyError(f"Only {ACTOR_ID} has a supported input/output mapping")
+    if not settings.apify_token.strip():
+        raise ApifyError("APIFY_TOKEN is required to recover rental data", run_id=run_id)
+    if not job.count <= settings.apify_max_items <= 200:
+        raise ApifyError("APIFY_MAX_ITEMS must cover the requested count and be at most 200", run_id=run_id)
+    timeout = settings.apify_timeout_seconds
+    if not math.isfinite(timeout) or not 0 < timeout <= 300:
+        raise ApifyError("APIFY_TIMEOUT_SECONDS must be positive and at most 300", run_id=run_id)
+    dataset_id = None
+    async with httpx.AsyncClient(
+        base_url=API, timeout=min(timeout, 15),
+        headers={"Authorization": f"Bearer {settings.apify_token}",
+                 "User-Agent": "apify-agent-skills/apify-ultimate-scraper"},
+    ) as client:
+        try:
+            async with asyncio.timeout(timeout):
+                run = _run_data(await client.get(f"/actor-runs/{run_id}"))
+                if _identifier(run.get("id")) != run_id or run["status"] != "SUCCEEDED":
+                    raise ApifyError("Only an existing successful Apify run can be recovered")
+                # Run metadata stores the immutable Actor ID, not its owner/name alias.
+                response = await client.get(f"/acts/{ACTOR_ID.replace('/', '~')}")
+                response.raise_for_status()
+                actor = response.json()
+                if not isinstance(actor, dict) or not isinstance(actor.get("data"), dict):
+                    raise ApifyError("Apify returned invalid Actor metadata")
+                if _identifier(run.get("actId")) != _identifier(actor["data"].get("id")):
+                    raise ApifyError("The existing run belongs to an unsupported Actor")
+                dataset_id = _identifier(run.get("defaultDatasetId"))
+                finished_at = run.get("finishedAt")
+                if not isinstance(finished_at, str):
+                    raise ApifyError("Apify run has no valid completion timestamp")
+                timestamp = datetime.fromisoformat(finished_at)
+                if timestamp.tzinfo is None or timestamp > datetime.now(timezone.utc):
+                    raise ApifyError("Apify run has no valid completion timestamp")
+                response = await client.get(f"/datasets/{dataset_id}/items", params={
+                    "format": "json", "clean": "true", "limit": settings.apify_max_items,
+                })
+                response.raise_for_status()
+                # Recheck every deliverable against this job; a prior run's query is not proof.
+                flats = map_items(response.json(), job)
+                return JobResult(flats=flats, source="apify", actor_id=ACTOR_ID,
+                                 run_id=run_id, dataset_id=dataset_id,
+                                 fetched_at=timestamp.isoformat())
+        except ApifyError as exc:
+            raise ApifyError(str(exc), run_id=run_id, dataset_id=dataset_id) from None
+        except (httpx.HTTPError, TimeoutError, ValueError) as exc:
+            raise ApifyError(f"Apify rental recovery failed ({type(exc).__name__})",
+                             run_id=run_id, dataset_id=dataset_id) from None
 
 
 def save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
@@ -215,7 +281,8 @@ async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
         try:
             result = load_cache(job, settings)
         except ApifyError:
-            raise ApifyError(f"{exc}; no matching real-data cache available") from None
+            raise ApifyError(f"{exc}; no matching real-data cache available",
+                             run_id=exc.run_id, dataset_id=exc.dataset_id) from None
         log.warning("Live rental data unavailable; using apify_cached data from %s", result.fetched_at)
         return result
     try:

@@ -2,6 +2,7 @@
 // Contract: buyer SSE GET /events, POST /tasks, POST /approvals/{deal_id} (see memory/INTERFACES.md).
 import { useEffect, useState } from "react";
 import VoicePlayback from "./VoicePlayback.jsx";
+import { appendEvent, eventKey } from "./eventIdentity.js";
 
 const BUYER = import.meta.env.VITE_BUYER_URL ?? "http://localhost:8000";
 
@@ -18,7 +19,7 @@ export default function App() {
     const es = new EventSource(`${BUYER}/events`);
     es.onmessage = (m) => {
       const ev = JSON.parse(m.data);
-      setEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]));
+      setEvents((prev) => appendEvent(prev, ev));
     };
     return () => es.close();
   }, []);
@@ -55,7 +56,7 @@ export default function App() {
       <VoicePlayback events={events} buyerUrl={BUYER} />
       {balances && <p>Max: {balances.buyer} tADA · Viktor: {balances.seller} tADA · Escrow: {balances.escrow} tADA</p>}
       {pending.map((e) => (
-        <p key={e.id} style={{ background: "#fff3cd", padding: 8 }}>
+        <p key={eventKey(e)} style={{ background: "#fff3cd", padding: 8 }}>
           Approve {e.data.price} tADA? ({e.data.reason}){" "}
           <button onClick={() => decide(e.deal_id, true)}>Approve</button>{" "}
           <button onClick={() => decide(e.deal_id, false)}>Decline</button>
@@ -63,14 +64,14 @@ export default function App() {
       ))}
       <section>
         {chat.map((e) => (
-          <p key={e.id} style={{ textAlign: e.data.speaker === "max" ? "left" : "right" }}>
+          <p key={eventKey(e)} style={{ textAlign: e.data.speaker === "max" ? "left" : "right" }}>
             <b>{e.data.speaker === "max" ? "Max" : "Viktor"}</b>: {e.data.text} {e.staged && <em>(staged)</em>}
             {e.data.backend === "mock" && <small> (scripted{e.data.fallback_reason ? " fallback" : ""})</small>}
           </p>
         ))}
       </section>
       {events.filter((e) => e.type === "delivered" && e.data.source).map((e) => (
-        <p key={`source-${e.id}`}>
+        <p key={eventKey(e)}>
           Data: {e.data.source === "apify_cached" ? "CACHED APIFY" : e.data.source === "apify" ? "LIVE APIFY" : "SAMPLE"}
           {e.data.result?.fetched_at && <> · fetched {e.data.result.fetched_at}</>}
         </p>
@@ -78,7 +79,7 @@ export default function App() {
       <h2>Log</h2>
       <ul>
         {events.filter((e) => e.type !== "negotiation").map((e) => (
-          <li key={e.id} style={{ color: e.type === "blocked" ? "red" : undefined, fontWeight: e.type === "blocked" ? 700 : 400 }}>
+          <li key={eventKey(e)} style={{ color: e.type === "blocked" ? "red" : undefined, fontWeight: e.type === "blocked" ? 700 : 400 }}>
             {e.type.toUpperCase()} {e.deal_id} {JSON.stringify(e.data).slice(0, 140)}
           </li>
         ))}
