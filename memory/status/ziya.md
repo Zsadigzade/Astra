@@ -1,11 +1,11 @@
 # ziya — status
 updated: 2026-10-09 00:42
-doing: I01–I06 complete; finish scoped commit and handoff for optional live Viktor
+doing: I01–I06 complete and pushed to main; subscription Viktor live-verified
 touching: seller persona/negotiation, provenance contracts/UI, LLM checker/tests, configuration and I-path docs/memory
 blocked on: nothing for I path; live Masumi remains outside this task
 next: preserve scripted-seller rehearsal baseline; enable SELLER_LLM_MODE=codex only when selecting the two-live-agent profile
 done today:
-- I completion: 392 shared-workspace backend tests pass on Python 3.11/3.13; 33 frontend tests/build and real Edge provenance checks pass.
+- I completion: isolated commit passes 390 backend tests on Python 3.11/3.13 (392 with pending R tests); 33 frontend tests/build and Edge provenance checks pass.
 - Live two-agent Act 1: 3 Max + 4 Viktor Codex turns, 20 genuine cached flats, 7 voice clips, no fallback; SIMULATED release in 42.2s.
 - Clean-checkout npm start and 10 real-HTTP terminal scenarios pass; replay selects the latest deal and skips stale approvals.
 - Endurance stopped on return at 20m55s: 21 cycles, 135 outcomes, five concurrent batches; no failures or pending work; SIMULATED balances 51/49/0.
