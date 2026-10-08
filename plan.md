@@ -28,7 +28,7 @@ is met. The baseline below describes existing code, not proof that live integrat
 
 ## Startup and dashboard — by 23:30
 
-- [ ] **D01** Sync dependencies and run Act 1 on every laptop: `uv sync`, `scripts/up.py --reset`, then `scripts/act.py honest`. Reset only a disposable simulated ledger.
+- [ ] **D01** From `backend/`, sync dependencies and run Act 1 on every laptop: `uv sync`, `scripts/up.py --reset`, then `scripts/act.py honest`. Reset only a disposable simulated ledger.
 - [ ] **D02** Replace the dashboard stub with two avatars, readable chat bubbles, balances and a clear event timeline.
 - [ ] **D03** Show persistent **SIMULATED** and **STAGED** labels where applicable, sample/cached data provenance, a red **BLOCKED** banner and clear approval/decline controls.
 - [ ] **D04** Verify dashboard act selection and complete acts 1, 2 and 4 from the UI; confirm each reaches its expected terminal state.
@@ -48,7 +48,7 @@ Never reset a ledger with unfinished payments or restart the seller mid-deal.
 
 ## Data, agents and voice — by 01:00
 
-- [ ] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
+- [ ] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
 - [ ] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
 - [ ] **I03** With OpenAI access, run Max using `LLM_MODE=openai`; verify the guard still enforces cap 10, budget 20 and approval above 8, including scripted fallback on API failure.
 - [ ] **I04** Optional after the core flow works: add Viktor's LLM persona if OpenAI access is available. Viktor currently remains scripted.

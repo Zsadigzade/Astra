@@ -12,7 +12,7 @@ Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dus
 
 A buyer agent, **Max**, hires a seller agent, **Viktor**, to find 20 flats in Praha 7 under 25,000 CZK.
 They are separate HTTP services. They haggle over price. Max can agree to any price, but Max cannot pay.
-Only the **wallet guard** (`buyer/guard.py`, plain Python, no LLM) can move money. Money goes into
+Only the **wallet guard** (`backend/app/buyer/guard.py`, plain Python, no LLM) can move money. Money goes into
 escrow (Masumi on Cardano Preprod, or a labelled SIMULATED ledger). A rule-based verifier checks the
 delivery. Pass = release to Viktor. Fail = refund to Max.
 
@@ -60,7 +60,7 @@ sequenceDiagram
 - **A prompt can be talked out of a rule. An `if` cannot.** `WalletGuard.evaluate` blocks any amount over
   `GUARD_CAP` (10 tADA) or over the task budget (20), whatever the negotiator agreed to. Act 2 proves it.
 - **The AI never holds the payment adapter.** Only `WalletGuard` has a `Payments` object
-  (`buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
+  (`backend/app/buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
 - **Never pays a deal twice.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
   writes `status="paying"` before locking, and both payment adapters are idempotent per `deal_id`.
   A crash at any point resumes without a second payment (Act 3).
@@ -82,21 +82,23 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 
 ```bash
 cp .env.example .env                                 # fill in keys; never commit .env
+cd backend
 uv sync
 uv run pytest
-uv run uvicorn seller.app:app --port 8001            # terminal 1
-uv run uvicorn buyer.app:app --port 8000             # terminal 2
-cd dashboard && npm install && npm run dev           # terminal 3, open http://localhost:5173
+uv run uvicorn app.seller.app:app --port 8001        # terminal 1, from backend/
+uv run uvicorn app.buyer.app:app --port 8000         # terminal 2, from backend/
+cd ../frontend && npm install && npm run dev          # terminal 3, open http://localhost:5173
 curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo_mode":"honest"}'
 ```
 
-- One command for both servers: `uv run python scripts/up.py` (`--reset` clears data, `--crash` = Act 3:
+- Backend commands below run from `backend/`.
+- One command for both servers: `uv run python scripts/up.py` (`--reset` clears `backend/data`, `--crash` = Act 3:
   buyer dies after paying and auto-restarts, seller stays up).
 - Terminal demo (no dashboard): `uv run python scripts/act.py honest|con|junk` prints the haggle and money events live.
 - Act 3 by hand: start buyer with `CRASH_AFTER_LOCK=1`, run Act 1, buyer dies; restart buyer without it,
   then `scripts/act.py --watch`.
 - Approval path: start seller with `SELLER_FLOOR=9`, deal settles at 9, dashboard shows Approve.
-- Reset: `scripts/up.py --reset`, or delete `data/buyer.db`.
+- Reset: `scripts/up.py --reset`, or delete `backend/data/buyer.db` from the project root.
 
 **Masumi mode** (real Preprod escrow). Set in `.env`, both buyer and seller: `PAYMENTS_MODE=masumi`,
 `MASUMI_PAYMENT_URL`, `MASUMI_API_KEY`, `MASUMI_NETWORK=Preprod`, plus seller-side `MASUMI_AGENT_ID` and
@@ -109,7 +111,7 @@ All names and defaults are in [.env.example](.env.example).
    with a **Preprod** Blockfrost project key (`BLOCKFROST_API_KEY_PREPROD`). Set a private `ADMIN_KEY`
    in the node's variables. Wait for the payment service and PostgreSQL to start, then generate the
    service's public URL. See the [Masumi installation guide](https://www.masumi.network/dev/masumi/documentation/get-started/install-masumi-node).
-2. Open that host's `/admin`. In Astra's local `.env`, set `MASUMI_PAYMENT_URL=https://<host>/api/v1`
+2. Open that host's `/admin`. In Haggle's root `.env`, set `MASUMI_PAYMENT_URL=https://<host>/api/v1`
    and `MASUMI_API_KEY` to the node's `ADMIN_KEY`. A Sokosumi key will not work here.
    Keep `PAYMENTS_MODE=simulated` during setup.
 3. Run `uv run python scripts/masumi_check.py --node-only`. This checks health, authentication and a
@@ -136,20 +138,21 @@ Do not use `--reset` on a ledger with unfinished payments.
 ## Layout
 
 ```
-shared/     contracts (pydantic), env settings, Masumi client (masumi.py)
-buyer/      Max, :8000 - orchestrator, wallet guard, SQLite ledger, payments, verifier
-seller/     Viktor, :8001 - MIP-003 + POST /negotiate, persona, flats job
-voice/      ElevenLabs TTS for haggle lines, text fallback
-dashboard/  Vite + React, reads buyer SSE
-scripts/    up.py (both servers), act.py (one act in terminal), masumi_check.py
-tests/      guard, acts 1-4 + approval E2E (SIMULATED), crash resume, negotiator,
-            Masumi adapter against tests/fake_masumi.py
-memory/     shared team memory for humans and coding agents
+backend/
+  app/
+    buyer/   Max, :8000 - orchestrator, wallet guard, ledger, payments, verifier
+    seller/  Viktor, :8001 - MIP-003, negotiation persona, flats job
+    core/    shared Pydantic contracts, settings, and Masumi client
+    voice/   ElevenLabs TTS with text fallback
+  scripts/   service runner, terminal demo, and Masumi readiness check
+  tests/     unit, E2E, crash recovery, and fake-Masumi coverage
+frontend/    Vite + React dashboard consuming buyer SSE
+memory/      shared team decisions, contracts, handoff, and status
 ```
 
 VS Code/Cursor hides generated caches, virtual environments, dependencies and build output in the
 Explorer via [.vscode/settings.json](.vscode/settings.json). Runtime ledgers and audio remain in
-the git-ignored `data/` folder; local credentials stay in `.env`.
+the git-ignored `backend/data/` folder; local credentials stay in the root `.env`.
 
 ## Honest limitations
 
@@ -158,7 +161,7 @@ What is real and what is not, as of this commit.
 | Area | State now |
 |---|---|
 | Money | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode. |
-| Masumi mode | Built (`shared/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `tests/fake_masumi.py`. Not yet run against a live payment node. |
+| Masumi mode | Built (`backend/app/core/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `backend/tests/fake_masumi.py`. Not yet run against a live payment node. |
 | Release | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`. |
 | Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo. |
 | Agents | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only, falls back to scripted Max on any error, and has not been tested live. Viktor has no LLM mode. |

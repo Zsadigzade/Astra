@@ -27,10 +27,10 @@ tell the team first.
 | `SOKOSUMI_API_KEY` | nobody yet | Sokosumi marketplace key (agents + jobs, no payments); unused before 01:00 |
 
 ## Components
-Source of truth for payloads: `shared/models.py`. Change it = tell the team.
+Source of truth for payloads: `backend/app/core/models.py`. Change it = tell the team.
 
 ### buyer "Max" (orchestrator + wallet guard + verifier) — owner: ziya
-- runs: `uv run uvicorn buyer.app:app --port 8000`
+- runs from `backend/`: `uv run uvicorn app.buyer.app:app --port 8000`
 - `POST /tasks` body `TaskCreate` {text, budget, job:{count, district, max_price_czk}, demo_mode: honest|con|junk} → {task_id, deal_id}
 - `GET /events` SSE, `data:` = `Event` {id, ts, type, task_id, deal_id, simulated, staged, data}; replays history on connect.
   types: task_created, negotiation{speaker: max|viktor, text, price, action, audio_url}, quote{price}, needs_approval{price, reason},
@@ -39,20 +39,20 @@ Source of truth for payloads: `shared/models.py`. Change it = tell the team.
 - `POST /approvals/{deal_id}` body {approve: bool}; 404 if nothing pending
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
-- demo scripts: `scripts/up.py` (both servers), `scripts/act.py` (one act in terminal), `scripts/masumi_check.py` (read-only node check)
+- demo scripts under `backend/scripts/`: `up.py` (both servers), `act.py` (one act in terminal), `masumi_check.py` (read-only node check)
 - `masumi_check.py --node-only` checks node health/auth/Preprod source before registration; default also checks local seller settings. Exit 1 on incomplete checks; exit 0 does not verify registration, Dynamic pricing, balances or live escrow. Accepts local or hosted API URLs ending in `/api/v1`.
-- rehearse masumi mode without a node: `uv run uvicorn tests.fake_masumi:create_fake_masumi --factory --port 3001`, then `scripts/up.py` with `PAYMENTS_MODE=masumi MASUMI_PAYMENT_URL=http://localhost:3001 MASUMI_API_KEY=test-key` (+ dummy `MASUMI_AGENT_ID` 57+ chars, `SELLER_VKEY` 56 hex)
+- rehearse Masumi mode from `backend/` without a node: `uv run uvicorn tests.fake_masumi:create_fake_masumi --factory --port 3001`, then `scripts/up.py` with `PAYMENTS_MODE=masumi MASUMI_PAYMENT_URL=http://localhost:3001 MASUMI_API_KEY=test-key` (+ dummy `MASUMI_AGENT_ID` 57+ chars, `SELLER_VKEY` 56 hex)
 
 ### seller "Viktor" (Apify flats) — owner: murad (skeleton by ziya, murad to confirm)
-- runs: `uv run uvicorn seller.app:app --port 8001`
+- runs from `backend/`: `uv run uvicorn app.seller.app:app --port 8001`
 - `POST /negotiate` `NegotiateRequest` {deal_id, round, action: open|counter|accept|walk, offer, message, job, demo_mode} → `NegotiateResponse` {deal_id, round, action: counter|accept|walk, price, message}
 - MIP-003: `GET /availability`, `GET /input_schema`, `POST /start_job` {identifier_from_purchaser=deal_id, input_data:{deal_id, agreed_price, job, demo_mode}} → {status, job_id, price, blockchainIdentifier?}; idempotent per identifier; 409 if price != agreed. `GET /status?job_id=` → {job_id, status, result:{flats:[{title, price_czk, district, url}], source: sample|apify}}
 - masumi mode: `/start_job` also returns blockchainIdentifier, payByTime, submitResultTime, unlockTime, externalDisputeUnlockTime, agentIdentifier, sellerVKey, inputHash; status is `awaiting_payment` until funds lock on-chain. `deal_id` = 20 hex chars (Masumi identifierFromPurchaser).
-- Masumi calls live in `shared/masumi.py` (owner: ziya), shapes from masumi-payment-service main 2026-10-06.
+- Masumi calls live in `backend/app/core/masumi.py` (owner: ziya), shapes from masumi-payment-service main 2026-10-06.
 
 ### voice (TTS for haggle lines) — owner: murad
-- module `voice/tts.py`, called by buyer; returns `/audio/<id>.mp3` or None (text fallback). No port (:8002 freed).
+- module `backend/app/voice/tts.py`, called by buyer; returns `/audio/<id>.mp3` or None (text fallback). No port (:8002 freed).
 
 ### dashboard — owner: mais
-- runs: `cd dashboard && npm run dev` (:5173); `VITE_BUYER_URL` overrides buyer URL
+- runs: `cd frontend && npm run dev` (:5173); `VITE_BUYER_URL` overrides buyer URL
 - consumes buyer `/events`, `/tasks`, `/approvals/{deal_id}`, `/audio/*`
