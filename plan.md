@@ -44,7 +44,7 @@ then V01/V02 (script and rehearsal). M02–M05 remain the separate live-payment 
 ## Masumi payments — node by 23:30, live escrow by 01:00
 
 - [x] **M01** Bring up the hosted Railway/Blockfrost Preprod node and pass `uv run python scripts/masumi_check.py --node-only`. Hosted health, authentication and Preprod payment-source checks passed; the earlier 401 is resolved.
-- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**. **Blocked:** Mais reports faucet success but its transaction is not found on Preprod Cardanoscan; support follow-up pending. Keep payments **SIMULATED** until funding and registration are confirmed.
+- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**. **Blocked:** the Preprod transaction has 8 confirmations and its stake address matches the Selling Wallet, but Masumi still displays a zero balance; registration remains pending. Keep payments **SIMULATED** until the node reflects funding and Viktor is registered.
 - [ ] **M03** Set local seller identifiers and pass the full `scripts/masumi_check.py`. Local `MASUMI_AGENT_ID` and a valid `SELLER_VKEY` remain missing. This checks configuration, not live escrow. Depends on **M02**.
 - [ ] **M04** Run Act 1 with `PAYMENTS_MODE=masumi` and a separate `LEDGER_PATH`; inspect the actual Preprod transaction and scheduled release. Depends on **M03**.
 - [ ] **M05** Run staged Act 3 on the real setup: crash after lock, restart only the buyer, confirm `already_paid` and exactly one purchase. Depends on **M04**.
