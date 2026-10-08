@@ -5,6 +5,7 @@ District names alone are ambiguous; require an explicit Prague district number.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -13,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 import tempfile
+import threading
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -25,6 +27,7 @@ ACTOR_ID = "swerve/sreality-scraper"
 API = "https://api.apify.com/v2"
 MAX_CHARGE_USD = 1.10  # Per-run Actor event cap; separate platform usage can still apply.
 DISTRICT = re.compile(r"\b(?:praha|prague)\s*(\d+)\b", re.IGNORECASE)
+_CACHE_LOCK = threading.RLock()  # Windows cannot replace a file while a local reader has it open.
 
 
 class ApifyError(RuntimeError):
@@ -70,38 +73,60 @@ def _url(value: object) -> tuple[str, str] | None:
         return None
 
 
-def map_items(items: object, job: JobSpec) -> list[Flat]:
+def map_items(items: object, job: JobSpec, *, report: dict | None = None) -> list[Flat]:
     """Reject unusable records; never invent addresses, prices, URLs or extra flats."""
     _validate_job(job)
     wanted = str(district_number(job))
     if not isinstance(items, list):
         raise ApifyError("Apify dataset must be a list of rental records")
+    counts = dict.fromkeys(("total", "accepted", "selected", "invalid_record", "wrong_property",
+                           "wrong_currency_or_period", "invalid_price", "invalid_title",
+                           "wrong_district", "invalid_url", "duplicate", "shortfall"), 0)
+    if report is not None:
+        report.clear()
+        report.update(counts)
+        counts = report
     flats, seen = [], set()
     for item in items:
+        counts["total"] += 1
         if not isinstance(item, dict):
+            counts["invalid_record"] += 1
             continue
-        if (item.get("dealType") != "rent" or item.get("propertyType") != "apartment"
-                or item.get("currency") != "CZK" or item.get("priceUnit") != "per month"):
+        if item.get("dealType") != "rent" or item.get("propertyType") != "apartment":
+            counts["wrong_property"] += 1
+            continue
+        if item.get("currency") != "CZK" or item.get("priceUnit") != "per month":
+            counts["wrong_currency_or_period"] += 1
             continue
         price = item.get("price")
         if (type(price) not in (int, float) or not 0 < price <= job.max_price_czk
                 or (type(price) is float and not price.is_integer())):
+            counts["invalid_price"] += 1
             continue
         title = item.get("title")
         if not isinstance(title, str) or not title.strip():
+            counts["invalid_title"] += 1
             continue
         location = " · ".join(item[k].strip() for k in ("city", "locality", "district")
                               if isinstance(item.get(k), str) and item[k].strip())
         if set(DISTRICT.findall(location)) != {wanted}:
+            counts["wrong_district"] += 1
             continue
         url = _url(item.get("url"))
-        if url is None or url[1] in seen:
+        if url is None:
+            counts["invalid_url"] += 1
+            continue
+        if url[1] in seen:
+            counts["duplicate"] += 1
             continue
         seen.add(url[1])
+        counts["accepted"] += 1
         flats.append(Flat(title=title.strip(), price_czk=int(price),
                           district=f"{job.district} — {location}", url=url[0]))
-        if len(flats) == job.count:
-            return flats
+    counts["selected"] = min(len(flats), job.count)
+    counts["shortfall"] = max(0, job.count - len(flats))
+    if len(flats) >= job.count:
+        return flats[:job.count]
     raise ApifyError(f"Only {len(flats)} valid unique Praha {wanted} rentals matched; {job.count} required")
 
 
@@ -121,7 +146,7 @@ def _run_data(response: httpx.Response) -> dict:
     return body["data"]
 
 
-async def scrape(job: JobSpec, settings: Settings) -> JobResult:
+async def scrape(job: JobSpec, settings: Settings, *, report: dict | None = None) -> JobResult:
     _validate_job(job)
     if settings.apify_actor_id != ACTOR_ID:
         raise ApifyError(f"Only {ACTOR_ID} has a supported input/output mapping")
@@ -164,7 +189,7 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                     "format": "json", "clean": "true", "limit": settings.apify_max_items,
                 })
                 response.raise_for_status()
-                flats = map_items(response.json(), job)
+                flats = map_items(response.json(), job, report=report)
                 return JobResult(flats=flats, source="apify", actor_id=ACTOR_ID,
                                  run_id=run_id, dataset_id=dataset_id,
                                  fetched_at=datetime.now(timezone.utc).isoformat())
@@ -184,7 +209,7 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                     log.warning("Apify abort unavailable; server-side run timeout remains active")
 
 
-async def recover_run(job: JobSpec, settings: Settings, run_id: str) -> JobResult:
+async def recover_run(job: JobSpec, settings: Settings, run_id: str, *, report: dict | None = None) -> JobResult:
     """Read an existing successful run; never start or modify an Actor run."""
     _validate_job(job)
     run_id = _identifier(run_id)
@@ -228,7 +253,7 @@ async def recover_run(job: JobSpec, settings: Settings, run_id: str) -> JobResul
                 })
                 response.raise_for_status()
                 # Recheck every deliverable against this job; a prior run's query is not proof.
-                flats = map_items(response.json(), job)
+                flats = map_items(response.json(), job, report=report)
                 return JobResult(flats=flats, source="apify", actor_id=ACTOR_ID,
                                  run_id=run_id, dataset_id=dataset_id,
                                  fetched_at=timestamp.isoformat())
@@ -239,10 +264,25 @@ async def recover_run(job: JobSpec, settings: Settings, run_id: str) -> JobResul
                              run_id=run_id, dataset_id=dataset_id) from None
 
 
+def cache_path(job: JobSpec, settings: Settings) -> Path:
+    """One atomic file per exact job; the original single-file cache stays readable."""
+    _validate_job(job)
+    key = hashlib.sha256(json.dumps(job.model_dump(), sort_keys=True,
+                                    separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
+    legacy = Path(settings.apify_cache_path)
+    return legacy.with_name(legacy.name + ".entries") / f"{key}.json"
+
+
 def save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
-    path = Path(settings.apify_cache_path)
+    with _CACHE_LOCK:
+        _save_cache(job, result, settings)
+
+
+def _save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
+    path = cache_path(job, settings)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"version": 1, "job": job.model_dump(), "result": result.model_dump()}
+    _validated_cache(payload, job, settings)
     temp = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
@@ -255,10 +295,9 @@ def save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
             temp.unlink()
 
 
-def load_cache(job: JobSpec, settings: Settings) -> JobResult:
-    _validate_job(job)
+def _validated_cache(payload: object, job: JobSpec, settings: Settings) -> JobResult:
+    """Validate provenance and contents independently of the caller's age policy."""
     try:
-        payload = json.loads(Path(settings.apify_cache_path).read_text(encoding="utf-8"))
         if (settings.apify_actor_id != ACTOR_ID
                 or not isinstance(payload, dict) or type(payload.get("version")) is not int
                 or payload["version"] != 1
@@ -282,18 +321,35 @@ def load_cache(job: JobSpec, settings: Settings) -> JobResult:
         map_items(rows, job)
         if len(result.flats) != job.count:
             raise ValueError("wrong cached count")
-        return result.model_copy(update={"source": "apify_cached"})
+        return result
     except (OSError, ValueError, KeyError, TypeError, ApifyError):
         raise ApifyError("No valid saved Apify rental cache matches this exact job") from None
 
 
-def _cache_free_or_same_job(job: JobSpec, settings: Settings) -> bool:
-    """One saved cache file: refresh it for the same request, but do not replace it with a different one."""
+def load_cache(job: JobSpec, settings: Settings) -> JobResult:
+    _validate_job(job)
+    maximum_age = settings.apify_cache_max_age_seconds
+    if not math.isfinite(maximum_age) or maximum_age <= 0:
+        raise ApifyError("APIFY_CACHE_MAX_AGE_SECONDS must be finite and positive")
+    path = cache_path(job, settings)
+    # A corrupt new entry must not silently fall back to an older legacy copy.
+    if not path.exists():
+        path = Path(settings.apify_cache_path)
     try:
-        saved = json.loads(Path(settings.apify_cache_path).read_text(encoding="utf-8")).get("job")
-    except (OSError, ValueError, AttributeError):
-        return True  # missing or unreadable: nothing worth protecting
-    return saved == job.model_dump()
+        with _CACHE_LOCK:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ApifyError("No valid saved Apify rental cache matches this exact job") from None
+    result = _validated_cache(payload, job, settings)
+    age = (datetime.now(timezone.utc) - datetime.fromisoformat(result.fetched_at)).total_seconds()
+    stale = age > maximum_age
+    if stale and not settings.apify_allow_stale_cache:
+        raise ApifyError("Saved Apify cache is expired; recover fresh data or explicitly enable "
+                         "APIFY_ALLOW_STALE_CACHE=1 for a labelled offline demo")
+    if stale:
+        log.warning("STALE CACHED DATA: offline override, fetched at %s", result.fetched_at)
+    return result.model_copy(update={"source": "apify_cached", "cache_stale": stale,
+                                     "cache_age_seconds": max(0, age)})
 
 
 async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
@@ -312,8 +368,7 @@ async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
         log.warning("Live rental data unavailable; using apify_cached data from %s", result.fetched_at)
         return result
     try:
-        if _cache_free_or_same_job(job, settings):
-            save_cache(job, result, settings)
+        save_cache(job, result, settings)
     except OSError:
         log.warning("Live Apify rentals delivered, but saving their offline cache failed")
     return result

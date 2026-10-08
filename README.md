@@ -122,12 +122,28 @@ See the official [authentication](https://learn.chatgpt.com/docs/auth) and
 [non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode) documentation.
 
 `CODEX_COMMAND` locates the installed CLI; leave `CODEX_MODEL` blank to use its available default.
-`CODEX_TIMEOUT_SECONDS` bounds each turn (default 30s). Codex returns structured negotiation decisions;
+`CODEX_TIMEOUT_SECONDS` bounds queueing plus execution for each turn (default 30s). Codex returns structured negotiation decisions;
 the wallet guard makes payment decisions. Runs use an isolated temporary directory, restricted tools,
 and a filtered environment. Credentials remain in Codex's own authentication store, never in `.env`.
 This is a trusted local demo integration; hosted deployments need their own supported runtime setup.
 
+Each buyer/seller service allows `CODEX_MAX_CONCURRENT=2` simultaneous CLI turns across its deals.
+`CODEX_QUEUE_TIMEOUT_SECONDS=5` bounds waiting for a slot; a cancelled waiter starts no child.
+After `CODEX_FAILURE_THRESHOLD=3` consecutive CLI failures, new turns use labelled scripted fallback
+for `CODEX_COOLDOWN_SECONDS=15`. The next turn then probes recovery; only one probe runs, and a
+successful result restores subscription turns. These are local recovery limits, not provider quota
+reset estimates. Restart the service to apply changed limits; the guard and seller floor remain authoritative.
+
 ### Data, agents and voice (I path)
+
+Run `uv run python scripts/readiness.py` from `backend/` for one local profile report:
+Codex availability/ChatGPT sign-in, exact rental-cache match and provenance, voice configuration,
+and writable audio storage. Use `--count`, `--district` and `--max-price` to check another request.
+Missing prerequisites exit nonzero. Defaults start no Actor runs, synthesize no speech and move
+no money. `--live-probe` explicitly checks only the enabled subscription agents and synthesizes
+two configured voice samples (uses credits); it never scrapes or calls payments. A pass does not
+prove live escrow, provider access without probes, or full demo/E2E acceptance. Run on the actual
+laptop/user account: a sandbox that blocks the Codex login store cannot confirm sign-in.
 
 Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider keys in `.env`.
 
@@ -137,8 +153,10 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
   The run has a 90-second default deadline and requests `maxTotalChargeUsd=1.10` through the
   [Apify run API](https://docs.apify.com/api/v2/actors-runs-post). Provider charges apply.
   Too few proven matches fails explicitly; it never pads results or broadens the brief.
-- A successful scrape saves real records and run/dataset/timestamp provenance to
-  `APIFY_CACHE_PATH` (default `backend/data/flats-apify.json`, git-ignored). `APIFY_MODE=apify` uses live data
+- A successful scrape saves real records and run/dataset/timestamp provenance in one atomic JSON file
+  per exact request under `<APIFY_CACHE_PATH>.entries/` (git-ignored). The original `APIFY_CACHE_PATH`
+  (default `backend/data/flats-apify.json`) stays readable as a legacy fallback and is not overwritten.
+  Requests with different counts, districts or rent ceilings coexist. `APIFY_MODE=apify` uses live data
   with a matching saved-cache fallback; `APIFY_MODE=cached` uses only that saved data. Cached results
   carry `source: apify_cached` and show **CACHED APIFY** in the dashboard. The local cache contains
   20 verified rentals; it is not committed. On another laptop with access to the same Apify account,
@@ -146,6 +164,11 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
   Recovery verifies the Actor, result fields and original completion time. Failure output retains
   run/dataset links so download or validation can be retried without paying for another run.
   `APIFY_MODE=sample` remains the default and is labelled **SAMPLE**. A cache must match the exact job.
+  `APIFY_CACHE_MAX_AGE_SECONDS=86400` rejects saved data older than one day. For an offline demo only,
+  `APIFY_ALLOW_STALE_CACHE=1` permits expired data while preserving its timestamp and showing
+  **STALE CACHED DATA**. Future timestamps and corrupt records are rejected even with that override.
+  Add `--report` to the scrape/recovery command for aggregate accepted/rejected/duplicate/shortfall
+  counts; all rows are inspected and each rejection is counted once at its first failing rule.
 - **Agents:** `uv run python scripts/llm_check.py --agent both` checks real subscription output from
   Max and Viktor (`--agent max` or `--agent viktor` selects one). Max also exercises the actual
   wallet guard in memory without moving money. Missing CLI/sign-in, timeout, invalid output or a
@@ -156,11 +179,19 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
   `uv run python scripts/voice_check.py --synthesize` to generate two short samples using credits.
   With `TTS_MODE=elevenlabs`, provider/timeouts/storage failures fall back to text.
   `TTS_MODEL` and `TTS_TIMEOUT_SECONDS` control the model and per-line deadline.
+  Matching text/voice/model clips are reused and concurrent identical requests share synthesis.
+  `TTS_CACHE_MAX_FILES=512` and `TTS_CACHE_MAX_BYTES=134217728` bound admission, counting legacy MP3s.
+  Published clips are retained for active playback and historical replay; at capacity, new uncached
+  speech becomes text-only while cached speech remains available. Use one buyer process per audio directory.
   Verified stock voices: Max = Brian (`nPczCjzI2devNBz1zQrb`), Viktor = Callum (`N2lVS1w4EtoT3dr4eOWO`).
 - In the dashboard, **Play voices** enables ordered playback. Duplicate SSE events do not replay
   clips, including across reused ledger IDs; missing clips or 10 seconds without playback progress
-  are skipped. Stop/Mute keeps the transcript usable. The reusable component
-  is `frontend/src/components/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
+  are skipped. Dialogue appears immediately while speech generates in the background; late audio is
+  attached to its original message and played in order. A buyer crash marks interrupted speech unavailable
+  without regenerating paid audio; the transcript and payment recovery remain available.
+  **Replay line** uses the saved clip and **Speed** selects 0.75–2× playback. Stop/Mute and switching
+  deals prevent late audio from restarting playback unexpectedly. The reusable component
+  is `frontend/src/components/VoicePlayback.jsx`; mount it once with `events`, `buyerUrl` and `dealId`.
 
 Offline validation from `backend/`: `uv run pytest`. From `frontend/`: run
 `npm test` (audio queue, event identity, event reducer, theme) and `npm run build`.
@@ -189,7 +220,9 @@ From `backend/`, run `uv run python scripts/rehearse.py`. It runs each act three
 consecutive times, then approval and decline, with subscription Max, scripted Viktor,
 cached real Apify data, ElevenLabs and **SIMULATED** payments. Configure the existing
 Codex login, voice credentials and recovered cache first; this uses live voice quota.
-Scripted model fallback or missing speech fails this strict acceptance check.
+Scripted model fallback or provider speech failure fails this strict acceptance check.
+Speech interrupted by the intentional buyer crash is reported separately as text fallback;
+it is accepted only when recovery explicitly identifies that crash, never as successful speech.
 
 For the 1920x1080 check, install frontend dependencies and Microsoft Edge, then run
 `uv run --with playwright python scripts/rehearse.py --browser`. It exercises dashboard

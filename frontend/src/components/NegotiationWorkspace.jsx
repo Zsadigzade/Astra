@@ -72,7 +72,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
       <section className="card conversation" aria-labelledby="conv-h">
         <div className="conv-head">
           <h2 id="conv-h" className="card-title">Negotiation</h2>
-          <VoicePlayback events={events} buyerUrl={BUYER} />
+          <VoicePlayback events={events} buyerUrl={BUYER} dealId={view.dealId} />
         </div>
         <div className="parties">
           <AgentIdentity who="max" view={view} />

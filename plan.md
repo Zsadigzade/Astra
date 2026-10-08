@@ -2,11 +2,13 @@
 
 **2026-10-08 → 10-09 — Prague time — Target submission 07:00 — Hard deadline 07:14**
 
-**Updated 2026-10-09 01:30.** [23 completed items are archived](memory/archive/COMPLETED.md),
+**Updated 2026-10-09 01:45 +02:00.** [23 completed items are archived](memory/archive/COMPLETED.md),
 including all **I01–I06** and **R01–R05**. This list contains **12 carried-forward tasks**
 and **15 new follow-ups**: 17 release/conditional tasks, 8 new I-path features and 2 optional improvements.
-An unchecked item still needs its stated acceptance; new tasks have not been executed.
-Use IDs to claim work in `memory/status/`; assignments remain open.
+An unchecked item still needs its stated acceptance; completed new work is recorded below and in `memory/status/`.
+**I13 and I14 are complete; 25 items remain open.** I07–I12 are in progress with the
+data/voice owner in [Ziya's status](memory/status/ziya.md). Consult `memory/status/`
+before claiming work or editing shared files.
 
 **Next:** agree the recording profile (P01), confirm laptop/operator readiness (D01/P02),
 then capture and time the demo (V02). Continue M02–M05/D05 separately if live payments
@@ -18,6 +20,8 @@ the [video package](video/README.md) contains the script, draft captions and cap
 cached real Apify, ElevenLabs and **SIMULATED** payments. Subscription Viktor also passed
 live Act 1; using it for recording needs O01. Model access stays subscription-only via
 local ChatGPT-authenticated Codex CLI, with labelled scripted fallback; no API token is expected.
+That rehearsal predates the new I-path changes. The latest tested working-tree snapshot
+passed **523 backend tests**; it is not a new live-profile rehearsal or final-release audit.
 
 ## Remaining gates
 
@@ -71,8 +75,9 @@ with unfinished payments or restart the seller mid-deal. Live release is schedul
 
 ## New data features — I07–I09
 
-These proposed features extend the completed I work; all remain unassigned. For the next
-development pass, start with **I14 → I07 → I10**. Release/video gates above still take priority;
+These features extend the completed I work. **I13/I14 are complete**; **I07–I12 are in progress**
+with the data/voice owner, and remain unchecked until their stated acceptance is recorded.
+Release/video gates above still take priority;
 any feature selected before the freeze needs its acceptance checks and an affected-profile
 rehearsal. Coordinate proposed shared payload/UI changes before implementation and document
 the agreed contract in `memory/INTERFACES.md`. This checklist does not change contracts itself.
@@ -89,8 +94,8 @@ the agreed contract in `memory/INTERFACES.md`. This checklist does not change co
 
 ## New subscription-agent and readiness features — I13–I14
 
-- [ ] **I13 · NEW — Bound concurrent model work and repeated failures.** Add per-service limits for simultaneous Codex subprocesses, a bounded queue wait, and a short recovery cooldown after repeated CLI failures. Acceptance: concurrent deals respect the configured limit, queued cancellation creates no orphan process, an unavailable subscription produces prompt labelled scripted fallback, and a later successful probe restores live turns. Never infer an exact quota reset from an opaque error or add API-token access; code-only guard/floor checks remain authoritative.
-- [ ] **I14 · NEW — One data/agent/voice readiness command.** Combine the existing local checks into a concise profile report covering Codex availability/sign-in status, the exact rental-cache match/provenance, voice configuration and writable audio storage. Default checks must start no Actor runs, synthesize no speech and move no money; an explicit live-probe option may reuse the existing bounded agent/voice checks. Acceptance: missing prerequisites have actionable results and a failing exit code, cached/sample/live capability is distinguished, and no credential values appear. A passing report must not claim live escrow or full E2E acceptance.
+- [x] **I13 · NEW — Bound concurrent model work and repeated failures.** Implemented service-wide CLI concurrency limits, bounded queue waiting within the existing turn deadline, and a local repeated-failure cooldown with one recovery probe. Queue/cooldown rejection produces labelled scripted fallback; queued cancellation starts no child, running cancellation retains its slot through cleanup, and successful recovery restores subscription turns. Defaults: 2 turns, 5s queue, 3 failures, 15s cooldown; no quota-reset inference or API-token access. Guard/floor checks remain authoritative. Acceptance: 145 focused checks and 523 full backend tests passed, including real local child concurrency and repeated-cancellation cleanup. Evidence: [I13 runtime status](memory/status/i13-runtime.md). Live-profile rehearsal remains separate.
+- [x] **I14 · NEW — One data/agent/voice readiness command.** Implemented in `backend/scripts/readiness.py`; run `uv run python scripts/readiness.py` from `backend/`. Reports Codex availability/ChatGPT sign-in, exact rental-cache match/provenance (including stale override), voice configuration and writable audio storage. Default checks start no Actor runs, synthesize no speech and move no money; `--live-probe` opts into enabled subscription/voice checks. Missing prerequisites fail actionably; cached/sample/live capability and untested scope are explicit; credential values stay out of output. Acceptance: 62 focused readiness/agent/runtime tests passed, plus the actual local profile check; no live probes run. Evidence: [readiness status](memory/status/readiness.md). A passing report does not claim live escrow or full E2E acceptance.
 
 ## Optional improvements to existing I work — after submission
 

@@ -22,6 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.core.config import PROJECT_ROOT, Settings  # noqa: E402
+from app.core.models import JobSpec  # noqa: E402
+from app.seller.apify import ApifyError, load_cache  # noqa: E402
 
 OK, WARN, FAIL, INFO = "READY", "SIMULATED", "MISSING", "INFO"
 rows: list[tuple[str, str, str, str]] = []  # area, status, what, next action
@@ -102,14 +104,16 @@ def main() -> int:
         add("Viktor (LLM)", WARN, "SELLER_LLM_MODE=mock: Viktor is scripted", "set SELLER_LLM_MODE=codex to let Viktor negotiate with the same Codex login")
 
     # --- data
-    cache = Path(s.apify_cache_path)
     cache_ok = False
-    if cache.exists():
-        try:
-            data = json.loads(cache.read_text(encoding="utf-8"))
-            cache_ok = bool(data)
-        except (OSError, ValueError):
-            cache_ok = False
+    cache_stale = False
+    try:
+        cached = load_cache(JobSpec(), s)
+        cache_ok, cache_stale = True, cached.cache_stale
+    except (ApifyError, OSError, ValueError):
+        pass
+    if cache_stale:
+        add("Cache age", WARN, "STALE CACHED DATA: explicit offline-demo override; original timestamp retained",
+            "recover a newer successful run before using current rental data")
     if s.apify_mode == "apify":
         have = bool(s.apify_token)
         add("Flats (Apify)", OK if have else FAIL, "APIFY_MODE=apify, token " + ("set" if have else "missing") +

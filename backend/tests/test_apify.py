@@ -155,7 +155,7 @@ async def test_cache_validation_and_failed_scrape_preserve_prior_cache(monkeypat
     job = JobSpec(count=1)
     await run_job(job, DemoMode.honest, settings)
     from pathlib import Path
-    path = Path(settings.apify_cache_path)
+    path = apify.cache_path(job, settings)
     saved = path.read_text(encoding="utf-8")
     # A failed run must not overwrite the only good offline fallback.
     await run_job(job, DemoMode.honest, replace(settings, apify_token=""))
@@ -185,7 +185,7 @@ async def test_cache_rejects_untrusted_provenance_and_data(monkeypatch, settings
     success(monkeypatch, [row(), row(2)])
     job = JobSpec(count=2)
     await run_job(job, DemoMode.honest, settings)
-    path = Path(settings.apify_cache_path)
+    path = apify.cache_path(job, settings)
     payload = json.loads(path.read_text(encoding="utf-8"))
     result = payload["result"]
     if mutation == "sample":
@@ -266,8 +266,9 @@ async def test_recovery_reads_existing_run_and_preserves_original_age(monkeypatc
     assert len(calls) == 3
     assert calls[-1].url.params["limit"] == "200"
     apify.save_cache(job, result, settings)
-    cached = apify.load_cache(job, settings)
+    cached = apify.load_cache(job, replace(settings, apify_allow_stale_cache=True))
     assert cached.source == "apify_cached" and cached.fetched_at == result.fetched_at
+    assert cached.cache_stale is True
 
 
 @pytest.mark.anyio
@@ -342,7 +343,7 @@ async def test_cache_rejects_coerced_fields_and_unsupported_actor(monkeypatch, s
     success(monkeypatch, [row()])
     job = JobSpec(count=1)
     await run_job(job, DemoMode.honest, settings)
-    path = Path(settings.apify_cache_path)
+    path = apify.cache_path(job, settings)
     payload = json.loads(path.read_text(encoding="utf-8"))
     if mutation.endswith("price"):
         payload["result"]["flats"][0]["price_czk"] = {
@@ -405,7 +406,7 @@ async def test_failed_atomic_replace_preserves_cache_and_cleans_temporary_file(m
     success(monkeypatch, [row()])
     job = JobSpec(count=1)
     result = await run_job(job, DemoMode.honest, settings)
-    path = Path(settings.apify_cache_path)
+    path = apify.cache_path(job, settings)
     original = path.read_bytes()
 
     def fail_replace(*args):

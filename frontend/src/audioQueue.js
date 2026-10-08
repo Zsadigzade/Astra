@@ -1,4 +1,5 @@
 import { eventKey } from "./eventIdentity.js";
+import { audioLines } from "./audioEvents.js";
 
 // One audio element at a time. Inject createAudio for tests without a browser.
 export class AudioQueue {
@@ -20,26 +21,37 @@ export class AudioQueue {
     this.blocked = false;
     this.destroyed = false;
     this.skipped = 0;
+    this.lines = new Map();
+    this.speed = 1;
   }
 
   snapshot() {
     return { playing: Boolean(this.current), queued: this.pending.length,
-      enabled: this.enabled, muted: this.muted, blocked: this.blocked, skipped: this.skipped };
+      enabled: this.enabled, muted: this.muted, blocked: this.blocked, skipped: this.skipped,
+      speed: this.speed, replayable: [...this.lines.values()].filter((line) => line.status === "ready") };
   }
 
   notify() { if (!this.destroyed) this.onChange(this.snapshot()); }
 
   ingest(events) {
     if (this.destroyed) return;
-    for (const event of [...events].sort((a, b) => a.id - b.id)) {
-      if (event.type !== "negotiation" || !event.data?.audio_url) continue;
+    for (const event of audioLines(events).sort((a, b) => a.id - b.id)) {
       // Timestamp/deal distinguish IDs reused after a demo database reset.
       const key = eventKey(event);
+      const existing = this.lines.get(key);
+      if (existing) {
+        if (existing.status === "pending" && event.data.audio_status !== "pending") {
+          existing.status = event.data.audio_status;
+          existing.url = event.data.audio_url ? this.buyerUrl + event.data.audio_url : null;
+        }
+        continue;
+      }
       if (this.seen.has(key)) continue;
       this.seen.add(key);
-      // Audio URLs come from the buyer; do not fetch arbitrary event URLs.
-      if (!/^\/audio\/[a-zA-Z0-9_-]+\.mp3$/.test(event.data.audio_url)) continue;
-      if (!this.muted) this.pending.push({ key, url: this.buyerUrl + event.data.audio_url });
+      const item = { key, url: event.data.audio_url ? this.buyerUrl + event.data.audio_url : null,
+        status: event.data.audio_status, text: event.data.text ?? "Voice line", speaker: event.data.speaker ?? "Agent" };
+      this.lines.set(key, item);
+      if (!this.muted && item.status !== "unavailable") this.pending.push(item);
     }
     this.pump();
     this.notify();
@@ -82,13 +94,35 @@ export class AudioQueue {
     this.notify();
   }
 
+  setSpeed(speed) {
+    if (![0.75, 1, 1.25, 1.5, 2].includes(speed) || this.destroyed) return;
+    this.speed = speed;
+    if (this.current) this.current.audio.playbackRate = speed;
+    this.notify();
+  }
+
+  replay(key) {
+    const line = this.lines.get(key);
+    if (this.destroyed || this.muted || line?.status !== "ready") return;
+    // Explicit replay replaces playback, without synthesis or parallel players.
+    this.stop();
+    this.pending = [line];
+    this.play();
+  }
+
   pump() {
     if (this.destroyed || !this.enabled || this.muted || this.current || !this.pending.length) return;
+    while (this.pending[0]?.status === "unavailable") {
+      this.pending.shift();
+      this.skipped += 1;
+    }
+    if (!this.pending.length || this.pending[0].status === "pending") return;
     const item = this.pending.shift();
     let active;
     try {
       active = { item, audio: this.createAudio(item.url), lastTime: 0, generation: 0 };
       this.current = active;
+      active.audio.playbackRate = this.speed;
       active.audio.onended = () => this.finish(active);
       active.audio.onerror = () => this.fail(active);
       active.audio.ontimeupdate = () => this.progress(active);
@@ -150,5 +184,6 @@ export class AudioQueue {
     this.pending = [];
     this.release();
     this.seen.clear();
+    this.lines.clear();
   }
 }

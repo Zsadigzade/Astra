@@ -37,6 +37,11 @@ export default function DealDetails({ view }) {
       {delivery && (
         <div className="block">
           <div className="block-head"><strong>Delivery</strong>{src && <StatusBadge tone={src.tone} icon={null} title={src.hint}>{src.label}</StatusBadge>}</div>
+          {delivery.result?.cache_stale === true && <p className="note note-warning" role="status">
+            <strong>STALE CACHED DATA</strong> — offline demo override.
+            {Number.isFinite(delivery.result.cache_age_seconds) && delivery.result.cache_age_seconds >= 0
+              && ` Cache age: ${Math.floor(delivery.result.cache_age_seconds / 3600)} hours.`}
+          </p>}
           <p>{delivery.items} listings received{delivery.result?.fetched_at ? ` · fetched ${delivery.result.fetched_at}` : ""}</p>
         </div>
       )}

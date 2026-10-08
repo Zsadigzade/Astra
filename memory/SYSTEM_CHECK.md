@@ -1,5 +1,23 @@
 # Integrated system check — 2026-10-08/09
 
+## I13 concurrency and recovery — recorded 2026-10-09 01:45 +02:00
+
+- **145 focused tests passed in 3.67s** across subscription runtime/capacity, Max/Viktor, guard and I14 readiness. **523 full backend tests passed in 51.99s** on the shared working-tree snapshot; `git diff --check` passed.
+- Concurrent deals share the configured service limit. Six actual local Python child processes never exceeded two simultaneous children. Queue expiry/cancellation starts no child; repeated cancellation retains capacity until owned child cleanup completes.
+- Repeated CLI failures produce prompt labelled scripted fallback. Cooldown permits one later recovery probe; success restores turns, failure restarts the local cooldown. Late pre-cooldown completions cannot clear it. Caller cancellation and queue rejection do not count as provider failure.
+- Queue waiting consumes the existing total turn deadline. Defaults: `CODEX_MAX_CONCURRENT=2`, `CODEX_QUEUE_TIMEOUT_SECONDS=5`, `CODEX_FAILURE_THRESHOLD=3`, `CODEX_COOLDOWN_SECONDS=15`. No API-token access or provider quota-reset prediction; guard/floor enforcement is unchanged.
+- Reproduce from `backend/`: `.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp=data/i13-full-tests-next`. Focused file list and implementation details: [runtime status](status/i13-runtime.md).
+- I13 validation used local/fake providers, with no live inference, synthesis, Actor runs, payments, service restarts or ledger resets. The full-suite result includes concurrent changes present at collection; it does not sign off later edits, I07–I12's full acceptance, a final revision or a live-profile rehearsal. This memory update ran no new application tests.
+
+## I14 local profile readiness — 2026-10-09 01:41 +02:00
+
+- Added `backend/scripts/readiness.py`; run from `backend/` with `uv run python scripts/readiness.py`. Defaults inspect local configuration, Codex login status, cache contents and audio storage. They start no Actor runs, synthesize no speech and move no money.
+- Completion check: `.\.venv\Scripts\python.exe -m pytest tests/test_readiness.py tests/test_llm_check.py tests/test_codex_runtime.py -q` — **62 passed** (30 readiness tests). Covers default-path provider isolation, actionable failures, output redaction, exact cache match/provenance, freshness/override, voice/storage settings, opt-in probe routing, bounded login output, timeout and cancellation cleanup.
+- Actual local command: **exit 0** with subscription Max / scripted Viktor / CACHED APIFY / configured ElevenLabs. Twenty rentals matched; original cache timestamp `2026-10-08T21:05:09.035000+00:00`, run `ZNboU2b0EHUJgFaEQ`, dataset `mQFAkf7uENEXNnjN6`. Audio temporary write/read/remove succeeded.
+- Sandbox could not confirm the existing Codex sign-in; approved execution outside the sandbox confirmed ChatGPT login. The checker never reads authentication files directly or prints credentials/child output.
+- `--live-probe` opts into enabled subscription-agent and voice checks (voice credits). Probe routing was tested with fakes; no live probes, paid scrapes, speech synthesis, payment calls, service restarts or ledger resets were performed by this session.
+- This is focused working-tree evidence, not full-suite/final-revision acceptance. Later I07–I13 changes need their owners' checks and any affected-profile rehearsal. Quota/model availability, voice access/synthesis, live escrow and full E2E remain unverified by the default command. Details: [readiness status](status/readiness.md).
+
 ## R02/R05 completion — 2026-10-09 00:51 +02:00
 
 Final profile: `LLM_MODE=codex`, `SELLER_LLM_MODE=mock`, `APIFY_MODE=cached`,

@@ -33,6 +33,8 @@ log = logging.getLogger("astra.buyer")
 APPROVAL_TIMEOUT = 300  # seconds the dashboard has to approve
 JOB_TIMEOUT = 45 * 60  # seconds to wait for delivery
 SETTLED = ("released", "refunded", "blocked", "walked")
+MAX_AUDIO_TASKS = 64
+AUDIO_CONCURRENCY = 2
 
 
 class Orchestrator:
@@ -57,6 +59,9 @@ class Orchestrator:
         self.controls = controls
         self.approvals: dict[str, asyncio.Future[bool]] = {}
         self.tasks: set[asyncio.Task] = set()
+        self.audio_tasks: set[asyncio.Task] = set()
+        self._audio_slots = asyncio.Semaphore(AUDIO_CONCURRENCY)
+        self._closing = False
 
     # ---------- entry points ----------
 
@@ -82,13 +87,22 @@ class Orchestrator:
     async def shutdown(self) -> None:
         # Cancel owned work before closing HTTP resources. Payment intent and approval
         # state remain in SQLite for the next startup; cancellation is not a deal failure.
+        self._closing = True
         pending = tuple(self.tasks)
         for task in pending:
             task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
+        audio = tuple(self.audio_tasks)
+        for task in audio:
+            task.cancel()
+        await asyncio.gather(*audio, return_exceptions=True)
+        self._close_pending_audio("buyer_stopped")
 
     async def resume_unfinished(self) -> None:
         """Act 3: after a crash, finish open deals. guard.pay sees them paid and does not pay twice."""
+        # Speech has no durable provider job. Do not regenerate historical lines
+        # (or leave a reconnecting playback queue waiting forever after a crash).
+        self._close_pending_audio("buyer_restarted")
         for deal in self.ledger.unfinished():
             try:
                 task = TaskCreate.model_validate_json(deal["task_json"])
@@ -318,9 +332,49 @@ class Orchestrator:
         return None
 
     async def _say(self, task_id, deal_id, speaker, text, price, action, staged, **provenance) -> None:
-        audio = await self.tts.speak(text, speaker)
-        self.bus.emit("negotiation", task_id, deal_id, staged, speaker=speaker, text=text, price=price,
-                      action=action, audio_url=audio, **provenance)
+        pending = (not self._closing and self.s.tts_mode != "off"
+                   and len(self.audio_tasks) < MAX_AUDIO_TASKS)
+        event = self.bus.emit("negotiation", task_id, deal_id, staged, speaker=speaker,
+                              text=text, price=price, action=action, audio_url=None,
+                              audio_status="pending" if pending else "unavailable", **provenance)
+        if pending:
+            task = asyncio.create_task(self._publish_audio(event, text, speaker))
+            self.audio_tasks.add(task)
+            task.add_done_callback(self.audio_tasks.discard)
+
+    def _audio_result(self, event, url=None, reason="synthesis_unavailable") -> None:
+        self.bus.emit("audio_ready", event.task_id, event.deal_id, event.staged,
+                      message_id=event.id, message_ts=event.ts,
+                      audio_status="ready" if url else "unavailable", audio_url=url,
+                      **({"reason": reason} if not url else {}))
+
+    async def _publish_audio(self, event, text, speaker) -> None:
+        audio = None
+        reason = "synthesis_unavailable"
+        try:
+            # Bound queue wait as well as synthesis; text/payment work never waits
+            # for speech and a burst cannot create unlimited provider requests.
+            timeout = float(getattr(self.s, "tts_timeout_seconds", 12))
+            if not math.isfinite(timeout) or timeout <= 0:
+                timeout = 12
+            async with asyncio.timeout(timeout * 2):
+                async with self._audio_slots:
+                    audio = await self.tts.speak(text, speaker)
+        except asyncio.CancelledError:
+            reason = "buyer_stopped"
+            raise
+        except Exception as exc:
+            log.warning("Speech unavailable (%s)", type(exc).__name__)
+        finally:
+            self._audio_result(event, audio, reason)
+
+    def _close_pending_audio(self, reason) -> None:
+        resolved = {(e.deal_id, e.data.get("message_id"), e.data.get("message_ts"))
+                    for e in self.bus.history if e.type == "audio_ready"}
+        for event in tuple(self.bus.history):
+            if (event.type == "negotiation" and event.data.get("audio_status") == "pending"
+                    and (event.deal_id, event.id, event.ts) not in resolved):
+                self._audio_result(event, reason=reason)
 
     async def _emit_balances(self, task_id, deal_id) -> None:
         try:

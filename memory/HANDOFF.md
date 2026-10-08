@@ -1,6 +1,20 @@
 # Handoff — integrated main
 
-updated: 2026-10-09 01:30 · active plan and completed archive reconciled
+updated: 2026-10-09 01:45 +02:00 · I13/I14 completion, validation scope and parallel ownership reconciled
+
+## I13 subscription runtime handoff — local working tree
+
+- I13 is complete: each buyer/seller service limits concurrent Codex turns across deals (default 2), bounds queue waiting (5s within the existing 30s turn deadline), and applies a local cooldown after repeated CLI failures (3 failures, 15s). One subsequent turn probes recovery; success restores subscription turns. Queue/cooldown fallback remains visibly scripted; guard and seller floor remain authoritative.
+- Cancelled waiters start no subprocess. Running cancellation holds its slot until child-tree cleanup finishes; late results from before cooldown cannot incorrectly restore availability. These limits do not predict provider quota resets and add no API-token access.
+- Validation: **145 focused tests passed**, then **523 full backend tests passed in 51.99s** on the shared working-tree snapshot. Coverage includes six real local Python child processes capped at two, repeated cancellation, both agents' fallback labels and recovery probes. No live inference, synthesis, scraping, payments or service restarts were used for I13 acceptance.
+- Settings and reproduction commands: [runtime status](status/i13-runtime.md), [interfaces](INTERFACES.md), [system check](SYSTEM_CHECK.md). I07–I12 remain with the parallel data/voice owner. The prior R02/R05 profile still needs affected-change rehearsal before recording; these tests do not complete release/video/live-payment gates.
+
+## I14 readiness handoff — local working tree
+
+- I14 is complete: from `backend/`, run `uv run python scripts/readiness.py`. It reports selected agent modes, Codex/ChatGPT sign-in, exact rental-cache match/provenance and stale override, voice configuration, and writable audio storage. Missing prerequisites exit nonzero with actions to take.
+- Defaults start no Actor runs, synthesize no speech and move no money. `--live-probe` explicitly invokes existing bounded checks for enabled subscription agents and configured voices (voice credits); no live probes were run in this session. A pass is not live escrow or full E2E acceptance.
+- Verification at completion: **62 focused tests passed**, including 30 readiness tests. The actual local profile check exited 0 for subscription Max, scripted Viktor, 20 cached real rentals and configured ElevenLabs. Provider access/quota and synthesis remain untested by the default command. Evidence and reproduction: [readiness status](status/readiness.md), [system check](SYSTEM_CHECK.md).
+- These results describe the working-tree snapshot tested by this session, not a final-revision audit or a re-rehearsal of subsequent parallel changes. I07–I12 belong to the owner in [ziya status](status/ziya.md); I13 belongs to [runtime status](status/i13-runtime.md). Preserve their edits and consult their latest acceptance reports.
 
 ## Go-live preflight (added 2026-10-09, samir/claude; uncommitted)
 - New: `npm run setup`, `npm run doctor`, `npm run doctor:live` (`backend/scripts/doctor.py`): per-integration readiness, no secrets printed.
@@ -51,7 +65,7 @@ updated: 2026-10-09 01:30 · active plan and completed archive reconciled
 - Masumi adapter supports Dynamic pricing, idempotent purchase and scheduled release; checker accepts paymentSourceType/paymentType. Automated adapter checks use the fake node.
 
 ## Team and release gates
-- [plan.md](../plan.md): 23 completed items moved to [the archive](archive/COMPLETED.md); 12 unfinished items retained and 15 follow-ups listed, including eight proposed I-path features (I07–I14) with acceptance criteria; these features are not implemented. [Video package](../video/README.md) contains a 1:55 script, evidence storyboard, draft captions and capture/export handoff. Full reachable-history scan and public repository check pass with reviewed run-ID false positives; rerun at final revision. Remaining: every-laptop startup, timed video rehearsal, live-chain gates, recording/edit/export and submission. I01–I06 are complete; optional subscription Viktor is verified but needs its own R02 rehearsal if selected for recording.
+- [plan.md](../plan.md): 23 completed items moved to [the archive](archive/COMPLETED.md); the 27-item follow-up checklist now has I13/I14 complete and 25 open items. I07–I12 remain in progress with the data/voice owner; status files carry acceptance evidence. [Video package](../video/README.md) contains a 1:55 script, evidence storyboard, draft captions and capture/export handoff. Full reachable-history scan and public repository check passed for the earlier baseline; rerun at final revision. Remaining: every-laptop startup, affected-profile/timed video rehearsal, live-chain gates, recording/edit/export and submission. I01–I06 are complete; optional subscription Viktor is verified but needs its own R02 rehearsal if selected for recording.
 - Hosted node: Railway mellow-energy, masumi-payment-service + masumi-psql-database; base https://masumi-payment-service-production-96e0.up.railway.app/api/v1. Upstream Dockerfile fix is in Zsadigzade/masumi-payment-service ce8cfdb5 (see TRAPS).
 - No live escrow proof by 01:00 means SIMULATED video; feature freeze 04:00, video/repo 06:30, target submission 07:00, deadline 07:14 Prague time.
 - Act 4 refund remains SIMULATED. Real release is scheduled, not immediate. Seller jobs are in memory: never restart seller mid-deal.

@@ -1,9 +1,9 @@
 # ziya — status
-updated: 2026-10-09 01:30
-doing: added eight proposed I-path features (I07–I14) with acceptance criteria and dependencies; implementation not started
-touching: plan.md, memory/HANDOFF.md, memory/DECISIONS.md and own status
+updated: 2026-10-09 01:35
+doing: claiming I07–I12 data/voice implementation; terminal sessions own I13 and I14; ETA 40 minutes
+touching: seller/apify.py, scrape_flats.py, voice/tts.py, buyer audio publication, frontend audio queue/component and related tests; scoped docs
 blocked on: nothing for I path; live Masumi remains outside this task
-next: release gates first; next development priorities I14 readiness, I07 cache freshness and I10 speech reuse
+next: I14 note: save_cache writes apify.cache_path(job, settings), legacy APIFY_CACHE_PATH remains read-only fallback; load_cache API stays compatible
 done today:
 - I completion: isolated commit passes 390 backend tests on Python 3.11/3.13 (392 with pending R tests); 33 frontend tests/build and Edge provenance checks pass.
 - Live two-agent Act 1: 3 Max + 4 Viktor Codex turns, 20 genuine cached flats, 7 voice clips, no fallback; SIMULATED release in 42.2s.
