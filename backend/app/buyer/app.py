@@ -65,6 +65,7 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     @app.get("/health")
     async def health():
         return {"ok": True, "payments_mode": s.payments_mode, "simulated": s.simulated, "llm_mode": s.llm_mode,
+                "seller_llm_mode": s.seller_llm_mode,
                 "tts_mode": s.tts_mode, "guard": {"cap": guard.cap, "approval_over": guard.approval_over}}
 
     @app.post("/tasks", response_model=TaskCreated)

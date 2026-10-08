@@ -1,8 +1,9 @@
 # Handoff — integrated main
 
-updated: 2026-10-09 00:30 · ziya · audit closed after user returned; checklist reconciled
+updated: 2026-10-09 00:42 · ziya · I01–I06 complete; subscription Viktor verified
 
 ## Current verification
+- I04: optional SELLER_LLM_MODE=codex uses the existing isolated CLI for Viktor, with floor/offer checks, retry/cancellation protection and honest fallback labels. Live Act 1: three Max + four Viktor Codex turns, 20 real cached flats, seven speech clips, no fallback, SIMULATED release in 42.2s. Default seller stays mock for the current rehearsal profile.
 - Latest main through Murad's 3b10519: 364 backend tests pass on Python 3.13 and fresh Python 3.11; 32 frontend tests, production build and 11 fresh Edge scenarios pass with zero page errors. Full evidence: [SYSTEM_CHECK.md](SYSTEM_CHECK.md).
 - Timed audit stopped when the user returned: 20m55s, 21 cycles, 135 terminal outcomes, five concurrent batches, one actual funded crash/recovery and two approval/restarts; no failures, duplicate payments or pending tasks/approvals/subscribers. Final SIMULATED balances 51/49/0. The planned 50 minutes were not completed.
 - Terminal replay now follows the latest deal and suppresses stale approvals; 10 real-HTTP CLI scenarios pass. Tests default to an in-memory ledger.
@@ -23,7 +24,7 @@ updated: 2026-10-09 00:30 · ziya · audit closed after user returned; checklist
 - The Haggle: buyer Max (:8000, backend/app/buyer) negotiates with seller Viktor (:8001, backend/app/seller), wallet guard locks escrow, verifier checks delivery, then release/refund. Dashboard consumes SSE /events.
 - Backend commands run from backend/: uv run python scripts/up.py [--reset] [--crash]; terminal scripts/act.py honest|con|junk. Murad's launcher update makes root npm start run backend and dashboard; npm run web/api select one side. Fresh checkout installed dependencies, started all three services and completed a credential-free SIMULATED deal.
 - All four acts work in SIMULATED mode. Guard cap 10, budget 20, approval above 8; staged con at 25 is blocked. Restart never pays an already-funded deal twice.
-- Permanent subscription-only access: LLM_MODE=codex uses local ChatGPT-authenticated Codex CLI with labelled scripted fallback. No OpenAI API token or SDK. Viktor and STAGED Act 2 Max remain scripted.
+- Permanent subscription-only access: LLM_MODE=codex and optional SELLER_LLM_MODE=codex use local ChatGPT-authenticated CLI for Max/Viktor, with labelled fallback. No API token or SDK. Both STAGED Act 2 agents and seller accept/walk acknowledgements remain scripted.
 - Genuine data: swerve/sreality-scraper; Praha 7/monthly-CZK validation, provenance and matching apify_cached fallback. GET-only scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ restores the 20-listing cache without another paid run.
 - Voice: ElevenLabs Brian/Callum; bounded text fallback; one ordered Play/Stop/Mute queue, reset-safe identities and 10s stalled-clip watchdog.
 - Dashboard: light/dark theme, event-derived state, runtime controls. Cap adjustable within configured GUARD_CAP; pause rejects new tasks with HTTP 423, in-flight deals finish. Round budget captured per negotiation.
@@ -32,7 +33,7 @@ updated: 2026-10-09 00:30 · ziya · audit closed after user returned; checklist
 - Masumi adapter supports Dynamic pricing, idempotent purchase and scheduled release; checker accepts paymentSourceType/paymentType. Automated adapter checks use the fake node.
 
 ## Team and release gates
-- [plan.md](../plan.md): 18/35 items complete. Remaining: every-laptop startup, three full-profile rehearsals, 1080p recording acceptance, live-chain gates, video and submission. I04 (live Viktor) remains optional; current scripted Viktor works.
+- [plan.md](../plan.md): 19/35 items complete. Remaining: every-laptop startup, three full-profile rehearsals, 1080p recording acceptance, live-chain gates, video and submission. I01–I06 are complete; optional subscription Viktor is verified.
 - Hosted node: Railway mellow-energy, masumi-payment-service + masumi-psql-database; base https://masumi-payment-service-production-96e0.up.railway.app/api/v1. Upstream Dockerfile fix is in Zsadigzade/masumi-payment-service ce8cfdb5 (see TRAPS).
 - No live escrow proof by 01:00 means SIMULATED video; feature freeze 04:00, video/repo 06:30, target submission 07:00, deadline 07:14 Prague time.
 - Act 4 refund remains SIMULATED. Real release is scheduled, not immediate. Seller jobs are in memory: never restart seller mid-deal.

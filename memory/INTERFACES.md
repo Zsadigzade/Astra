@@ -10,6 +10,11 @@ I-path integration notice: JobResult.source adds `apify_cached`; optional `fetch
 `dataset_id`, `run_id` describe real data provenance. Dashboard should distinguish sample/live/cached.
 Negotiation event data may additionally carry `backend` and `fallback_reason` for Max's actual mode.
 Existing required fields and event names stay unchanged. Audio queue is isolated in components/VoicePlayback.jsx.
+I04 integration notice (00:38): optional `SELLER_LLM_MODE=codex` enables subscription Viktor;
+default remains `mock`, preserving the current rehearsal profile. Seller negotiation responses
+add optional `backend` (default `mock`) and `fallback_reason`; buyer forwards both into SSE.
+`/controls` adds `modes.seller_llm`; dashboard counts both speakers' actual model provenance.
+STAGED con stays scripted for both agents. No shared .env mode change is needed for acceptance.
 Rental `price_czk` is a JSON integer: booleans, strings and floating-point values are rejected
 at the seller-response boundary. Verification rejects URL control characters and invalid ports;
 malformed typed responses retain funded escrow for recovery instead of authorizing release.
@@ -25,9 +30,9 @@ subscription-generated Max lines; `mock` still marks scripted lines/fallback. Ac
 | `APIFY_TOKEN` | seller agents | Apify API token |
 | `ELEVENLABS_API_KEY` | seller agents | ElevenLabs key |
 | `BAD_MODE` | seller agents | superseded by task `demo_mode: junk` (2026-10-08 21:40) |
-| `LLM_MODE` | buyer | `mock` (scripted, default) or `codex` (Max via local ChatGPT subscription; Viktor stays scripted); other modes rejected |
-| `CODEX_COMMAND`, `CODEX_MODEL` | buyer | installed Codex CLI path/name; optional model (blank uses CLI default); authenticate with `codex login` |
-| `CODEX_TIMEOUT_SECONDS` | buyer | default 30s per local CLI turn; failure produces labelled scripted fallback; no API keys |
+| `LLM_MODE` / `SELLER_LLM_MODE` | buyer / seller | independently `mock` (scripted, default) or `codex` (local ChatGPT subscription); other modes rejected. Act 2 forces scripted Max and Viktor. |
+| `CODEX_COMMAND`, `CODEX_MODEL` | buyer / seller | installed Codex CLI path/name; optional model (blank uses CLI default); authenticate with `codex login` |
+| `CODEX_TIMEOUT_SECONDS` | buyer / seller | default 30s per local CLI turn; failure produces labelled scripted fallback; buyer allows seller deadline plus cleanup before giving up HTTP; no API keys |
 | `MAX_ROUNDS` / `POLL_SECONDS` | buyer | negotiation round limit (6; dashboard can lower it at runtime) / seller job status polling interval (1s) |
 | `JOB_SECONDS` / `SELLER_OPENING_ASK` / `AUDIO_DIR` | seller / seller / buyer | simulated work time (2s) / Viktor's opening price (18) / generated voice clip directory |
 | `CORS_ORIGINS` | buyer | extra browser origins (comma-separated) allowed to call the buyer; any `localhost` / `127.0.0.1` port is always allowed; never `*` |
@@ -64,7 +69,7 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
   approved, blocked{reason}, escrow_locked{ref, price}, already_paid, delivered{items, source, result}, verified{ok, checks},
   released, refunded{failed}, walked_away{reason}, balances{buyer, seller, escrow}, controls_updated{changed fields}, error{message}
 - `POST /approvals/{deal_id}` body {approve: bool}; 404 if nothing pending
-- `GET /controls` -> {paused, guard:{cap, approval_over, cap_ceiling}, max_rounds, max_rounds_ceiling, modes:{payments, simulated, llm, tts, model}}.
+- `GET /controls` -> {paused, guard:{cap, approval_over, cap_ceiling}, max_rounds, max_rounds_ceiling, modes:{payments, simulated, llm, seller_llm, tts, model}}.
   `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. Cap may be adjusted within the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
   Round limits are captured when negotiation starts and used by both the loop and Codex prompt. `modes.model` is the configured Codex model or `Codex default`, or `scripted` in mock mode.
 - Task budgets must be positive and finite. Guard checks reject nonfinite money or limits independently. Lost payment replies preserve `paying` intent for idempotent recovery; shutdown cancels owned tasks while retaining persisted approval/payment state.
@@ -77,12 +82,13 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 - `up.py` checks occupied service ports before reset/launch and child liveness during readiness. Only configured staged crash mode permits one buyer restart, explicitly setting `CRASH_AFTER_LOCK=0`; failed recovery exits nonzero. Cleanup applies only to children this runner launched.
 - `masumi_check.py --node-only` checks node health/auth/Preprod source before registration; default also checks local seller settings. Exit 1 on incomplete checks; exit 0 does not verify registration, Dynamic pricing, balances or live escrow. Accepts local or hosted API URLs ending in `/api/v1`.
 - rehearse Masumi mode from `backend/` without a node: `uv run uvicorn tests.fake_masumi:create_fake_masumi --factory --port 3001`, then `scripts/up.py` with `PAYMENTS_MODE=masumi MASUMI_PAYMENT_URL=http://localhost:3001 MASUMI_API_KEY=test-key` (+ dummy `MASUMI_AGENT_ID` 57+ chars, `SELLER_VKEY` 56 hex)
-- `llm_check.py` requires real subscription Codex Max output (never scripted fallback) and checks the guard in memory; no money moves. `backend` is `codex`, `mock` or `guard`; `fallback_reason` is an exception category, not provider text. Codex keeps its own sign-in credentials; no OpenAI API token or SDK is used.
+- `llm_check.py --agent both` (default) requires real subscription Max and Viktor output; `--agent max|viktor` selects one. Max checks the guard in memory; Viktor checks opening and floor-price acceptance; no money moves. Scripted fallback fails readiness. SSE `backend` is `codex`, `mock` or `guard`; `fallback_reason` is an exception category, not provider text. Codex keeps its own credentials; no OpenAI API token or SDK.
 
 ### seller "Viktor" (Apify flats) — owner: murad (skeleton by ziya, murad to confirm)
 - Data adapter now owned by Ziya (I01/I02); seller payment transport remains outside I scope.
 - runs from `backend/`: `uv run uvicorn app.seller.app:app --port 8001`
-- `POST /negotiate` `NegotiateRequest` {deal_id, round, action: open|counter|accept|walk, offer, message, job, demo_mode} → `NegotiateResponse` {deal_id, round, action: counter|accept|walk, price, message}
+- `POST /negotiate` `NegotiateRequest` {deal_id, round, action: open|counter|accept|walk, offer, message, job, demo_mode} → `NegotiateResponse` {deal_id, round, action: counter|accept|walk, price, message, backend: mock|codex, fallback_reason?}. Older responses without provenance default to mock.
+- Subscription Viktor serializes turns per deal; exact duplicate rounds replay the same response and stale/conflicting requests return 409. Code enforces the floor, nonincreasing counteroffers and acceptance of the exact eligible buyer offer. Buyer accept/walk acknowledgements remain scripted; malformed model output/timeouts fall back visibly without changing payment authority.
 - MIP-003: `GET /availability`, `GET /input_schema`, `POST /start_job` {identifier_from_purchaser=deal_id, input_data:{deal_id, agreed_price, job, demo_mode}} → {status, job_id, price, blockchainIdentifier?}; idempotent per identifier; 409 if price != agreed. `GET /status?job_id=` → {job_id, status, result:{flats:[{title, price_czk, district, url}], source: sample|apify|apify_cached, fetched_at?, actor_id?, dataset_id?, run_id?}}
 - `scrape_flats.py` performs one live-only bounded scrape and saves a real-data cache. Cache job must match count/district/price exactly; insufficient valid listings fails, never pads samples. `--run-id` retrieves an existing successful run using GET only, verifies Actor identity and preserves completion time; failure output retains safe run/dataset links.
 - masumi mode: `/start_job` also returns blockchainIdentifier, payByTime, submitResultTime, unlockTime, externalDisputeUnlockTime, agentIdentifier, sellerVKey, inputHash; status is `awaiting_payment` until funds lock on-chain. `deal_id` = 20 hex chars (Masumi identifierFromPurchaser).

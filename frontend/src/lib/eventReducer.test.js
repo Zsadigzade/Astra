@@ -107,7 +107,22 @@ test("usage counts subscription Codex, scripted, fallback and voice lines", () =
     ev("negotiation", { speaker: "max", backend: "mock", audio_url: "/audio/a.mp3" }),
     ev("negotiation", { speaker: "viktor", backend: "mock" }),
   ]);
-  assert.deepEqual([u.codex, u.scripted, u.fallback, u.voice, u.lines], [1, 2, 1, 1, 4]);
+  assert.deepEqual([u.codex, u.scripted, u.fallback, u.voice, u.lines], [1, 3, 1, 1, 4]);
+});
+
+test("seller subscription, fallback and legacy scripted lines retain truthful provenance", () => {
+  const v = deriveDealState([
+    ev("negotiation", { speaker: "viktor", backend: "codex" }),
+    ev("negotiation", { speaker: "viktor", backend: "mock", fallback_reason: "Timeout" }),
+    ev("negotiation", { speaker: "viktor", backend: "mock" }, { staged: true }),
+    ev("negotiation", { speaker: "viktor" }),
+    ev("negotiation", { speaker: "max", backend: "codex" }),
+    ev("negotiation", { speaker: "max", backend: "guard" }),
+  ]);
+  assert.deepEqual(v.chat.map((c) => c.provenance), ["codex", "fallback", "scripted", "scripted", "codex", "guard"]);
+  assert.equal(PROVENANCE[v.chat[0].provenance].label, "CODEX SUBSCRIPTION");
+  assert.equal(PROVENANCE[v.chat[1].provenance].label, "SCRIPTED FALLBACK");
+  assert.deepEqual([v.usage.codex, v.usage.scripted, v.usage.fallback, v.usage.viktor, v.usage.lines], [2, 3, 1, 4, 6]);
 });
 
 test("timeline is newest-first, readable, and collapses the haggle to one entry", () => {

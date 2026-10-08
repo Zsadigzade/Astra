@@ -20,8 +20,9 @@ export function provenanceOf(e) {
   const d = e.data;
   if (d.backend === "guard") return "guard";
   if (d.backend === "codex") return "codex";
-  if (d.speaker === "max" && d.fallback_reason) return "fallback";
-  return d.backend === "mock" ? "scripted" : null;
+  if (d.fallback_reason) return "fallback";
+  // Older seller events predate backend provenance and were always scripted.
+  return d.backend === "mock" || (d.speaker === "viktor" && d.backend == null) ? "scripted" : null;
 }
 
 const failedChecks = (d) => Object.entries(d.checks ?? {}).filter(([, v]) => !v).map(([k]) => k.replaceAll("_", " "));

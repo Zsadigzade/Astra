@@ -61,12 +61,14 @@ async def test_cached_delivery_provenance_survives_seller_buyer_flow(tmp_path, m
 @pytest.mark.anyio
 async def test_staged_con_is_scripted_even_when_codex_configured(tmp_path, monkeypatch):
     import app.buyer.negotiator as neg
+    import app.seller.persona as persona
 
     async def unexpected_call(*args, **kwargs):
         pytest.fail("Staged con must not invoke Codex")
 
     monkeypatch.setattr(neg, "run_codex", unexpected_call)
-    settings = Settings(llm_mode="codex", ledger_path=str(tmp_path / "buyer.db"),
+    monkeypatch.setattr(persona, "run_codex", unexpected_call)
+    settings = Settings(llm_mode="codex", seller_llm_mode="codex", ledger_path=str(tmp_path / "buyer.db"),
                         audio_dir=str(tmp_path / "audio"), seller_url="http://seller")
     events, balances = await run_task(tmp_path, "con", settings=settings)
     lines = [e for e in events if e.type == "negotiation" and e.data["speaker"] == "max"
@@ -75,3 +77,29 @@ async def test_staged_con_is_scripted_even_when_codex_configured(tmp_path, monke
     assert "blocked" in {e.type for e in events}
     assert "escrow_locked" not in {e.type for e in events}
     assert balances["buyer"] == 100
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("failure", [False, True])
+async def test_viktor_model_provenance_survives_full_settlement(tmp_path, monkeypatch, failure):
+    import app.seller.persona as persona
+
+    moves = iter([("counter", 18), ("counter", 11), ("counter", 8), ("accept", 7)])
+
+    async def run(*args):
+        if failure:
+            raise TimeoutError("private-provider-diagnostics")
+        action, price = next(moves)
+        return {"action": action, "price": price, "message": f"{price} for the rentals."}
+
+    monkeypatch.setattr(persona, "run_codex", run)
+    settings = Settings(llm_mode="mock", seller_llm_mode="codex",
+                        ledger_path=str(tmp_path / "buyer.db"),
+                        audio_dir=str(tmp_path / "audio"), seller_url="http://seller")
+    events, balances = await run_task(tmp_path, "honest", settings=settings)
+    lines = [e.data for e in events if e.type == "negotiation" and e.data["speaker"] == "viktor"]
+    assert lines and all(line["backend"] == ("mock" if failure else "codex") for line in lines)
+    assert all(bool(line.get("fallback_reason")) == failure for line in lines)
+    assert "private-provider-diagnostics" not in str([e.model_dump() for e in events])
+    assert "released" in {e.type for e in events}
+    assert (balances["buyer"], balances["seller"], balances["escrow"]) == (93, 7, 0)

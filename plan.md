@@ -2,7 +2,7 @@
 
 **2026-10-08 → 10-09 · Prague time · Target submission 07:00 · Hard deadline 07:14**
 
-**Updated 2026-10-09 00:30 · 18 of 35 checklist items complete.** The core SIMULATED demo,
+**Updated 2026-10-09 00:42 · 19 of 35 checklist items complete.** The core SIMULATED demo,
 dashboard, subscription Max, real cached data and voice work locally. Remaining work is
 cross-laptop acceptance, final rehearsal, live-payment gates, video and submission.
 
@@ -28,10 +28,10 @@ then V01/V02 (script and rehearsal). M02–M05 remain the separate live-payment 
 ## Existing baseline
 
 - [x] **B01** Buyer and seller HTTP services, negotiation, wallet guard and verifier exist.
-- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval, crash recovery and adversarial deliveries. Latest merged backend suite: 364 passing tests on both Python 3.11 and 3.13.
+- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval, crash recovery and adversarial deliveries. I-completion suite: 390 tests on Python 3.11/3.13; shared workspace also passes two pending R-path regressions (392 total).
 - [x] **B03** Masumi adapter and seller payment flow implemented and tested against a fake node; readiness checker supports `--node-only`.
 - [x] **B04** Scripted negotiation works; subscription Codex replaces the API-key runtime, with explicit fallback labels and independent wallet guard.
-- [x] **B05** Full dashboard consumes SSE, starts acts 1/2/4, displays balances, guard decisions and approvals; pause/limits, themes and ordered audio work. 32 frontend tests and production build pass.
+- [x] **B05** Full dashboard consumes SSE, starts acts 1/2/4, displays balances, guard decisions and approvals; pause/limits, themes and ordered audio work. 33 frontend tests and production build pass.
 
 ## Startup and dashboard — by 23:30
 
@@ -44,7 +44,7 @@ then V01/V02 (script and rehearsal). M02–M05 remain the separate live-payment 
 ## Masumi payments — node by 23:30, live escrow by 01:00
 
 - [x] **M01** Bring up the hosted Railway/Blockfrost Preprod node and pass `uv run python scripts/masumi_check.py --node-only`. Hosted health, authentication and Preprod payment-source checks passed; the earlier 401 is resolved.
-- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**. **Blocked:** Mais reports faucet success but its transaction is not found on Preprod Cardanoscan; support follow-up pending. Keep payments **SIMULATED** until funding and registration are confirmed.
+- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**. **Blocked:** the Preprod transaction has 8 confirmations and its stake address matches the Selling Wallet, but Masumi still displays a zero balance; registration remains pending. Keep payments **SIMULATED** until the node reflects funding and Viktor is registered.
 - [ ] **M03** Set local seller identifiers and pass the full `scripts/masumi_check.py`. Local `MASUMI_AGENT_ID` and a valid `SELLER_VKEY` remain missing. This checks configuration, not live escrow. Depends on **M02**.
 - [ ] **M04** Run Act 1 with `PAYMENTS_MODE=masumi` and a separate `LEDGER_PATH`; inspect the actual Preprod transaction and scheduled release. Depends on **M03**.
 - [ ] **M05** Run staged Act 3 on the real setup: crash after lock, restart only the buyer, confirm `already_paid` and exactly one purchase. Depends on **M04**.
@@ -62,7 +62,7 @@ subscription-only: use ChatGPT-authenticated Codex CLI, with scripted fallback; 
 - [x] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
 - [x] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
 - [x] **I03** Run Max using `LLM_MODE=codex` with ChatGPT subscription sign-in; verify cap 10, budget 20 and approval above 8 remain enforced, with labelled scripted fallback on CLI/usage failures. Live checker/Act 1 pass; cancellation, bounded output, strict moves and seller-response identity have regression coverage.
-- [ ] **I04** Optional after the core flow works: add Viktor's persona through the same subscription Codex runtime if latency and usage limits allow. Viktor currently remains scripted; no API-key implementation is planned.
+- [x] **I04** Subscription Viktor implemented with `SELLER_LLM_MODE=codex`, independent floor/agreement checks, per-deal retry protection and labelled scripted fallback. Live checker and full two-agent Act 1 pass: 3 Max + 4 Viktor Codex turns, 20 cached real flats and 7 live voice clips in 42.2s, no fallback. Default remains scripted for the existing rehearsal; Act 2 always stays scripted.
 - [x] **I05** Configure ElevenLabs voice IDs (`VOICE_MAX`, `VOICE_VIKTOR`) in `.env` and verify live `TTS_MODE=elevenlabs` output for both speakers.
 - [x] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. Actual Edge playback verifies replay/reset IDs, Stop/Mute, missing clips, stalled-clip recovery and sequential real speech. TTS response size, timeout and partial-file cleanup are covered.
 

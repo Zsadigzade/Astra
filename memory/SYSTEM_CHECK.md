@@ -1,5 +1,15 @@
 # Integrated system check — 2026-10-08/09
 
+## I01–I06 completion — 2026-10-09 00:42 +02:00
+
+- Isolated I-only staged source export also passes all 390 backend tests on Python 3.13 (36.90s) and 3.11 (30.41s). This excludes the concurrent R/video edits; snapshot: backend/data/i-staged-501319f3/source/.
+
+- I04 now supports subscription Viktor via optional SELLER_LLM_MODE=codex; defaults preserve the scripted-seller rehearsal profile. No API keys or new payment integration.
+- Real Viktor checker produced opening 18 and accepted 7 without fallback. Full two-agent HTTP Act 1 used three Max and four Viktor Codex turns, 20 genuine cached Apify listings and seven new ElevenLabs clips; no model/voice fallback, SIMULATED release in 42.2s.
+- Strict seller outputs, floor/agreement enforcement, same-round retry deduplication, stale-round conflicts, cancellation and staged-con isolation have regression coverage. Buyer forwards actual seller provenance; its HTTP deadline allows seller CLI cleanup/fallback.
+- Shared-workspace validation: 392 backend tests on Python 3.13 (36.25s) and Python 3.11 (27.54s), including two concurrent R-path staging regressions. Frontend: 33 tests and build pass; rendered Edge checks cover live/fallback/legacy seller labels, both-agent usage and mixed-mode header, with zero page errors.
+- Evidence under backend/data/: i-complete-97ac1034/ (fresh live deal, seven clips, events/report), hour-seller-ui-report.json (rendered labels). Existing .env, ledgers and parallel R/video work are preserved. I04 is opt-in; changing the final video profile requires its own R02 rehearsal.
+
 ## Scoped audit — 2026-10-09, closed when the user returned
 
 Scope: existing Ziya data, subscription-agent, voice and integration paths. Murad's

@@ -108,13 +108,15 @@ Do not use `--reset` on a ledger with unfinished payments.
 
 **Model access is subscription-only.** No OpenAI API token will be provided or required.
 Max can run through the local Codex CLI using ChatGPT sign-in (`LLM_MODE=codex`), with a visibly
-scripted fallback when the CLI fails or reaches a usage limit. `LLM_MODE=mock` is the offline default;
-Viktor remains scripted. The staged con always uses scripted Max so the guard demonstration is repeatable.
+scripted fallback when the CLI fails or reaches a usage limit. Set `SELLER_LLM_MODE=codex` to run
+Viktor through the same subscription runtime; both modes default to `mock`. Viktor's floor and
+agreement checks remain in code. The staged con always uses scripted agents so it stays repeatable.
 
 On each demo laptop, install Codex CLI if needed (`npm install -g @openai/codex`), then run
 `codex login` and choose ChatGPT sign-in. Check `codex login status`, then from `backend/` run
-`uv run python scripts/llm_check.py`. After it passes, set `LLM_MODE=codex` in the root `.env` and
-restart the buyer. Subscription availability and limits apply to that signed-in account.
+`uv run python scripts/llm_check.py --agent both`. After it passes, set `LLM_MODE=codex` and optionally
+`SELLER_LLM_MODE=codex` in the root `.env`, then
+restart both services after existing deals finish. Subscription availability and limits apply to that signed-in account.
 See the official [authentication](https://learn.chatgpt.com/docs/auth) and
 [non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode) documentation.
 
@@ -143,7 +145,8 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
   Recovery verifies the Actor, result fields and original completion time. Failure output retains
   run/dataset links so download or validation can be retried without paying for another run.
   `APIFY_MODE=sample` remains the default and is labelled **SAMPLE**. A cache must match the exact job.
-- **Max:** `uv run python scripts/llm_check.py` checks real subscription Codex output and the actual
+- **Agents:** `uv run python scripts/llm_check.py --agent both` checks real subscription output from
+  Max and Viktor (`--agent max` or `--agent viktor` selects one). Max also exercises the actual
   wallet guard in memory without moving money. Missing CLI/sign-in, timeout, invalid output or a
   scripted fallback fails the check. The dashboard distinguishes **Codex subscription** lines from
   **scripted** lines and **scripted fallback**. No API-key setup or API SDK is part of this project.
@@ -173,7 +176,7 @@ Two ElevenLabs connection failures fell back to text; replaying that deal in Edg
 available clips without overlap or browser errors. The local `.env` now selects `LLM_MODE=codex`.
 The 68 focused backend negotiation/runtime/guard/demo tests and 15 frontend tests pass, as does the build.
 
-Latest integrated verification: **364 backend tests (Python 3.11 and 3.13), 32 frontend tests, production build, browser
+Latest I-path verification: **390 backend tests (Python 3.11 and 3.13), 33 frontend tests, production build, browser
 scenarios and actual crash/reset recovery pass**. Live Codex, recovered Apify data and ElevenLabs
 also pass together with SIMULATED payments. Hosted Masumi health, authentication and Preprod source
 checks pass; seller registration/configuration and live escrow remain unverified. See
@@ -208,7 +211,7 @@ What is real and what is not, as of this commit.
 | Masumi mode  | Payment flows tested against the fake node. Hosted node health, authentication and Preprod source checks pass; live registration, funding and escrow remain unverified. |
 | Release      | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`.                                     |
 | Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo.                                                                                            |
-| Agents       | `LLM_MODE=codex` uses Max's local ChatGPT-authenticated Codex subscription; CLI/usage/output failures use labelled scripted fallback. Offline default is `mock`. Viktor remains scripted; optional live Viktor work must use subscription access too. No OpenAI API integration. |
+| Agents       | `LLM_MODE=codex` enables subscription Max; `SELLER_LLM_MODE=codex` enables subscription Viktor. Both use the signed-in local CLI with labelled scripted fallback; defaults are `mock`. Seller acceptance/walk acknowledgements and both Act 2 personas are scripted. No OpenAI API integration. |
 | Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway.                                                                                                  |
 | Staging      | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`.                                                                                                             |
 | Flats        | Template default is **sample data**. Live Apify returned 20 valid Praha 7 rentals; local rehearsal uses their labelled **CACHED APIFY** snapshot. Recovery command above recreates the ignored cache.                                            |

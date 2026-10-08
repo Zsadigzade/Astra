@@ -41,7 +41,7 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
           <ConnectionStatus items={[buyer, seller, payments]} />
           <div className="honesty">
             {(controls?.modes.simulated ?? view.simulated) && <StatusBadge tone="warning" icon="info" title="Money is a local ledger, not on-chain">SIMULATED MONEY</StatusBadge>}
-            {controls?.modes.llm === "mock" && <StatusBadge tone="neutral" icon="info" title="Max and Viktor follow scripted personas, not a language model">SCRIPTED AGENTS</StatusBadge>}
+            {controls?.modes.llm === "mock" && (controls.modes.seller_llm ?? "mock") === "mock" && <StatusBadge tone="neutral" icon="info" title="Max and Viktor follow scripted personas, not a language model">SCRIPTED AGENTS</StatusBadge>}
             {view.staged && <StatusBadge tone="warning" icon="info" title="This scenario forces seller behaviour for the demo">STAGED SCENARIO</StatusBadge>}
           </div>
         </div>
