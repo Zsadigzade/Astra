@@ -133,6 +133,37 @@ Do not use `--reset` on a ledger with unfinished payments.
 
 **LLM mode:** `LLM_MODE=openai` runs Max on the OpenAI Agents SDK (`OPENAI_API_KEY`, `MODEL`). Default is `mock`.
 
+### Data, agents and voice (I path)
+
+The integrations are implemented; live provider checks still require credentials in `.env`.
+
+- **Rental data:** set `APIFY_TOKEN`, then run `uv run python scripts/scrape_flats.py`. This live-only
+  check uses the [Sreality Actor](https://apify.com/swerve/sreality-scraper), scans at most 200 Prague
+  rentals, and requires 20 unique listings explicitly in Praha 7 at or below 25,000 CZK/month.
+  The run has a 90-second default deadline and requests `maxTotalChargeUsd=1.10` through the
+  [Apify run API](https://docs.apify.com/api/v2/actors-runs-post). Provider charges apply.
+  Too few proven matches fails explicitly; it never pads results or broadens the brief.
+- A successful scrape saves real records and run/dataset/timestamp provenance to
+  `APIFY_CACHE_PATH` (default `data/flats-apify.json`, git-ignored). `APIFY_MODE=apify` uses live data
+  with a matching saved-cache fallback; `APIFY_MODE=cached` uses only that saved data. Cached results
+  carry `source: apify_cached` and show **CACHED APIFY** in the dashboard. No real cache ships yet.
+  `APIFY_MODE=sample` remains the default and is labelled **SAMPLE**. A cache must match the exact job.
+- **Max:** `uv run python scripts/llm_check.py` checks real structured agent output and the actual
+  wallet guard in memory without moving money. It fails if the key is absent or Max falls back to
+  scripted output. `MODEL` remains configurable. Negotiation events identify scripted fallbacks;
+  the dashboard shows them. No OpenAI API key is available yet, so keep `LLM_MODE=mock`.
+- **Voices:** set `ELEVENLABS_API_KEY`, then run `uv run python scripts/voice_check.py` to list stock
+  and generated voices. Put two distinct IDs in `VOICE_MAX` and `VOICE_VIKTOR`, then run
+  `uv run python scripts/voice_check.py --synthesize` to generate two short samples using credits.
+  With `TTS_MODE=elevenlabs`, provider/timeouts/storage failures fall back to text.
+  `TTS_MODEL` and `TTS_TIMEOUT_SECONDS` control the model and per-line deadline.
+- In the dashboard, **Play voices** enables ordered playback. Duplicate SSE events do not replay
+  clips; missing clips are skipped; Stop/Mute keeps the transcript usable. The reusable component
+  is `dashboard/src/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
+
+Offline validation: `uv run pytest`; audio queue checks: `cd dashboard` then
+`node --test src/audioQueue.test.js`; frontend build: `npm run build`.
+
 ## Layout
 
 ```
@@ -141,7 +172,7 @@ buyer/      Max, :8000 - orchestrator, wallet guard, SQLite ledger, payments, ve
 seller/     Viktor, :8001 - MIP-003 + POST /negotiate, persona, flats job
 voice/      ElevenLabs TTS for haggle lines, text fallback
 dashboard/  Vite + React, reads buyer SSE
-scripts/    up.py (both servers), act.py (one act in terminal), masumi_check.py
+scripts/    up.py / act.py (demo), masumi_check.py, scrape_flats.py, llm_check.py, voice_check.py
 tests/      guard, acts 1-4 + approval E2E (SIMULATED), crash resume, negotiator,
             Masumi adapter against tests/fake_masumi.py
 memory/     shared team memory for humans and coding agents
@@ -161,10 +192,10 @@ What is real and what is not, as of this commit.
 | Masumi mode | Built (`shared/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `tests/fake_masumi.py`. Not yet run against a live payment node. |
 | Release | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`. |
 | Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo. |
-| Agents | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only, falls back to scripted Max on any error, and has not been tested live. Viktor has no LLM mode. |
+| Agents | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only; errors use a labelled scripted fallback. No API key is available for live verification. Viktor's optional LLM persona is deferred. |
 | Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway. |
 | Staging | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`. |
-| Flats | **Sample data** (`source: "sample"`, `APIFY_MODE=sample`) until the Apify scrape lands. |
+| Flats | Default is **sample data**. Live Apify adapter and labelled real-cache fallback are implemented and mock-tested; no successful live scrape or real cached dataset has been obtained yet. |
 | Verifier | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one. |
 | Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes. |
-| Voice | ElevenLabs TTS (`TTS_MODE=elevenlabs`) not yet tested against the live API; text fallback works. |
+| Voice | ElevenLabs TTS and ordered playback are implemented and tested with mocks. Live API generation and browser listening await a key and two voice IDs; text fallback works. |

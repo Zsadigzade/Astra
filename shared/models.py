@@ -98,7 +98,11 @@ class Flat(BaseModel):
 
 class JobResult(BaseModel):
     flats: list[Flat]
-    source: Literal["sample", "apify"]  # "sample" = canned data, must be labelled in UI
+    source: Literal["sample", "apify", "apify_cached"]  # provenance must be labelled in UI
+    fetched_at: str | None = None
+    actor_id: str | None = None
+    dataset_id: str | None = None
+    run_id: str | None = None
 
 
 class StatusResponse(BaseModel):

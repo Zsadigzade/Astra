@@ -16,7 +16,7 @@ def _f(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    # LLM: "mock" = scripted personas (no OpenAI needed), "openai" = real calls (TODO)
+    # LLM: "mock" = scripted personas, "openai" = Max with scripted fallback
     llm_mode: str = field(default_factory=lambda: os.getenv("LLM_MODE", "mock"))
     model: str = field(default_factory=lambda: os.getenv("MODEL", "gpt-4o-mini"))
 
@@ -49,10 +49,16 @@ class Settings:
     elevenlabs_api_key: str = field(default_factory=lambda: os.getenv("ELEVENLABS_API_KEY", ""))
     voice_max: str = field(default_factory=lambda: os.getenv("VOICE_MAX", ""))
     voice_viktor: str = field(default_factory=lambda: os.getenv("VOICE_VIKTOR", ""))
+    tts_model: str = field(default_factory=lambda: os.getenv("TTS_MODEL", "eleven_flash_v2_5"))
+    tts_timeout_seconds: float = field(default_factory=lambda: _f("TTS_TIMEOUT_SECONDS", 12))
 
-    # Seller job source: "sample" = canned flats (labelled), "apify" = real scrape (TODO murad)
+    # "apify" = live scrape with labelled cache fallback; "cached" = saved real scrape only
     apify_mode: str = field(default_factory=lambda: os.getenv("APIFY_MODE", "sample"))
     apify_token: str = field(default_factory=lambda: os.getenv("APIFY_TOKEN", ""))
+    apify_actor_id: str = field(default_factory=lambda: os.getenv("APIFY_ACTOR_ID", "swerve/sreality-scraper"))
+    apify_max_items: int = field(default_factory=lambda: int(os.getenv("APIFY_MAX_ITEMS", 200)))
+    apify_timeout_seconds: float = field(default_factory=lambda: _f("APIFY_TIMEOUT_SECONDS", 90))
+    apify_cache_path: str = field(default_factory=lambda: os.getenv("APIFY_CACHE_PATH", str(ROOT / "data" / "flats-apify.json")))
 
     @property
     def simulated(self) -> bool:

@@ -1,9 +1,10 @@
-"""The actual work Viktor sells: Prague flats (owner: murad).
+"""The actual work Viktor sells: Prague flats.
 
 APIFY_MODE=sample returns canned flats, labelled source="sample" (UI must show it).
-APIFY_MODE=apify is TODO: run a real-estate actor with APIFY_TOKEN and map items to Flat.
+APIFY_MODE=apify runs a real rental Actor; cached uses a matching saved real scrape.
 """
 
+from seller.apify import rental_result, scrape
 from shared.config import Settings
 from shared.models import DemoMode, Flat, JobResult, JobSpec
 
@@ -30,12 +31,14 @@ def junk_flats() -> list[Flat]:
 
 
 async def scrape_apify(job: JobSpec, settings: Settings) -> list[Flat]:
-    raise NotImplementedError("TODO(murad): call an Apify real-estate actor, map results to Flat")
+    return (await scrape(job, settings)).flats
 
 
 async def run_job(job: JobSpec, mode: DemoMode, settings: Settings) -> JobResult:
     if mode == DemoMode.junk:
         return JobResult(flats=junk_flats(), source="sample")
-    if settings.apify_mode == "apify":
-        return JobResult(flats=await scrape_apify(job, settings), source="apify")
+    if settings.apify_mode in {"apify", "cached"}:
+        return await rental_result(job, settings)
+    if settings.apify_mode != "sample":
+        raise ValueError("APIFY_MODE must be sample, apify or cached")
     return JobResult(flats=sample_flats(job), source="sample")

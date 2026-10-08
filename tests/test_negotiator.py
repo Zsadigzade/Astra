@@ -1,6 +1,8 @@
 from types import SimpleNamespace
+import asyncio
 
 import pytest
+from agents.exceptions import ModelBehaviorError
 
 import buyer.negotiator as neg
 from buyer.negotiator import MaxMove, MockMax, Move, OpenAIMax, make_negotiator
@@ -95,6 +97,55 @@ async def test_history_grows_across_rounds(monkeypatch):
     assert [h["role"] for h in m.history] == ["user", "assistant"] * 3
     assert "Five." in m.history[1]["content"] and '"price": 7' in m.history[5]["content"]
     assert "12 tADA" in calls[1]["input"][-1]["content"]
+
+
+@pytest.mark.anyio
+async def test_backend_metadata_recovers_after_fallback(monkeypatch, caplog):
+    secret = "sk-private-provider-response"
+    fake_runner(monkeypatch, [RuntimeError(secret), MaxMove(action="counter", price=6, message="Six.")])
+    m = make_max()
+    assert m.last_backend is None
+    await m.next_move(seller(), None)
+    assert (m.last_backend, m.fallback_reason) == ("mock", "RuntimeError")
+    assert secret not in caplog.text
+    await m.next_move(seller(rnd=1), 5)
+    assert (m.last_backend, m.fallback_reason) == ("openai", None)
+
+
+@pytest.mark.anyio
+async def test_refusal_is_marked_as_fallback(monkeypatch):
+    fake_runner(monkeypatch, [ModelBehaviorError("provider refusal body")])
+    m = make_max()
+    await m.next_move(seller(), None)
+    assert (m.last_backend, m.fallback_reason) == ("mock", "ModelBehaviorError")
+
+
+@pytest.mark.anyio
+async def test_timeout_cancels_request_and_marks_fallback(monkeypatch):
+    cancelled = asyncio.Event()
+
+    async def run(*args, **kwargs):
+        try:
+            await asyncio.sleep(10)
+        finally:
+            cancelled.set()
+
+    monkeypatch.setattr(neg.Runner, "run", run)
+    monkeypatch.setattr(neg, "LLM_TIMEOUT_S", 0.01)
+    m = make_max()
+    assert await m.next_move(seller(), None) == await MockMax(10).next_move(seller(), None)
+    assert (m.last_backend, m.fallback_reason) == ("mock", "TimeoutError")
+    assert cancelled.is_set()
+
+
+@pytest.mark.anyio
+async def test_external_cancellation_does_not_return_scripted_success(monkeypatch):
+    async def run(*args, **kwargs):
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(neg.Runner, "run", run)
+    with pytest.raises(asyncio.CancelledError):
+        await make_max().next_move(seller(), None)
 
 
 @pytest.fixture
