@@ -1,7 +1,7 @@
 # ziya — status
-updated: 2026-10-09 00:42
-doing: I01–I06 complete and pushed to main; subscription Viktor live-verified
-touching: seller persona/negotiation, provenance contracts/UI, LLM checker/tests, configuration and I-path docs/memory
+updated: 2026-10-09 00:52
+doing: plan.md reconciled: I01–I06 and R02/R05 complete; 23/35 items verified
+touching: plan.md and own status memory; preserve parallel rehearsal/video edits
 blocked on: nothing for I path; live Masumi remains outside this task
 next: preserve scripted-seller rehearsal baseline; enable SELLER_LLM_MODE=codex only when selecting the two-live-agent profile
 done today:

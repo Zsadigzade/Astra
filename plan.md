@@ -2,16 +2,22 @@
 
 **2026-10-08 → 10-09 · Prague time · Target submission 07:00 · Hard deadline 07:14**
 
-**Updated 2026-10-09 00:42 · 19 of 35 checklist items complete.** The core SIMULATED demo,
-dashboard, subscription Max, real cached data and voice work locally. Remaining work is
-cross-laptop acceptance, final rehearsal, live-payment gates, video and submission.
+**Updated 2026-10-09 00:54 · 23 of 35 checklist items complete.** All **I01–I06** are complete.
+The core SIMULATED demo, three-runs-per-act rehearsal and 1080p dashboard checks pass.
+Remaining work is cross-laptop acceptance, live-payment gates, timed video rehearsal,
+recording/edit/export and submission.
 
 Use the IDs when claiming work and record ownership in `memory/status/`. Checked items have
 recorded evidence in [memory/SYSTEM_CHECK.md](memory/SYSTEM_CHECK.md); local success does not
 complete every-laptop or live-Preprod acceptance.
 
-**Next priorities:** D01 (each laptop), R02/R05 (final configuration and recording layout),
-then V01/V02 (script and rehearsal). M02–M05 remain the separate live-payment path.
+**Next priorities:** D01 (each laptop), then V02–V04 (timed rehearsal, recording and edit).
+R02/R05 passed for the scripted-Viktor profile; V01's script is ready in
+[video/](video/README.md). M02–M05 remain the separate live-payment path.
+
+**Validated recording profile:** subscription Max, scripted Viktor (`SELLER_LLM_MODE=mock`),
+cached real Apify listings, ElevenLabs and SIMULATED payments. Subscription Viktor is also
+implemented and live-verified; switching the recording to it requires another R02 rehearsal.
 
 ## Gates
 
@@ -55,9 +61,10 @@ Never reset a ledger with unfinished payments or restart the seller mid-deal.
 
 ## Data, agents and voice — by 01:00
 
-Apify and ElevenLabs passed live checks; a fresh integrated Act 1 used three subscription Codex
-turns, 20 cached real listings, seven live speech clips and SIMULATED escrow. Model access is permanently
-subscription-only: use ChatGPT-authenticated Codex CLI, with scripted fallback; no API token is expected.
+**6/6 complete.** A fresh two-agent Act 1 used three Max and four Viktor subscription Codex turns,
+20 cached real listings and seven live speech clips, with no fallback and SIMULATED release in 42.2s.
+Model access is permanently subscription-only: ChatGPT-authenticated Codex CLI with labelled
+scripted fallback; no API token is expected.
 
 - [x] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
 - [x] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
@@ -69,26 +76,26 @@ subscription-only: use ChatGPT-authenticated Codex CLI, with scripted fallback; 
 Recorded Apify run: `ZNboU2b0EHUJgFaEQ`; recover its 20 listings with
 `scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ` (no new run).
 Brian/Callum voices are configured locally; `scripts/voice_check.py --synthesize` passed both.
-`scripts/llm_check.py` rejects scripted fallback as live success.
+`scripts/llm_check.py --agent both` checks both live agents and rejects fallback as live success.
 Model setup uses `codex login` on each laptop; credentials stay in Codex's store. No waiting for API keys.
-Act 2 intentionally uses scripted gullible Max in every mode, with STAGED/scripted labels.
+Act 2 intentionally uses scripted Max and Viktor in every mode, with STAGED/scripted labels.
 
 ## Integration and reliability — 01:00–02:30
 
 - [x] **R01** All four acts plus approval/decline work end to end locally. Verified rehearsal profile: subscription Max, scripted Viktor, **CACHED APIFY**, ElevenLabs with text fallback and **SIMULATED** money. Live Preprod remains a separate gate; Act 4 always stays SIMULATED.
-- [ ] **R02** Run each act three consecutive times in that exact final demo configuration. Partial: the approximately 21-minute endurance run passed 21 cycles, 135 terminal outcomes and five concurrent batches, but intentionally forced scripted/text fallbacks; this does not replace three complete live-profile rehearsals.
+- [x] **R02** Three consecutive runs of each act passed with subscription Max, scripted Viktor, cached real Apify, ElevenLabs and SIMULATED payments. Approval/decline also passed: 14 outcomes, 35 Codex turns, 100 speech clips, zero model/voice fallbacks. Three actual buyer crashes each recovered with one payment; seller stayed running. Reproduce with `backend/scripts/rehearse.py`; changing to subscription Viktor or Preprod requires a new rehearsal.
 - [x] **R03** Two independent actual buyer-crash rehearsals (runner audit and endurance run) each recovered with one payment per deal while the seller stayed running. Two additional approval/restart checks preserved consent. All money was **SIMULATED**; repeat on Preprod only if **M04** passes.
 - [x] **R04** Apify/TTS timeout and failure tests pass; real-cache, scripted-agent and text fallbacks survive repeated HTTP runs. Corrupt cache triggers refund instead of fabricated delivery. Stalled/missing audio clips do not block the queue.
-- [ ] **R05** Check the final recording at 1920×1080: negotiation, guard decision, escrow outcome, approvals and honesty labels must be readable. Responsive checks at 390/1000/1100/1440px pass; exact recording-layout acceptance remains.
+- [x] **R05** Recording layout accepted at 1920×1080 in Edge: 16 screenshots, no horizontal overflow or page errors; negotiation, red blocked guard, release/refund, recovery, approval/decline and SIMULATED/STAGED/data labels are readable. Fixed Act 3's STAGED label to persist through restart/replay. Evidence: `backend/data/r-rehearsal-29b87432/`. This is layout acceptance; footage/export remain V02–V04.
 
 ## Video and release — 02:30–06:30
 
-- [ ] **V01** Write a four-act script and storyboard, at most 2 minutes; include the wallet guard, crash recovery and honest limitations.
-- [ ] **V02** Record backup footage of each working act, then complete the timed rehearsal by **03:30**. Depends on **R02**.
-- [ ] **V03** After the **04:00 feature freeze**, record the demo with visible SIMULATED/STAGED labels; fix bugs between takes.
-- [ ] **V04** Edit, add voiceover/captions and export the final video by **06:30**.
+- [x] **V01** Four-act [script and evidence storyboard](video/script.md) prepared for a 1:55 edit, including wallet guard, actual buyer crash recovery and honest limitations. Dashboard layout passed R05; actual video duration remains to be measured in V02.
+- [ ] **V02** Record backup footage of each working act, then complete the timed rehearsal by **03:30**. Depends on **R02**. [Capture requirements and take/rehearsal record](video/production.md) prepared; footage and measured rehearsal pending.
+- [ ] **V03** After the **04:00 feature freeze**, record the demo with visible SIMULATED/STAGED labels; fix bugs between takes. Evidence/label requirements and R05 layout acceptance are ready; final footage is still pending.
+- [ ] **V04** Edit, add voiceover/captions and export the final video by **06:30**. [Draft captions](video/narration-draft.srt) and export checks prepared; retiming, actual voiceover, edit and export pending.
 - [x] **V05** README run steps, architecture, limitations, `.env.example` and handoff are current. Fresh source checkout without `.env`, caches or installed dependencies starts with `npm start` and completes a SIMULATED Act 1. Recheck documentation if the final payment/video profile changes.
-- [ ] **V06** Scan the repository and full git history for secrets, then confirm the repository is public by **06:30**. Audit commits passed a configured-secret scan; that is not a full-history/public-access check. Keep credentials in ignored `.env` files only.
+- [x] **V06** [Repository/history audit](video/release-audit.md) covers all 48 reachable commits, 476 file blobs and the working source snapshot. Gitleaks findings reviewed as the documented Apify run ID; configured-secret check found no matches. GitHub public visibility and unauthenticated HTTP 200 confirmed. Rerun for the final revision and review footage before upload; keep credentials in ignored `.env` files only.
 
 ## Submission — 06:30–07:14
 
