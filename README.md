@@ -83,7 +83,7 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 ```bash
 cp .env.example .env                                 # fill in keys; never commit .env
 uv sync
-uv run pytest                                        # 33 tests
+uv run pytest
 uv run uvicorn seller.app:app --port 8001            # terminal 1
 uv run uvicorn buyer.app:app --port 8000             # terminal 2
 cd dashboard && npm install && npm run dev           # terminal 3, open http://localhost:5173
@@ -102,6 +102,34 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo
 `MASUMI_PAYMENT_URL`, `MASUMI_API_KEY`, `MASUMI_NETWORK=Preprod`, plus seller-side `MASUMI_AGENT_ID` and
 `SELLER_VKEY`. Check the node first with `uv run python scripts/masumi_check.py` (read-only).
 All names and defaults are in [.env.example](.env.example).
+
+### Ziya: bring the Masumi node online
+
+1. Deploy the [official Railway template](https://railway.com/deploy/masumi-payment-service-official--masumi-payment-service-official)
+   with a **Preprod** Blockfrost project key (`BLOCKFROST_API_KEY_PREPROD`). Set a private `ADMIN_KEY`
+   in the node's variables. Wait for the payment service and PostgreSQL to start, then generate the
+   service's public URL. See the [Masumi installation guide](https://www.masumi.network/dev/masumi/documentation/get-started/install-masumi-node).
+2. Open that host's `/admin`. In Astra's local `.env`, set `MASUMI_PAYMENT_URL=https://<host>/api/v1`
+   and `MASUMI_API_KEY` to the node's `ADMIN_KEY`. A Sokosumi key will not work here.
+   Keep `PAYMENTS_MODE=simulated` during setup.
+3. Run `uv run python scripts/masumi_check.py --node-only`. This checks health, authentication and a
+   Preprod Cardano payment source before seller registration. It never requests wallet mnemonics.
+4. In the admin UI, fund the Preprod selling and purchasing wallets, then register **Viktor only**
+   with **Dynamic** pricing. Wait for registration to confirm. Copy its agent identifier to
+   `MASUMI_AGENT_ID` and selling wallet vkey to `SELLER_VKEY` in `.env`.
+5. Run `uv run python scripts/masumi_check.py`. A nonzero exit means setup checks failed.
+   A pass checks the node and local seller settings; it does **not** prove registration, pricing,
+   balances, or a live escrow. Confirm those in the admin UI.
+6. Set `PAYMENTS_MODE=masumi` and `MASUMI_NETWORK=Preprod`. Use a **new** `LEDGER_PATH`, such as
+   `data/buyer-preprod.db`, so simulated deals are not resumed as real purchases. Start both services
+   with `scripts/up.py`, then run `scripts/act.py honest`. Inspect the actual transaction in the
+   admin UI/explorer. Release is scheduled for `unlockTime`, not immediate settlement.
+
+For Act 3, restart both services between completed deals with `scripts/up.py --crash`, then run
+`scripts/act.py honest`; the runner restarts only the buyer after the staged crash. Keep the seller
+running until delivery finishes. Act 4 stays **SIMULATED**: use a separate simulated ledger and restart
+both services with `PAYMENTS_MODE=simulated` before running `scripts/act.py junk`.
+Do not use `--reset` on a ledger with unfinished payments.
 
 **LLM mode:** `LLM_MODE=openai` runs Max on the OpenAI Agents SDK (`OPENAI_API_KEY`, `MODEL`). Default is `mock`.
 

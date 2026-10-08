@@ -47,8 +47,8 @@
 
 **Ziya**
 - [ ] Hosted Masumi `/health`
-- [ ] Register buyer + seller agents
-- [ ] Fund buyer from Preprod faucet
+- [ ] Register Viktor only, with Dynamic pricing (DECISIONS.md 21:50; Max does not register)
+- [ ] Fund buyer and seller wallets from Preprod faucet
 - [ ] One manual test escrow
 
 **Murad**

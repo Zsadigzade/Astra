@@ -40,6 +40,7 @@ Source of truth for payloads: `shared/models.py`. Change it = tell the team.
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
 - demo scripts: `scripts/up.py` (both servers), `scripts/act.py` (one act in terminal), `scripts/masumi_check.py` (read-only node check)
+- `masumi_check.py --node-only` checks node health/auth/Preprod source before registration; default also checks local seller settings. Exit 1 on incomplete checks; exit 0 does not verify registration, Dynamic pricing, balances or live escrow. Accepts local or hosted API URLs ending in `/api/v1`.
 - rehearse masumi mode without a node: `uv run uvicorn tests.fake_masumi:create_fake_masumi --factory --port 3001`, then `scripts/up.py` with `PAYMENTS_MODE=masumi MASUMI_PAYMENT_URL=http://localhost:3001 MASUMI_API_KEY=test-key` (+ dummy `MASUMI_AGENT_ID` 57+ chars, `SELLER_VKEY` 56 hex)
 
 ### seller "Viktor" (Apify flats) — owner: murad (skeleton by ziya, murad to confirm)
