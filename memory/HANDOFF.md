@@ -19,7 +19,7 @@ updated: 2026-10-08 23:53 · ziya · full system check and fixes
 
 ## What works
 - The Haggle: buyer Max (:8000, backend/app/buyer) negotiates with seller Viktor (:8001, backend/app/seller), wallet guard locks escrow, verifier checks delivery, then release/refund. Dashboard consumes SSE /events.
-- Backend commands run from backend/: uv run python scripts/up.py [--reset] [--crash]; terminal scripts/act.py honest|con|junk. Root npm start opens the frontend only.
+- Backend commands run from backend/: uv run python scripts/up.py [--reset] [--crash]; terminal scripts/act.py honest|con|junk. Murad's launcher update makes root npm start run backend and dashboard; npm run web/api select one side. Clean-checkout startup verification is in progress.
 - All four acts work in SIMULATED mode. Guard cap 10, budget 20, approval above 8; staged con at 25 is blocked. Restart never pays an already-funded deal twice.
 - Permanent subscription-only access: LLM_MODE=codex uses local ChatGPT-authenticated Codex CLI with labelled scripted fallback. No OpenAI API token or SDK. Viktor and STAGED Act 2 Max remain scripted.
 - Genuine data: swerve/sreality-scraper; Praha 7/monthly-CZK validation, provenance and matching apify_cached fallback. GET-only scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ restores the 20-listing cache without another paid run.
@@ -35,4 +35,4 @@ updated: 2026-10-08 23:53 · ziya · full system check and fixes
 - No live escrow proof by 01:00 means SIMULATED video; feature freeze 04:00, video/repo 06:30, target submission 07:00, deadline 07:14 Prague time.
 - Act 4 refund remains SIMULATED. Real release is scheduled, not immediate. Seller jobs are in memory: never restart seller mid-deal.
 - Local rehearsal modes remain codex/cached/elevenlabs/simulated. Secrets stay in ignored .env; Codex retains its own login. No existing ledger or unrelated service was changed during the audit.
-- Only main remains locally/on origin after prior verified branch consolidation; legacy generated root folders are archived under ignored backend/data/legacy-workspace/.
+- Local main includes the prior verified consolidation; a new remote Mais branch records pending faucet funding and is retained for its owner's ongoing work. Legacy generated root folders are archived under ignored backend/data/legacy-workspace/.
