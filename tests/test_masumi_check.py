@@ -77,6 +77,18 @@ async def test_node_only_bootstrap_is_read_only(settings, capsys):
 
 
 @pytest.mark.anyio
+async def test_current_payment_source_schema_uses_payment_type(settings):
+    current_source = source(paymentType="Web3CardanoV1")
+    current_source.pop("paymentSourceType")
+
+    def handler(request):
+        return response({"status": "ok"} if request.url.path.endswith("/health") else
+                        {"PaymentSources": [current_source]})
+
+    assert await run_check(settings, handler, node_only=True) == 0
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("sources", [[], [source(network="Mainnet")],
                                         [source(paymentSourceType="Unknown")],
                                         [source(smartContractAddress="")]])
