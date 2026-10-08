@@ -1,9 +1,9 @@
 # ziya — status
-updated: 2026-10-09 00:52
-doing: plan.md reconciled: I01–I06 and R02/R05 complete; 23/35 items verified
-touching: plan.md and own status memory; preserve parallel rehearsal/video edits
+updated: 2026-10-09 00:58
+doing: active plan reorganized; 23 completed items archived, 12 open items retained and 7 new follow-ups added
+touching: plan.md, memory/archive/COMPLETED.md, memory map/handoff/decisions and own status
 blocked on: nothing for I path; live Masumi remains outside this task
-next: preserve scripted-seller rehearsal baseline; enable SELLER_LLM_MODE=codex only when selecting the two-live-agent profile
+next: select recording profile (P01), confirm D01/P02 and capture/timed rehearsal (V02); optional I follow-ups are O01/O02
 done today:
 - I completion: isolated commit passes 390 backend tests on Python 3.11/3.13 (392 with pending R tests); 33 frontend tests/build and Edge provenance checks pass.
 - Live two-agent Act 1: 3 Max + 4 Viktor Codex turns, 20 genuine cached flats, 7 voice clips, no fallback; SIMULATED release in 42.2s.

@@ -15,7 +15,8 @@ DECISIONS and TRAPS preserve history; later entries may supersede earlier ones.
 - [status/reliability.md](status/reliability.md) — ledger mode isolation, verified tests and coordination with the runner session.
 - [status/runner-reliability.md](status/runner-reliability.md) — startup ownership, safe reset and staged restart fixes; owner-reported validation.
 - [status/r-rehearsal.md](status/r-rehearsal.md) — R02 live-profile repetition and R05 1920×1080 recording-layout acceptance.
-- [../plan.md](../plan.md) — unassigned task checklist, deadlines and fallback gates.
+- [../plan.md](../plan.md) — active unassigned tasks, next-phase follow-ups, deadlines and fallback gates.
 - [../README.md](../README.md) — product overview, run instructions and honest limitations.
 - [../video/README.md](../video/README.md) — four-act script, draft captions, capture/export handoff and repository release audit.
 - [status/video-release.md](status/video-release.md) — V01–V06 preparation and remaining recording dependencies.
+- [archive/COMPLETED.md](archive/COMPLETED.md) — 23 completed checklist items with original IDs, acceptance evidence and snapshot limits.

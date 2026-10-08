@@ -1,6 +1,6 @@
 # Handoff — integrated main
 
-updated: 2026-10-09 00:51 · R acceptance · R02/R05 complete for scripted-Viktor profile
+updated: 2026-10-09 00:58 · active plan and completed archive reconciled
 
 ## Current verification
 - R02/R05 complete: three consecutive runs per act plus approval/decline, 35 Codex turns and 100 speech clips with no fallback; three actual buyer crashes recover with one payment each. Sixteen 1920×1080 screenshots pass framing checks and representative visual review. Final simulated balances 49/51/0; all owned services stopped. Evidence: backend/data/r-rehearsal-29b87432/. Reproduce with backend/scripts/rehearse.py; profile remains subscription Max / scripted Viktor / cached Apify / ElevenLabs / SIMULATED.
@@ -34,7 +34,7 @@ updated: 2026-10-09 00:51 · R acceptance · R02/R05 complete for scripted-Vikto
 - Masumi adapter supports Dynamic pricing, idempotent purchase and scheduled release; checker accepts paymentSourceType/paymentType. Automated adapter checks use the fake node.
 
 ## Team and release gates
-- [plan.md](../plan.md): 23/35 items complete after R02/R05 acceptance. [Video package](../video/README.md) contains a 1:55 script, evidence storyboard, draft captions and capture/export handoff. Full reachable-history scan and public repository check pass with reviewed run-ID false positives; rerun at final revision. Remaining: every-laptop startup, timed video rehearsal, live-chain gates, recording/edit/export and submission. I01–I06 are complete; optional subscription Viktor is verified but needs its own R02 rehearsal if selected for recording.
+- [plan.md](../plan.md): 23 completed items moved to [the archive](archive/COMPLETED.md); 12 unfinished items retained and 7 new follow-ups added (operator readiness, final release/evidence, optional I improvements). [Video package](../video/README.md) contains a 1:55 script, evidence storyboard, draft captions and capture/export handoff. Full reachable-history scan and public repository check pass with reviewed run-ID false positives; rerun at final revision. Remaining: every-laptop startup, timed video rehearsal, live-chain gates, recording/edit/export and submission. I01–I06 are complete; optional subscription Viktor is verified but needs its own R02 rehearsal if selected for recording.
 - Hosted node: Railway mellow-energy, masumi-payment-service + masumi-psql-database; base https://masumi-payment-service-production-96e0.up.railway.app/api/v1. Upstream Dockerfile fix is in Zsadigzade/masumi-payment-service ce8cfdb5 (see TRAPS).
 - No live escrow proof by 01:00 means SIMULATED video; feature freeze 04:00, video/repo 06:30, target submission 07:00, deadline 07:14 Prague time.
 - Act 4 refund remains SIMULATED. Real release is scheduled, not immediate. Seller jobs are in memory: never restart seller mid-deal.
