@@ -2,9 +2,9 @@
 
 **2026-10-08 → 10-09 — Prague time — Target submission 07:00 — Hard deadline 07:14**
 
-**Updated 2026-10-09 00:58.** [23 completed items are archived](memory/archive/COMPLETED.md),
+**Updated 2026-10-09 01:30.** [23 completed items are archived](memory/archive/COMPLETED.md),
 including all **I01–I06** and **R01–R05**. This list contains **12 carried-forward tasks**
-and **7 new follow-ups**: 17 release/conditional tasks and 2 optional improvements.
+and **15 new follow-ups**: 17 release/conditional tasks, 8 new I-path features and 2 optional improvements.
 An unchecked item still needs its stated acceptance; new tasks have not been executed.
 Use IDs to claim work in `memory/status/`; assignments remain open.
 
@@ -68,6 +68,29 @@ with unfinished payments or restart the seller mid-deal. Live release is schedul
 - [ ] **S01** Submit the form with the final video and repository links from **06:30**. Depends on **V04/F01–F03**; archived **V05/V06** remain baseline evidence, not final-release sign-off.
 - [ ] **S02** By **06:50**, open every submitted link in incognito: repository accessible and video plays. Fix permissions or links and recheck if necessary.
 - [ ] **S03** Confirm submission by **07:00**, leaving the buffer before **07:14**. Record the confirmation and exact submitted links.
+
+## New data features — I07–I09
+
+These proposed features extend the completed I work; all remain unassigned. For the next
+development pass, start with **I14 → I07 → I10**. Release/video gates above still take priority;
+any feature selected before the freeze needs its acceptance checks and an affected-profile
+rehearsal. Coordinate proposed shared payload/UI changes before implementation and document
+the agreed contract in `memory/INTERFACES.md`. This checklist does not change contracts itself.
+
+- [ ] **I07 · NEW — Cache freshness policy.** Add a configurable maximum age and an explicit offline-demo override for saved rentals. Currently timestamps are validated, but old caches have no age limit. Acceptance: fresh, expired, future-dated and override cases are covered; normal mode refuses expired data, while the override retains the original timestamp and clearly identifies stale cached data. Never silently replace real data with samples or trigger a paid refresh.
+- [ ] **I08 · NEW — Cache multiple rental requests.** Store validated results by a canonical job key instead of replacing one cache file for every request. Keep the existing cache readable or provide migration. Acceptance: two supported Praha 7 requests with different counts/rent ceilings coexist, each retrieves only its exact match, and interrupted/concurrent writes cannot mix their data. Depends on **I07** for per-entry freshness handling.
+- [ ] **I09 · NEW — Explain data-quality failures.** Extend the existing scrape/recovery command with a compact validation report: accepted records, duplicates, wrong district/currency, invalid prices/URLs and insufficient matches. Acceptance: a mixed fixture produces accurate rejection counts and safe source identifiers; failure still refuses an incomplete delivery and reports no secrets or fabricated listings. Reuse the saved run for verification rather than starting another paid scrape.
+
+## New voice features — I10–I12
+
+- [ ] **I10 · NEW — Reuse speech and bound disk usage.** Cache successful MP3s by exact text, voice, model and synthesis settings; combine simultaneous identical requests into one synthesis. Add bounded retention that preserves clips needed by active deals and retained replay. Acceptance: a repeated line makes one provider request, changed voices/settings never reuse the wrong clip, corrupt/failed audio is not cached, and cleanup cannot delete files currently being published or played. Keep text fallback and the existing response/time limits.
+- [ ] **I11 · NEW — Show dialogue before speech is ready.** Decouple transcript publication from TTS completion so slow speech generation does not delay visible negotiation. Agree a compatible audio-ready update keyed to the original deal/message with the dashboard owner. Acceptance: text appears while a deliberately slow synthesis is pending; out-of-order completions still play in dialogue order, failed clips do not stall later lines, and reconnect/reset never attaches audio to a different message. Schedule this shared-contract change after submission unless explicitly selected and fully rehearsed.
+- [ ] **I12 · NEW — Replay and adjust voice playback.** Add replay of an individual completed line and playback-speed controls to the existing voice component/queue. Acceptance: replay uses the saved clip without another synthesis, only one clip plays at a time, keyboard controls and Stop/Mute work, and changing deals or replaying SSE does not unexpectedly restart old speech. Keep the readable transcript available throughout.
+
+## New subscription-agent and readiness features — I13–I14
+
+- [ ] **I13 · NEW — Bound concurrent model work and repeated failures.** Add per-service limits for simultaneous Codex subprocesses, a bounded queue wait, and a short recovery cooldown after repeated CLI failures. Acceptance: concurrent deals respect the configured limit, queued cancellation creates no orphan process, an unavailable subscription produces prompt labelled scripted fallback, and a later successful probe restores live turns. Never infer an exact quota reset from an opaque error or add API-token access; code-only guard/floor checks remain authoritative.
+- [ ] **I14 · NEW — One data/agent/voice readiness command.** Combine the existing local checks into a concise profile report covering Codex availability/sign-in status, the exact rental-cache match/provenance, voice configuration and writable audio storage. Default checks must start no Actor runs, synthesize no speech and move no money; an explicit live-probe option may reuse the existing bounded agent/voice checks. Acceptance: missing prerequisites have actionable results and a failing exit code, cached/sample/live capability is distinguished, and no credential values appear. A passing report must not claim live escrow or full E2E acceptance.
 
 ## Optional improvements to existing I work — after submission
 
