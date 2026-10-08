@@ -70,11 +70,10 @@ export default function App() {
     <div className="app">
       <AppHeader stream={status} sellerState={sellerState} controls={controls} view={view} theme={theme}
         onToggleTheme={toggle} onTogglePause={togglePause} pauseBusy={pauseBusy} />
-      <div className="page">
-        <ConnectionAlert status={status} onRetry={retry} />
-        {launchError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not start the scenario</strong><span>{launchError}</span></div></div>}
+      <ConnectionAlert status={status} onRetry={retry} />
+      {launchError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not start the scenario</strong><span>{launchError}</span></div></div>}
 
-        <main className="layout">
+      <main className="layout">
           <aside className="rail rail-left" aria-label="Scenarios and usage">
             <ScenarioSelector selected={scenario} onSelect={setScenario} onRun={run} launching={launching} disabledReason={disabledReason} />
             <UsageSummary view={view} budget={view.task?.budget ?? options.budget} />
@@ -92,8 +91,7 @@ export default function App() {
             <DealDetails view={view} />
             <EventTimeline rows={view.timeline} />
           </aside>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

@@ -23,7 +23,7 @@ function PriceRail({ price, approval, cap }) {
   const pos = (v) => `${Math.min(100, (v / max) * 100)}%`;
   const zone = price == null ? "none" : price > cap ? "over" : price > approval ? "approval" : "auto";
   return (
-    <div className="rail" role="img"
+    <div className="price-rail" role="img"
       aria-label={price == null ? `Approval line ${approval} tADA, hard cap ${cap} tADA` : `Price ${price} tADA against approval line ${approval} and hard cap ${cap} tADA`}>
       <div className="rail-track">
         <span className="rail-zone rail-auto" style={{ width: pos(approval) }} />
