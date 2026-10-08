@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { BUYER } from "../api.js";
+import { eventKey } from "../eventIdentity.js";
 import { SOURCE_LABEL } from "../lib/eventLabels.js";
 import { SCENARIOS, shortId } from "../lib/formatters.js";
 import AgentIdentity from "./AgentIdentity.jsx";
@@ -80,7 +81,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
 
         <div className="feed" ref={feed} onScroll={onScroll} role="log" aria-live="polite" aria-label="Negotiation transcript" tabIndex={0}>
           {view.chat.length === 0 && <p className="muted feed-wait"><Icon name="refresh" size={14} className="spin" /> Waiting for Viktor's opening ask...</p>}
-          {view.chat.map((e, i) => <MessageBubble key={e.id} e={e} round={rounds[i]} />)}
+          {view.chat.map((e, i) => <MessageBubble key={eventKey(e)} e={e} round={rounds[i]} />)}
         </div>
 
         {view.terminal && (

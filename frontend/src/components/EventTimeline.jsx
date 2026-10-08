@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { eventKey } from "../eventIdentity.js";
 import { clock } from "../lib/formatters.js";
 import Icon from "./Icons.jsx";
 
@@ -35,7 +36,7 @@ export default function EventTimeline({ rows }) {
     <section className="card" aria-labelledby="tl-h">
       <div className="card-head"><h2 id="tl-h" className="card-title">Timeline</h2><span className="muted">{rows.length} events</span></div>
       {shown.length === 0 ? <p className="muted">Events appear here as a deal progresses.</p> : (
-        <ol className="timeline">{shown.map((r) => <Row key={r.id} row={r} />)}</ol>
+        <ol className="timeline">{shown.map((r) => <Row key={eventKey(r.event)} row={r} />)}</ol>
       )}
     </section>
   );

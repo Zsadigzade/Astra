@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BUYER } from "../api.js";
+import { appendEvent } from "../eventIdentity.js";
 
 const GIVE_UP_AFTER = 3; // consecutive failed reconnects before the UI calls the buyer offline
 
 // status: connecting | live | reconnecting | offline. The buyer replays its full history on every
-// (re)connect, so events are de-duplicated by id and nothing is lost across a drop.
+// (re)connect, so events are de-duplicated by (id, ts, deal_id) and nothing is lost across a drop.
 export default function useEventStream() {
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState("connecting");
@@ -22,7 +23,7 @@ export default function useEventStream() {
     es.onmessage = (m) => {
       let ev;
       try { ev = JSON.parse(m.data); } catch { return; }
-      setEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]));
+      setEvents((prev) => appendEvent(prev, ev));
     };
     return () => es.close();
   }, [attempt]);
