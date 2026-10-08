@@ -1,12 +1,14 @@
-"""Check real Max output and in-memory wallet rules without moving money.
+"""Check real subscription agents and in-memory wallet rules without moving money.
 
 Run: uv run python scripts/llm_check.py
 Requires Codex CLI signed in with ChatGPT subscription access; no API key is used.
 Checks Codex even if the demo's LLM_MODE is mock. Scripted fallback always fails.
-Up to two Codex turns, each bounded by CODEX_TIMEOUT_SECONDS.
+Use --agent max|viktor|both (default both). Up to two turns per agent,
+each bounded by CODEX_TIMEOUT_SECONDS.
 """
 
 import asyncio
+import argparse
 import sys
 from pathlib import Path
 
@@ -17,7 +19,8 @@ from app.buyer.ledger import Ledger  # noqa: E402
 from app.buyer.negotiator import CodexMax  # noqa: E402
 from app.buyer.payments import SimulatedPayments  # noqa: E402
 from app.core.config import Settings, get_settings  # noqa: E402
-from app.core.models import NegotiateResponse  # noqa: E402
+from app.core.models import NegotiateRequest, NegotiateResponse  # noqa: E402
+from app.seller.persona import CodexViktor  # noqa: E402
 
 
 def check_guard() -> bool:
@@ -70,9 +73,40 @@ async def check(settings: Settings) -> int:
     return 0
 
 
+async def check_viktor(settings: Settings) -> int:
+    seller = CodexViktor(settings, floor=7, opening_ask=18)
+    requests = [NegotiateRequest(deal_id="viktor-check", round=0, action="open"),
+                NegotiateRequest(deal_id="viktor-check", round=1, action="counter", offer=7,
+                                 message="Seven tADA for the agreed rental data.")]
+    for req in requests:
+        response = await seller.respond_async(req)
+        if response.backend != "codex":
+            print(f"FAIL: Viktor used scripted fallback ({response.fallback_reason}); subscription output not verified.")
+            return 1
+        expected = "counter" if req.action == "open" else "accept"
+        if (response.action != expected or response.price < 7
+                or (expected == "accept" and response.price != 7)):
+            print("FAIL: Viktor did not produce a valid opening and floor-price agreement.")
+            return 1
+        print(f"OK: real subscription Codex Viktor round {req.round + 1}: {response.action}, {response.price:g} tADA")
+    print("PASS: real Viktor opening and agreement verified. No money moved.")
+    return 0
+
+
+async def check_agents(settings: Settings, agent: str) -> int:
+    if agent in {"max", "both"} and await check(settings):
+        return 1
+    if agent in {"viktor", "both"}:
+        return await check_viktor(settings)
+    return 0
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--agent", choices=("max", "viktor", "both"), default="both")
+    args = parser.parse_args()
     try:
-        return asyncio.run(check(get_settings()))
+        return asyncio.run(check_agents(get_settings(), args.agent))
     except Exception as exc:
         # Avoid exposing provider response bodies, generated text, or credential values.
         print(f"FAIL: LLM check could not complete ({type(exc).__name__}).")

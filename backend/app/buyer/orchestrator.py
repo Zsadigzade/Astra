@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 import os
 import uuid
 from collections.abc import Callable
@@ -63,7 +64,10 @@ class Orchestrator:
         # deal_id doubles as Masumi identifierFromPurchaser: hex, 14-26 chars
         task_id, deal_id = f"t-{uuid.uuid4().hex[:8]}", uuid.uuid4().hex[:20]
         self.ledger.create_deal(deal_id, task_id, task.model_dump_json(), self.s.seller_url)
-        self.bus.emit("task_created", task_id, deal_id, staged=self._staged(task), text=task.text,
+        # Persist the deliberate crash label so dashboard replay retains it after
+        # the buyer restarts with CRASH_AFTER_LOCK disabled.
+        self.bus.emit("task_created", task_id, deal_id,
+                      staged=self.s.crash_after_lock or self._staged(task), text=task.text,
                       budget=task.budget, demo_mode=task.demo_mode)
         self._spawn(self.run(task_id, deal_id, task))
         return TaskCreated(task_id=task_id, deal_id=deal_id)
@@ -132,7 +136,7 @@ class Orchestrator:
         for rnd in range(max_rounds):
             resp = await self._negotiate(req)
             await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged,
-                            backend="mock")
+                            backend=resp.backend, fallback_reason=resp.fallback_reason)
             if resp.action == "walk":
                 return self._walked(task_id, deal_id, "seller walked away")
             if resp.action == "accept":
@@ -142,10 +146,15 @@ class Orchestrator:
                             backend=getattr(max_, "last_backend", "mock"),
                             fallback_reason=getattr(max_, "fallback_reason", None))
             if move.action in ("accept", "walk"):
-                await self._negotiate(req.model_copy(update={"round": rnd + 1, "action": move.action,
-                                                             "offer": resp.price, "message": move.message}))
+                acknowledgement = await self._negotiate(req.model_copy(update={
+                    "round": rnd + 1, "action": move.action,
+                    "offer": resp.price, "message": move.message}))
                 if move.action == "walk":
                     return self._walked(task_id, deal_id, "buyer walked away")
+                await self._say(task_id, deal_id, "viktor", acknowledgement.message,
+                                acknowledgement.price, acknowledgement.action, staged,
+                                backend=acknowledgement.backend,
+                                fallback_reason=acknowledgement.fallback_reason)
                 return self._agreed(task_id, deal_id, resp.price, staged)
             my_last = move.price
             req = req.model_copy(update={"round": rnd + 1, "action": "counter", "offer": move.price,
@@ -223,7 +232,13 @@ class Orchestrator:
     # ---------- helpers ----------
 
     async def _negotiate(self, req: NegotiateRequest) -> NegotiateResponse:
-        r = await self.http.post(f"{self.s.seller_url}/negotiate", json=req.model_dump())
+        # Leave time for the seller's CLI deadline, cleanup and scripted fallback.
+        read_timeout = 30.0
+        if (self.s.seller_llm_mode == "codex" and math.isfinite(self.s.codex_timeout_seconds)
+                and self.s.codex_timeout_seconds > 0):
+            read_timeout = max(read_timeout, self.s.codex_timeout_seconds + 15)
+        r = await self.http.post(f"{self.s.seller_url}/negotiate", json=req.model_dump(),
+                                 timeout=httpx.Timeout(15, read=read_timeout))
         r.raise_for_status()
         response = NegotiateResponse.model_validate(r.json())
         if response.deal_id != req.deal_id or response.round != req.round:

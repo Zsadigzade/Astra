@@ -94,7 +94,12 @@ def main() -> int:
             add("Max (LLM)", OK if ok else FAIL, f"live Codex round: {tail}", "" if ok else "run `codex login`, then retry")
     else:
         add("Max (LLM)", WARN, "LLM_MODE=mock: Max is scripted", "set LLM_MODE=codex after `uv run python scripts/llm_check.py` passes")
-    add("Viktor (LLM)", INFO, "Viktor is always scripted (no LLM path exists in the seller)", "")
+    if s.seller_llm_mode == "codex":
+        has = shutil.which(s.codex_command) is not None
+        add("Viktor (LLM)", OK if has else FAIL, f"SELLER_LLM_MODE=codex, CLI '{s.codex_command}' " + ("found" if has else "not found"),
+            "" if has else "install and sign in to the Codex CLI (same login as Max)")
+    else:
+        add("Viktor (LLM)", WARN, "SELLER_LLM_MODE=mock: Viktor is scripted", "set SELLER_LLM_MODE=codex to let Viktor negotiate with the same Codex login")
 
     # --- data
     cache = Path(s.apify_cache_path)

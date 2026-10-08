@@ -42,9 +42,9 @@ class Controls:
             "max_rounds": self.max_rounds,
             "max_rounds_ceiling": MAX_ROUNDS_CEILING,
             "modes": {"payments": self.s.payments_mode, "simulated": self.s.simulated,
-                      "llm": self.s.llm_mode, "tts": self.s.tts_mode,
+                      "llm": self.s.llm_mode, "seller_llm": self.s.seller_llm_mode, "tts": self.s.tts_mode,
                       "model": (self.s.codex_model.strip() or "Codex default")
-                      if self.s.llm_mode == "codex" else "scripted"},
+                      if "codex" in (self.s.llm_mode, self.s.seller_llm_mode) else "scripted"},
         }
 
     def apply(self, upd: ControlsUpdate) -> dict:

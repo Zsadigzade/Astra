@@ -27,7 +27,7 @@ from app.core.models import (
     StatusResponse,
 )
 from app.seller.job import run_job
-from app.seller.persona import Viktor
+from app.seller.persona import NegotiationConflict, make_viktor
 
 log = logging.getLogger("astra.seller")
 JOB_SECONDS = float(os.getenv("JOB_SECONDS", 2))
@@ -37,7 +37,7 @@ SUBMIT_TRIES = 3
 def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient | None = None) -> FastAPI:
     s = settings or get_settings()
     app = FastAPI(title="Astra seller (Viktor)")
-    viktor = Viktor()
+    viktor = make_viktor(s)
     jobs: dict[str, StatusResponse] = {}
     by_purchaser: dict[str, StartJobResponse] = {}
     running: set[asyncio.Task] = set()
@@ -113,7 +113,10 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
 
     @app.post("/negotiate", response_model=NegotiateResponse)
     async def negotiate(req: NegotiateRequest):
-        return viktor.respond(req)
+        try:
+            return await viktor.respond_async(req)
+        except NegotiationConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.post("/start_job", response_model=StartJobResponse)
     async def start_job(req: StartJobRequest):

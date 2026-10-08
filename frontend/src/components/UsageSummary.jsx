@@ -30,7 +30,7 @@ export default function UsageSummary({ view, budget }) {
 
       {u.lines > 0 && (
         <div className="usage-agents">
-          <span className="muted">Max</span>
+          <span className="muted">Max + Viktor</span>
           {u.codex > 0 && <StatusBadge tone="info" icon={null}>{u.codex} Codex subscription</StatusBadge>}
           {u.scripted - u.fallback > 0 && <StatusBadge icon={null}>{u.scripted - u.fallback} scripted</StatusBadge>}
           {u.fallback > 0 && <StatusBadge tone="warning" icon={null} title="The model call failed; a scripted line was used">{u.fallback} fallback</StatusBadge>}

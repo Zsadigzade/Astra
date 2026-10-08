@@ -86,6 +86,8 @@ class NegotiateResponse(BaseModel):
     action: Literal["counter", "accept", "walk"]
     price: float  # seller's current price in tADA
     message: str
+    backend: Literal["mock", "codex"] = "mock"
+    fallback_reason: str | None = None
 
 
 # ---------- buyer <-> seller: MIP-003 (field names: verify against Masumi docs) ----------

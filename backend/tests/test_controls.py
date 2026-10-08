@@ -34,6 +34,16 @@ async def test_snapshot_reports_limits_and_modes(tmp_path):
     assert snap["guard"] == {"cap": 10, "approval_over": 8, "cap_ceiling": 10}
     assert snap["paused"] is False and snap["modes"]["simulated"] is True
     assert snap["modes"]["model"] == "scripted"
+    assert snap["modes"]["seller_llm"] == "mock"
+
+
+@pytest.mark.anyio
+async def test_seller_only_subscription_mode_is_visible(tmp_path):
+    buyer = create_buyer(settings(tmp_path, llm_mode="mock", seller_llm_mode="codex"))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=buyer), base_url="http://buyer") as c:
+        modes = (await c.get("/controls")).json()["modes"]
+        assert modes["llm"] == "mock" and modes["seller_llm"] == "codex"
+        assert modes["model"] == "Codex default"
 
 
 @pytest.mark.anyio

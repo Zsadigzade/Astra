@@ -80,3 +80,23 @@ def test_guard_uses_actual_rules_without_payment_calls(monkeypatch):
     for method in ("lock", "release", "refund"):
         monkeypatch.setattr(llm_check.SimulatedPayments, method, forbidden)
     assert llm_check.check_guard()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("fail", [False, True])
+async def test_viktor_check_requires_real_opening_and_agreement(monkeypatch, capsys, fail):
+    import app.seller.persona as persona
+
+    outputs = [{"action": "counter", "price": 18, "message": "Eighteen for the data."},
+               {"action": "accept", "price": 7, "message": "Seven. Deal."}]
+
+    async def run(*args):
+        if fail:
+            raise TimeoutError("private provider diagnostics")
+        return outputs.pop(0)
+
+    monkeypatch.setattr(persona, "run_codex", run)
+    assert await llm_check.check_viktor(Settings()) == int(fail)
+    output = capsys.readouterr().out
+    assert "private provider diagnostics" not in output
+    assert ("scripted fallback" if fail else "real Viktor opening and agreement") in output

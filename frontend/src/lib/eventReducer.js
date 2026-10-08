@@ -119,17 +119,18 @@ export function usageOf(events) {
     else if (o === "refunded") refunded += price;
     else if (lock) locked += price;
   }
-  const maxLines = events.filter((e) => e.type === "negotiation" && e.data.speaker === "max");
+  const lines = events.filter((e) => e.type === "negotiation");
+  const provenance = lines.map(provenanceOf);
   return {
     deals: dealIds.length,
     outcomes,
     released, refunded, locked, scheduled,
-    lines: events.filter((e) => e.type === "negotiation").length,
-    viktor: events.filter((e) => e.type === "negotiation" && e.data.speaker === "viktor").length,
-    codex: maxLines.filter((e) => e.data.backend === "codex").length,
-    scripted: maxLines.filter((e) => e.data.backend === "mock").length,
-    fallback: maxLines.filter((e) => e.data.backend === "mock" && e.data.fallback_reason).length,
-    voice: events.filter((e) => e.type === "negotiation" && e.data.audio_url).length,
+    lines: lines.length,
+    viktor: lines.filter((e) => e.data.speaker === "viktor").length,
+    codex: provenance.filter((p) => p === "codex").length,
+    scripted: provenance.filter((p) => p === "scripted" || p === "fallback").length,
+    fallback: provenance.filter((p) => p === "fallback").length,
+    voice: lines.filter((e) => e.data.audio_url).length,
   };
 }
 
