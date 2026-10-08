@@ -6,7 +6,7 @@ updated: 2026-10-08 23:36 · ziya · integrated merge verified locally
 - Merged-dashboard Edge check: controls GET/pause/resume pass; Codex subscription, CACHED APIFY and SIMULATED MONEY labels visible; all five saved speech clips played once in order with no overlap/errors. Replayed a completed deal from an isolated SQLite backup, without new provider calls; artifacts `backend/data/i-path-smoke-2ec924b3/` (ignored).
 - Subscription Max verified: live checker + Act 1 settled at 7, all three Max turns Codex, 20 cached flats verified, SIMULATED release. Five clips played; two TTS connection failures used text.
 - 68 focused backend tests, 15 frontend tests and build pass; timeout/cancellation tests include real Windows process-tree cleanup. Local LLM_MODE=codex; no API key or SDK.
-- Integrated local subscription/reliability commits, remote dashboard/operator controls, and Mais’s Masumi checker branch. Full merged backend suite: 223 passed; frontend: 31 passed and production build passed. Safe push/branch cleanup follows verification.
+- Integrated and pushed merge commits ab5fa62 and 781b3f2 without force-pushing main. Only main remains locally and on origin; feature tip 5e75dba was verified in pushed main before deletion, protected against concurrent branch changes. Full merged backend suite: 223 passed; frontend: 31 passed and production build passed.
 - Local legacy root folders archived under ignored `backend/data/legacy-workspace/20261008-224546`; dependencies moved to `frontend/node_modules`. Frontend build and backend imports verified.
 
 ## Reliability and operator controls

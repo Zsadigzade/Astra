@@ -1,9 +1,9 @@
 # ziya — status
 updated: 2026-10-08 23:36
-doing: merge validated; finishing safe main push and merged-branch cleanup
+doing: conflict resolution, verified merges, main push and branch cleanup complete
 touching: merge integration, backend controls, dashboard event/voice integration, team memory, Git
 blocked on: nothing
-next: push without force, verify ancestry, delete merged feature branch
+next: continue the plan from verified main; live Preprod escrow remains a separate gate
 done today:
 - All four demo acts verified in SIMULATED mode; real Preprod escrow remains unverified.
 - Workspace organized as backend/frontend; legacy generated data archived locally.
@@ -17,3 +17,4 @@ done today:
 - Merged Mais’s current Masumi payment-source schema compatibility fix.
 - Validation: 223 backend tests, 31 frontend tests and production build pass; no configured secrets found in outgoing local blobs/tracked files.
 - Merged-dashboard Edge replay passes labels, controls, five ordered clips and zero errors; no new provider calls.
+- Pushed ab5fa62/781b3f2 without force on main; verified feature ancestry before deleting it. Only main remains locally/remotely.
