@@ -1,9 +1,9 @@
 # ziya — status
-updated: 2026-10-09 00:24
-doing: one-hour audit and endurance rehearsal while Ziya is away; ETA 00:59
-touching: existing I-path data/agents/voice and previously worked integration code/tests; shared memory
+updated: 2026-10-09 00:26
+doing: user returned; reconcile plan.md with verified completion and close the timed audit; ETA 00:32
+touching: plan.md, README.md, shared audit/handoff/status memory
 blocked on: MASUMI_AGENT_ID missing and SELLER_VKEY missing/invalid; funding/registration/live escrow not verified
-next: continue 50-minute HTTP endurance run through 00:56; finish delivery review and record final results
+next: record actual endurance duration and remaining release gates; commit and safely push the checklist update
 done today:
 - Hour audit: 344 backend tests pass on Python 3.13 and clean Python 3.11; live Act 1 and fresh browser scenarios pass.
 - Clean-checkout npm start and 10 real-HTTP terminal scenarios pass; replay selects the latest deal and skips stale approvals.
