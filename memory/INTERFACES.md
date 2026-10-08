@@ -8,16 +8,28 @@ tell the team first.
 |---|---|---|
 | `OPENAI_API_KEY` | all agents | OpenAI key |
 | `MODEL` | all agents | model id, cheap default |
-| `MASUMI_PAYMENT_URL` | payments | Masumi payment service base URL |
+| `MASUMI_PAYMENT_URL` | payments | hosted Masumi payment service base URL, ends in `/api/v1` |
 | `MASUMI_API_KEY` | payments | Masumi admin/API key |
 | `PAYMENTS_MODE` | payments | `masumi` or `simulated` |
 | `APIFY_TOKEN` | seller agents | Apify API token |
 | `ELEVENLABS_API_KEY` | seller agents | ElevenLabs key |
 
 ## Components
-_TBD after topic decision. Template:_
+Ports and paths below are decided; payload fields are TBD by each owner.
 
-### <component> — owner: <name>
-- runs: `<command>` on port `<port>`
-- exposes: `<METHOD /path>` → `<payload shape>`
-- consumes: `<other component endpoint>`
+### buyer (orchestrator + firewall + verifier) — owner: ziya
+- runs: TBD, port `8000`
+- exposes: TBD (task submit, live event feed for dashboard)
+- consumes: sellers via MIP-003; Masumi payment service
+
+### seller-research (Apify) — owner: murad
+- runs: FastAPI, port `8001`
+- exposes MIP-003: `GET /availability`, `GET /input_schema`, `POST /start_job`, `GET /status?job_id=`
+
+### seller-voice (ElevenLabs) — owner: murad
+- runs: FastAPI, port `8002`
+- exposes MIP-003: same four endpoints as seller-research
+
+### dashboard — owner: mais
+- runs: TBD
+- consumes: buyer event feed (TBD)

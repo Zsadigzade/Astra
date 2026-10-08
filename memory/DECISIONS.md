@@ -7,3 +7,8 @@ Format: `- YYYY-MM-DD HH:MM · who · <decision>. Why: <reason>.`
 - 2026-10-07 21:00 · ziya · Payments = Masumi Preprod escrow; fallback = labelled SIMULATED ledger. Why: real E2E if testnet works, honest fallback if not.
 - 2026-10-07 21:00 · ziya · Repo private during build, flipped public at submission. Why: judges need access to code.
 - 2026-10-08 17:15 · ziya · Team memory lives in `memory/`, rules in `AGENTS.md`. Why: three agents, no shared chat history.
+- 2026-10-08 19:32 · ziya · Topic = #1 Agents Hire Agents, with #2 firewall rules (budget cap, human approval above threshold) inside the buyer. Why: hero moment = money moving between agents; customer = busy human delegating work; 3 components fit 3 people.
+- 2026-10-08 19:32 · ziya · Roles: Ziya = Masumi payments + buyer orchestrator; Murad = sellers (Apify research, ElevenLabs voice); Mais = dashboard + video. Why: Ziya set up Masumi; team strengths are backend + frontend.
+- 2026-10-08 19:32 · ziya · Sellers expose Masumi MIP-003 HTTP (FastAPI), buyer calls them over HTTP. Why: native Masumi standard; in-process calls would make "agents hiring agents" look fake.
+- 2026-10-08 19:32 · ziya · Masumi payment service is hosted (Railway), not local Docker. Why: all 3 laptops can reach it; no dependency on one laptop staying awake.
+- 2026-10-08 19:32 · ziya · Cut order if behind at 01:00: drop voice seller first. Why: research seller alone still gives a full E2E loop.

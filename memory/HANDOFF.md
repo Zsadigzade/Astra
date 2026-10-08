@@ -1,14 +1,15 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 17:15 · ziya
+updated: 2026-10-08 19:32 · ziya
 
 ## What works
-- Nothing yet. Repo contains the topic shortlist and memory map only.
+- No code yet. Topic, roles and seller protocol decided (see DECISIONS.md).
 
 ## What's next
-1. Pick the topic from `TOPICS.md` (vote at kickoff) and log it in `DECISIONS.md`.
-2. Assign roles and log them in `DECISIONS.md`.
-3. Define component contracts in `INTERFACES.md` before anyone writes code.
+1. Each owner fills their section of INTERFACES.md (payload shapes) before coding.
+2. Ziya: verify hosted Masumi `/api/v1/health`, register agents, test one escrow.
+3. Murad: seller-research MIP-003 skeleton on :8001.
+4. Mais: dashboard skeleton reading buyer event feed (contract TBD with Ziya).
 
 ## Known broken / risky
-- Masumi node not running yet (needs Docker Desktop on Ziya's laptop).
+- No one on the team has Cardano/Masumi experience. Default PAYMENTS_MODE=simulated until escrow test passes.
