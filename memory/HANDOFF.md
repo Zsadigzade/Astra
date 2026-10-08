@@ -1,6 +1,6 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 22:37 · codex
+updated: 2026-10-08 22:46 · ziya
 
 ## Latest changes on main
 - Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.
@@ -8,6 +8,8 @@ updated: 2026-10-08 22:37 · codex
 - `1244aa6`: unassigned checklist, workspace cleanup, confirmed removal of agent-instruction files.
 - `bc621da`: repository split into `backend/` and `frontend/`; Python imports now use the `app` namespace.
 - `fe60764`: Apify rental/cache adapter, Max fallback labels, ElevenLabs checks and ordered audio playback.
+- Local legacy root folders archived under ignored `backend/data/legacy-workspace/20261008-224546`;
+  dependencies moved to `frontend/node_modules`. Frontend build and backend imports verified.
 
 ## What works
 - Product "The Haggle": buyer Max (:8000, `backend/app/buyer/`) haggles with seller Viktor (:8001, `backend/app/seller/`),

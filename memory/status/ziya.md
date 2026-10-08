@@ -1,7 +1,7 @@
 # ziya — status
-updated: 2026-10-08 22:44
-doing: aligning local workspace with tracked frontend/backend layout; ETA 10 minutes
-touching: ignored legacy folders, .vscode/settings.json if needed, memory/status/ziya.md, memory/TRAPS.md, memory/HANDOFF.md
+updated: 2026-10-08 22:46
+doing: local workspace now follows backend/frontend layout; legacy folders archived
+touching: ignored local folders, .vscode/settings.json, memory/status/ziya.md, memory/TRAPS.md, memory/HANDOFF.md
 blocked on: APIFY_TOKEN, ElevenLabs key + voice IDs; user confirms no OpenAI API key was supplied
 next: scrape_flats.py -> genuine cache -> live/cached demo; voice_check.py -> select voices -> --synthesize/listen
 done today:
@@ -14,3 +14,4 @@ done today:
 - 22:19 memory refreshed with main commits 036105e/1244aa6, task IDs, validation limits and reset caveat; other owners' status files preserved
 - 22:32 I01/I02 adapters ready, I03 honest readiness check, I05 TTS hardened, I06 ordered queue integrated; 129 Python + 7 JS tests and build pass; no live provider result claimed
 - 22:35 verified all feature tips were already in main; deleted four local branches and remote feat/ziya-skeleton
+- 22:46 legacy root folders archived under backend/data/legacy-workspace/20261008-224546; dependencies moved to frontend/node_modules; build and backend imports pass
