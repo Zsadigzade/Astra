@@ -32,6 +32,48 @@ CREATE TABLE IF NOT EXISTS events (
 """
 
 
+class LedgerSafetyError(RuntimeError):
+    """The ledger cannot safely be used with the requested payment operation."""
+
+
+def payment_mode(db: sqlite3.Connection) -> str | None:
+    """Read mode evidence, including ledgers created before mode binding existed."""
+    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    modes: set[str] = set()
+    if "ledger_metadata" in tables:
+        row = db.execute("SELECT value FROM ledger_metadata WHERE key = 'payments_mode'").fetchone()
+        if row:
+            modes.add(row[0])
+    if tables & {"sim_wallets", "sim_escrows"}:
+        modes.add("simulated")
+    columns = {r[1] for r in db.execute("PRAGMA table_info(deals)")}
+    start_column = "start_json" if "start_json" in columns else "NULL"
+    ambiguous = False
+    for ref, start_json, status in db.execute(f"SELECT escrow_ref, {start_column}, status FROM deals"):
+        if ref:
+            modes.add("simulated" if ref.startswith("SIM-") else "masumi")
+        if start_json:
+            try:
+                start = json.loads(start_json)
+                modes.add("masumi" if start.get("blockchainIdentifier") else "simulated")
+            except (ValueError, AttributeError) as exc:
+                raise LedgerSafetyError("Cannot identify payment mode from stored job data.") from exc
+        if not ref and not start_json and status in {"paying", "locked", "delivered", "released", "refunded"}:
+            ambiguous = True
+    for (body,) in db.execute("SELECT body FROM events"):
+        try:
+            simulated = json.loads(body).get("simulated")
+        except (ValueError, AttributeError) as exc:
+            raise LedgerSafetyError("Cannot identify payment mode from stored events.") from exc
+        if isinstance(simulated, bool):
+            modes.add("simulated" if simulated else "masumi")
+    if len(modes) > 1 or modes - {"simulated", "masumi"}:
+        raise LedgerSafetyError("Ledger contains conflicting payment modes; preserve it and use a separate LEDGER_PATH.")
+    if not modes and ambiguous:
+        raise LedgerSafetyError("Legacy ledger has payment activity with unknown mode; preserve it and use a separate LEDGER_PATH.")
+    return next(iter(modes), None)
+
+
 class Ledger:
     def __init__(self, path: str):
         if path != ":memory:":
@@ -42,6 +84,19 @@ class Ledger:
         cols = {r["name"] for r in self.db.execute("PRAGMA table_info(deals)")}
         if "start_json" not in cols:  # ledgers created before the column existed
             self.db.execute("ALTER TABLE deals ADD COLUMN start_json TEXT")
+
+    def bind_payment_mode(self, mode: str) -> None:
+        """Bind before constructing an adapter or resuming any deals, atomically."""
+        if mode not in {"simulated", "masumi"}:
+            raise LedgerSafetyError("PAYMENTS_MODE must be simulated or masumi.")
+        with self.tx() as db:
+            existing = payment_mode(db)
+            if existing is not None and existing != mode:
+                raise LedgerSafetyError(
+                    f"Ledger belongs to {existing} payments, not {mode}; use a separate LEDGER_PATH."
+                )
+            db.execute("CREATE TABLE IF NOT EXISTS ledger_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            db.execute("INSERT OR IGNORE INTO ledger_metadata VALUES ('payments_mode', ?)", (mode,))
 
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:

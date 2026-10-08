@@ -18,6 +18,7 @@ from app.core.masumi import LOCKED_STATES, MasumiClient, input_hash, output_hash
 from app.core.models import (
     DemoMode,
     JobResult,
+    BoundedJobSpec,
     JobSpec,
     NegotiateRequest,
     NegotiateResponse,
@@ -126,7 +127,10 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
         if deal is None or deal.agreed is None or deal.agreed != price:
             raise HTTPException(409, f"no agreed deal at {price} for {data.get('deal_id')}")
         job_id = f"j-{uuid.uuid4().hex[:8]}"
-        job, mode = JobSpec(**data["job"]), DemoMode(data.get("demo_mode", "honest"))
+        try:
+            job, mode = BoundedJobSpec(**data["job"]), DemoMode(data.get("demo_mode", "honest"))
+        except (KeyError, TypeError, ValueError) as e:  # pydantic ValidationError is a ValueError
+            raise HTTPException(422, "invalid job spec or demo_mode") from e
 
         if masumi is None:
             # SIMULATED: work starts immediately and trusts the buyer's simulated escrow.

@@ -5,6 +5,7 @@ Run from backend/: uv run uvicorn app.buyer.app:app --port 8000
 
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -39,14 +40,22 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         client = http or httpx.AsyncClient(timeout=30)
-        app.state.orch = Orchestrator(s, ledger, bus, guard, client, lambda c: make_negotiator(s, c), tts, controls)
-        await app.state.orch.resume_unfinished()
-        yield
-        if http is None:
-            await client.aclose()
+        app.state.orch = Orchestrator(
+            s, ledger, bus, guard, client,
+            lambda ceiling, rounds: make_negotiator(replace(s, max_rounds=rounds), ceiling),
+            tts, controls)
+        try:
+            await app.state.orch.resume_unfinished()
+            yield
+        finally:
+            await app.state.orch.shutdown()
+            if http is None:
+                await client.aclose()
 
     app = FastAPI(title="Astra buyer (Max)", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(s.cors_origins),
+                       allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+                       allow_methods=["GET", "POST", "PUT", "OPTIONS"], allow_headers=["content-type"])
     app.mount("/audio", StaticFiles(directory=s.audio_dir), name="audio")
     app.state.bus = bus
     app.state.ledger = ledger

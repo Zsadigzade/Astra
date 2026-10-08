@@ -1,18 +1,20 @@
 # ziya — status
-updated: 2026-10-08 23:09
-doing: I01/I02/I05/I06 complete: real data + speech/browser verified; handoff updated
-touching: Apify adapter/CLI/tests, frontend event identity/audio queue, I-path docs/memory
-blocked on: payment service build; then masumi_check --node-only, fund wallets, register Viktor; user confirms no OpenAI API key was supplied
-next: rehearse cached-data/voice demo; OpenAI work waits for an API key
+updated: 2026-10-09 00:30
+doing: audit complete; plan.md reconciled to verified completion after user returned
+touching: plan.md, README.md, shared audit/handoff/status memory
+blocked on: MASUMI_AGENT_ID missing and SELLER_VKEY missing/invalid; funding/registration/live escrow not verified
+next: every-laptop startup, three full-profile rehearsals, 1080p acceptance and video; Masumi funding/registration remains separate
 done today:
-- scripts/up.py + scripts/act.py; all 4 acts verified live in SIMULATED mode
-- 22:07 masumi mode Act 1+3 rehearsed over real HTTP vs fake node: 1 payment, 1 purchase, already_paid after crash
-- 22:14 readiness check fails on missing setup; node-only bootstrap + README runbook; 58 tests pass, no live payment attempted
-- 22:32 I01/I02 adapters ready, I03 honest readiness check, I05 TTS hardened, I06 ordered queue integrated; 129 Python + 7 JS tests and build pass; no live provider result claimed
-- 22:35 verified all feature tips were already in main; deleted four local branches and remote feat/ziya-skeleton
-- 22:46 legacy root folders archived under backend/data/legacy-workspace/20261008-224546; dependencies moved to frontend/node_modules; build and backend imports pass
-- 22:51 generated node ADMIN_KEY/ENCRYPTION_KEY into local .env; .env.example documents node-side vars; Railway deploy pending Blockfrost key
-- 22:55 Blockfrost Preprod project astra-masumi-preprod created; key in .env, tested 200
-- 23:04 Railway project mellow-energy deployed; node URL https://masumi-payment-service-production-96e0.up.railway.app/api/v1; .env MASUMI_PAYMENT_URL updated; health pending
-- 23:09 live Apify run ZNboU2b0EHUJgFaEQ saved 20 verified rentals; GET-only recovery passed; local cached mode selected
-- 23:09 Brian/Callum speech passed; real HTTP Act 1 in Edge released SIMULATED escrow and played all 7 clips without overlap; 144 Python + 15 frontend tests/build pass
+- Latest merged main: 364 backend tests pass on Python 3.13 and clean Python 3.11; 32 frontend tests/build and fresh browser scenarios pass.
+- Clean-checkout npm start and 10 real-HTTP terminal scenarios pass; replay selects the latest deal and skips stale approvals.
+- Endurance stopped on return at 20m55s: 21 cycles, 135 outcomes, five concurrent batches; no failures or pending work; SIMULATED balances 51/49/0.
+- Fixed repeated Codex cancellation, strict move/cache/rent validation, bounded TTS, seller-response binding, legacy recovery and terminal replay.
+- Audited merged work from Ziya, Murad and Mais, including late UI update 2d0d987; latest frontend tests/build/browser rerun pass.
+- Fixed lost-payment-response recovery, invalid money inputs, delivery verification and unconfirmed Masumi release reporting.
+- Fixed buyer shutdown cleanup, provider error-body exposure and runner port consistency.
+- Fixed offline pause errors, escrow/scheduled-release totals, task budget display and control wording.
+- Plan now marks 18/35 items complete and keeps partial/live-chain/video gates open; optional live Viktor remains undone.
+- Browser: all three UI acts, approve/decline, controls, offline/reconnect, theme and responsive widths pass; zero errors.
+- Fresh live-provider Act 1: three Codex turns, 20 cached genuine Apify listings, seven new voice clips, SIMULATED release at 7.
+- Final hosted Masumi node-only check passes health/auth/Preprod source; initial 401 resolved.
+- Details and local evidence paths: memory/SYSTEM_CHECK.md. Existing ledgers, .env and unrelated services preserved.

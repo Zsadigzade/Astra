@@ -1,0 +1,79 @@
+// One command for the whole demo: `npm start` runs the seller + buyer (backend/scripts/up.py)
+// and the dashboard (Vite) together. Ctrl+C stops all of it.
+//   node scripts/dev.mjs              backend + dashboard (opens the browser; NO_OPEN=1 to skip)
+//   node scripts/dev.mjs --web-only   dashboard only
+//   node scripts/dev.mjs --api-only   backend only
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const args = new Set(process.argv.slice(2));
+const wantApi = !args.has("--web-only");
+const wantWeb = !args.has("--api-only");
+const isWin = process.platform === "win32";
+const color = { api: "\x1b[36m", web: "\x1b[35m", dev: "\x1b[90m" };
+
+const log = (tag, line) => process.stdout.write(`${color[tag]}[${tag}]\x1b[0m ${line}\n`);
+
+if (wantApi && spawnSync(isWin ? "uv --version" : "uv", isWin ? { shell: true, stdio: "ignore" } : ["--version"], isWin ? undefined : { stdio: "ignore" }).status !== 0) {
+  log("dev", "uv is not installed or not on PATH. Install it from https://docs.astral.sh/uv/ and retry.");
+  process.exit(1);
+}
+if (wantWeb && !existsSync(join(root, "frontend", "node_modules"))) {
+  log("dev", "installing frontend dependencies...");
+  const r = isWin
+    ? spawnSync("npm install --no-audit --no-fund", { cwd: join(root, "frontend"), shell: true, stdio: "inherit" })
+    : spawnSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: join(root, "frontend"), stdio: "inherit" });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+}
+
+const children = new Map();
+let stopping = false;
+
+function start(tag, cmd, cmdArgs, cwd, env = {}) {
+  // One command string on Windows (needed for .cmd shims) avoids Node's args-with-shell deprecation warning.
+  const child = (isWin ? spawn(`${cmd} ${cmdArgs.join(" ")}`, { cwd, shell: true, env: { ...process.env, PYTHONUNBUFFERED: "1", FORCE_COLOR: "1", ...env } })
+    : spawn(cmd, cmdArgs, { cwd, env: { ...process.env, PYTHONUNBUFFERED: "1", FORCE_COLOR: "1", ...env } }));
+  children.set(tag, child);
+  for (const stream of [child.stdout, child.stderr]) {
+    let buf = "";
+    stream.on("data", (d) => {
+      buf += d.toString();
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop();
+      lines.filter((l) => l.trim()).forEach((l) => log(tag, l));
+    });
+  }
+  child.on("exit", (code) => {
+    children.delete(tag);
+    if (!stopping) {
+      log("dev", `${tag} exited${code ? ` with code ${code}` : ""}; stopping the rest.`);
+      stop(code ?? 0);
+    }
+  });
+}
+
+function kill(child) {
+  if (isWin) spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  else child.kill("SIGINT");
+}
+
+function stop(code = 0) {
+  if (stopping) return;
+  stopping = true;
+  children.forEach(kill);
+  setTimeout(() => process.exit(code), 400);
+}
+
+process.on("SIGINT", () => stop(0));
+process.on("SIGTERM", () => stop(0));
+
+if (wantApi) start("api", "uv", ["run", "python", "scripts/up.py"], join(root, "backend"));
+if (wantWeb) {
+  const webArgs = ["run", "dev"];
+  if (!process.env.NO_OPEN) webArgs.push("--", "--open");
+  start("web", "npm", webArgs, join(root, "frontend"));
+}
+log("dev", `starting ${[wantApi && "backend (:8000 buyer, :8001 seller)", wantWeb && "dashboard (:5173)"].filter(Boolean).join(" + ")}. Ctrl+C stops everything.`);

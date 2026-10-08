@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { appendEvent } from "../eventIdentity.js";
+import { PROVENANCE } from "./eventLabels.js";
 import { deriveDealState, stagesOf, usageOf, pendingApprovals, guardOf, timelineOf } from "./eventReducer.js";
 
 let n = 0;
@@ -70,26 +72,42 @@ test("a scheduled Masumi release is reported as scheduled, not settled", () => {
     ev("released", { price: 7, release: "scheduled", settles_at: "2026-10-09T05:00Z" })]);
   assert.equal(v.guard.status, "release_scheduled");
   assert.match(v.guard.message, /not settled|has not settled/);
+  assert.equal(v.usage.released, 0);
+  assert.equal(v.usage.locked, 7);
+  assert.equal(v.usage.scheduled, 7);
+  assert.equal(v.stages.settle, "wait");
+  assert.equal(v.terminal.title, "Release scheduled");
 });
 
-test("negotiation provenance separates AI, scripted and fallback lines", () => {
+test("failed funded deals keep escrow counted until release or refund", () => {
+  const events = [ev("escrow_locked", { price: 7 }), ev("error", { message: "Seller unreachable" })];
+  const failed = usageOf(events);
+  assert.equal(failed.locked, 7);
+  assert.equal(failed.released, 0);
+  assert.equal(failed.refunded, 0);
+  const recovered = usageOf([...events, ev("already_paid", { price: 7 }), ev("released", { price: 7 })]);
+  assert.equal(recovered.locked, 0);
+  assert.equal(recovered.released, 7);
+});
+
+test("negotiation provenance separates subscription Codex, scripted and fallback lines", () => {
   const v = deriveDealState([
-    ev("negotiation", { speaker: "max", backend: "openai" }),
+    ev("negotiation", { speaker: "max", backend: "codex" }),
     ev("negotiation", { speaker: "max", backend: "mock", fallback_reason: "Timeout" }),
     ev("negotiation", { speaker: "max", backend: "mock" }),
     ev("negotiation", { speaker: "max", backend: "guard" }),
   ]);
-  assert.deepEqual(v.chat.map((c) => c.provenance), ["ai", "fallback", "scripted", "guard"]);
+  assert.deepEqual(v.chat.map((c) => c.provenance), ["codex", "fallback", "scripted", "guard"]);
 });
 
-test("usage counts LLM, scripted, fallback and voice lines", () => {
+test("usage counts subscription Codex, scripted, fallback and voice lines", () => {
   const u = usageOf([
-    ev("negotiation", { speaker: "max", backend: "openai" }),
+    ev("negotiation", { speaker: "max", backend: "codex" }),
     ev("negotiation", { speaker: "max", backend: "mock", fallback_reason: "Timeout" }),
     ev("negotiation", { speaker: "max", backend: "mock", audio_url: "/audio/a.mp3" }),
     ev("negotiation", { speaker: "viktor", backend: "mock" }),
   ]);
-  assert.deepEqual([u.llm, u.scripted, u.fallback, u.voice, u.lines], [1, 2, 1, 1, 4]);
+  assert.deepEqual([u.codex, u.scripted, u.fallback, u.voice, u.lines], [1, 2, 1, 1, 4]);
 });
 
 test("timeline is newest-first, readable, and collapses the haggle to one entry", () => {
@@ -107,4 +125,20 @@ test("empty stream is a safe idle view", () => {
   assert.equal(v.simulated, null);
   assert.equal(v.guard.status, "ready");
   assert.equal(v.terminal, null);
+});
+
+
+test("reset with reused event IDs selects the new deal and preserves Codex provenance", () => {
+  const before = ev("negotiation", { speaker: "max", backend: "mock", text: "Old" }, { id: 1, ts: 10, deal_id: "old" });
+  const after = ev("negotiation", { speaker: "max", backend: "codex", text: "New" }, { id: 1, ts: 20, deal_id: "new" });
+  let history = appendEvent([before], after);
+  history = appendEvent(history, { ...after });
+  const view = deriveDealState(history);
+  assert.equal(view.dealId, "new");
+  assert.equal(view.chat.length, 1);
+  assert.equal(view.chat[0].data.text, "New");
+  assert.equal(PROVENANCE[view.chat[0].provenance].label, "CODEX SUBSCRIPTION");
+  assert.equal(view.usage.codex, 1);
+  assert.equal(view.usage.scripted, 1);
+  assert.equal(view.timeline.length, 2);
 });

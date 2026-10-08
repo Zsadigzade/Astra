@@ -4,12 +4,14 @@ import StatusBadge from "./StatusBadge.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 
 function BrandMark() {
+  // Two chevrons closing on one point: buyer and seller meeting at a price.
   return (
-    <svg className="brand-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="9" fill="var(--accent)" />
-      <circle cx="11" cy="16" r="4" fill="#fff" fillOpacity=".95" />
-      <circle cx="21" cy="16" r="4" fill="#fff" fillOpacity=".55" />
-      <path d="M15 16h2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+    <svg className="brand-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="#000" />
+      <rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="rgba(255,255,255,.16)" />
+      <path d="M8.5 10.5L14 16l-5.5 5.5" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M23.5 10.5L18 16l5.5 5.5" fill="none" stroke="#a78bfa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="16" cy="16" r="1.5" fill="#fff" />
     </svg>
   );
 }
@@ -18,7 +20,9 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
   const buyer = { name: "Buyer", state: stream === "live" ? "online" : stream };
   const seller = { name: "Seller", state: sellerState };
   const payments = controls
-    ? { name: "Payments", state: "online", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
+    ? (stream === "live"
+      ? { name: "Payments", state: "online", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
+      : { name: "Payments", state: "unknown" }) // last known mode would be stale while the buyer is unreachable
     : { name: "Payments", state: "unknown" };
   const paused = controls?.paused;
 
@@ -36,14 +40,15 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
         <div className="header-mid">
           <ConnectionStatus items={[buyer, seller, payments]} />
           <div className="honesty">
-            {controls?.modes.simulated && <StatusBadge tone="warning" icon="info" title="Money is a local ledger, not on-chain">SIMULATED MONEY</StatusBadge>}
+            {(controls?.modes.simulated ?? view.simulated) && <StatusBadge tone="warning" icon="info" title="Money is a local ledger, not on-chain">SIMULATED MONEY</StatusBadge>}
+            {controls?.modes.llm === "mock" && <StatusBadge tone="neutral" icon="info" title="Max and Viktor follow scripted personas, not a language model">SCRIPTED AGENTS</StatusBadge>}
             {view.staged && <StatusBadge tone="warning" icon="info" title="This scenario forces seller behaviour for the demo">STAGED SCENARIO</StatusBadge>}
           </div>
         </div>
 
         <div className="header-actions">
           <button type="button" className={`btn btn-sm ${paused ? "btn-danger-solid" : ""}`} onClick={onTogglePause}
-            disabled={!controls || pauseBusy} aria-pressed={!!paused}
+            disabled={!controls || pauseBusy || stream !== "live"} aria-pressed={!!paused}
             title="Pausing stops new tasks from starting. Deals already in flight finish safely.">
             <Icon name={paused ? "play" : "pause"} size={14} />
             {paused ? "Resume agents" : "Pause agents"}

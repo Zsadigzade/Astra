@@ -22,6 +22,20 @@ def test_evaluate(amount, verdict):
     assert guard.evaluate(amount, "t-1", budget=20).verdict is verdict
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("field", ["amount", "budget", "cap", "approval_over"])
+def test_nonfinite_money_or_limits_cannot_bypass_guard(field, value):
+    guard, _, _ = make_guard()
+    amount, budget = 7, 20
+    if field == "amount":
+        amount = value
+    elif field == "budget":
+        budget = value
+    else:
+        setattr(guard, field, value)
+    assert guard.evaluate(amount, "t-1", budget).verdict is Verdict.block
+
+
 @pytest.mark.anyio
 async def test_cap_blocks_even_when_asked_to_pay():
     guard, _, payments = make_guard()

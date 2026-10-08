@@ -17,9 +17,15 @@ def _f(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    # LLM: "mock" = scripted personas, "openai" = Max with scripted fallback
+    # Subscription-only LLM: "codex" uses the locally signed-in CLI; "mock" is scripted.
     llm_mode: str = field(default_factory=lambda: os.getenv("LLM_MODE", "mock"))
-    model: str = field(default_factory=lambda: os.getenv("MODEL", "gpt-4o-mini"))
+    codex_command: str = field(default_factory=lambda: os.getenv("CODEX_COMMAND", "codex"))
+    codex_model: str = field(default_factory=lambda: os.getenv("CODEX_MODEL", ""))
+    codex_timeout_seconds: float = field(default_factory=lambda: _f("CODEX_TIMEOUT_SECONDS", 30))
+
+    def __post_init__(self):
+        if self.llm_mode not in {"mock", "codex"}:
+            raise ValueError("LLM_MODE must be codex (ChatGPT subscription) or mock (scripted)")
 
     # Payments: "simulated" = local SQLite escrow, labelled SIMULATED everywhere; "masumi" = Preprod
     payments_mode: str = field(default_factory=lambda: os.getenv("PAYMENTS_MODE", "simulated"))
@@ -35,6 +41,11 @@ class Settings:
     # Wallet guard (tADA). Enforced in code, never by the LLM.
     guard_cap: float = field(default_factory=lambda: _f("GUARD_CAP", 10))
     guard_approval_over: float = field(default_factory=lambda: _f("GUARD_APPROVAL_OVER", 8))
+
+    # Browser origins allowed to call the buyer. Any localhost port is always allowed (Vite moves to 5174 when
+    # 5173 is busy); add others as a comma-separated list. Never "*": a hostile web page could approve payments.
+    cors_origins: tuple[str, ...] = field(default_factory=lambda: tuple(
+        o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()))
 
     seller_url: str = field(default_factory=lambda: os.getenv("SELLER_URL", "http://localhost:8001"))
     ledger_path: str = field(default_factory=lambda: os.getenv("LEDGER_PATH", str(BACKEND_ROOT / "data" / "buyer.db")))

@@ -9,9 +9,9 @@ export const SOURCE_LABEL = {
 };
 
 export const PROVENANCE = {
-  ai: { label: "AI", tone: "info", hint: "Written by the language model" },
+  codex: { label: "CODEX SUBSCRIPTION", tone: "info", hint: "Written by Codex using the signed-in ChatGPT subscription" },
   scripted: { label: "SCRIPTED", tone: "neutral", hint: "Scripted persona, not a language model" },
-  fallback: { label: "AI FALLBACK", tone: "warning", hint: "The model call failed; a scripted line was used instead" },
+  fallback: { label: "SCRIPTED FALLBACK", tone: "warning", hint: "The model call failed; a scripted line was used instead" },
   guard: { label: "GUARD", tone: "danger", hint: "Spoken after the wallet guard's decision, not by the model" },
 };
 
@@ -19,7 +19,7 @@ export function provenanceOf(e) {
   if (e.type !== "negotiation") return null;
   const d = e.data;
   if (d.backend === "guard") return "guard";
-  if (d.backend === "openai") return "ai";
+  if (d.backend === "codex") return "codex";
   if (d.speaker === "max" && d.fallback_reason) return "fallback";
   return d.backend === "mock" ? "scripted" : null;
 }

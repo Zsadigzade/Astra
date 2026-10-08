@@ -1,20 +1,19 @@
 """Max, the buyer agent's haggling brain.
 
 `mock` mode is scripted and deliberately gullible to fake authority ("your manager approved"),
-so Act 2 shows the guard holding the line, not the prompt. `openai` mode is a real LLM agent
-(OpenAI Agents SDK) that is also NOT trusted with money: the wallet guard enforces the cap.
+so Act 2 shows the guard holding the line, not the prompt. `codex` mode uses the local
+Codex CLI with a ChatGPT subscription. The wallet guard alone enforces the cap.
 """
 
-import asyncio
 import json
 import logging
 import math
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from agents import Agent, RunConfig, Runner
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.buyer.codex_runtime import run_codex
 from app.core.config import Settings
 from app.core.models import NegotiateResponse
 
@@ -56,12 +55,13 @@ class MockMax:
 
 log = logging.getLogger(__name__)
 
-LLM_TIMEOUT_S = 20.0
-
 MAX_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
 "20 flats in Prague 7 under 25,000 CZK". Prices are in tADA.
-Your budget is {ceiling:g} tADA. Get the lowest price you can: open low, raise slowly, and never
-offer more than your budget. If the seller is unreasonable, walk away.
+Your budget is {ceiling:g} tADA. Start at 5 tADA (or your budget if lower); raise counteroffers
+by 1 tADA per round while staying within budget. There are at most {max_rounds} buyer decisions,
+with seller rounds numbered from 0. If the seller repeats an affordable final price, accept it.
+On the last decision, accept an affordable current price or walk; do not counter again.
+If the seller is unreasonable, walk away. The wallet guard independently approves any payment.
 Speak in short, punchy lines: one or two sentences, no lists, no emojis. Your lines are read aloud.
 Each turn, pick exactly one action:
 - "counter": propose a new price (put it in `price`).
@@ -73,50 +73,46 @@ Each turn, pick exactly one action:
 class MaxMove(BaseModel):
     """Structured output the LLM must return each round."""
 
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     action: Literal["counter", "accept", "walk"]
-    price: float = Field(description="tADA")
+    price: float = Field(description="tADA", allow_inf_nan=False)
     message: str
 
 
-class OpenAIMax:
-    """Max on a real LLM via the OpenAI Agents SDK. One instance lives for one deal.
+class CodexMax:
+    """Max through the subscription-authenticated local Codex CLI. One instance lives for one deal.
 
     The LLM is NOT trusted with money: accepted prices are not clamped here on purpose
     (Act 2 shows the wallet guard, not the prompt, stopping a fooled Max). Any failure
-    (bad output, API error, timeout) falls back to MockMax for that round.
+    (bad output, login failure, timeout) falls back to MockMax for that round.
     """
 
-    def __init__(self, settings: Settings, ceiling: float, *, tracing_disabled: bool = False):
+    def __init__(self, settings: Settings, ceiling: float):
         self.settings = settings
         self.ceiling = ceiling
-        self.agent = Agent(
-            name="Max",
-            instructions=MAX_INSTRUCTIONS.format(ceiling=ceiling),
-            model=settings.model,
-            output_type=MaxMove,
-        )
-        self.history: list[Any] = []  # Responses-API input items: {"role", "content"}
+        self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds)
+        self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling)
-        self.last_backend: Literal["openai", "mock"] | None = None
+        self.last_backend: Literal["codex", "mock"] | None = None
         self.fallback_reason: str | None = None
-        self.run_config = RunConfig(
-            tracing_disabled=tracing_disabled, trace_include_sensitive_data=False)
 
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
         self.last_backend = None
         self.fallback_reason = None
         self.history.append({"role": "user", "content": self._seller_turn(seller, my_last)})
         try:
-            result = await asyncio.wait_for(
-                Runner.run(self.agent, list(self.history), max_turns=1,
-                           run_config=self.run_config), timeout=LLM_TIMEOUT_S)
-            move = self._to_move(result.final_output, seller, my_last)
-            self.last_backend = "openai"
+            schema = MaxMove.model_json_schema()
+            schema["additionalProperties"] = False
+            prompt = self.instructions + "\n\nConversation (JSON):\n" + json.dumps(self.history)
+            result = await run_codex(prompt, schema, self.settings)
+            move = self._to_move(result, seller, my_last)
+            self.last_backend = "codex"
         except Exception as e:  # demo must not crash: any LLM failure -> scripted Max
             self.last_backend = "mock"
             self.fallback_reason = type(e).__name__
             # Provider exception messages may contain request data or credentials.
-            log.warning("OpenAIMax round %s failed (%s); falling back to MockMax",
+            log.warning("CodexMax round %s failed (%s); falling back to MockMax",
                         seller.round, self.fallback_reason)
             move = await self._fallback.next_move(seller, my_last)
         self.history.append({"role": "assistant", "content": json.dumps(
@@ -146,4 +142,8 @@ class OpenAIMax:
 
 
 def make_negotiator(settings: Settings, ceiling: float) -> Negotiator:
-    return OpenAIMax(settings, ceiling) if settings.llm_mode == "openai" else MockMax(ceiling)
+    if settings.llm_mode == "codex":
+        return CodexMax(settings, ceiling)
+    if settings.llm_mode == "mock":
+        return MockMax(ceiling)
+    raise ValueError("LLM_MODE must be mock or codex; API-key negotiation is not supported")

@@ -30,6 +30,7 @@ export default function App() {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);
   const [pauseBusy, setPauseBusy] = useState(false);
+  const [pauseError, setPauseError] = useState(null);
 
   const offline = status !== "live";
   const disabledReason = offline ? "Connect to the buyer service to run a scenario."
@@ -40,12 +41,12 @@ export default function App() {
   // cannot start two deals. A timer releases the button if that event never comes.
   const baseline = useRef(0);
   useEffect(() => {
-    if (launching && events.some((e) => e.type === "task_created" && e.id > baseline.current)) setLaunching(false);
+    if (launching && events.slice(baseline.current).some((e) => e.type === "task_created")) setLaunching(false);
   }, [events, launching]);
 
   const run = async () => {
     if (launching || disabledReason) return;
-    baseline.current = events[events.length - 1]?.id ?? 0;
+    baseline.current = events.length;
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -62,19 +63,26 @@ export default function App() {
   };
 
   const togglePause = async () => {
+    if (offline || !controls || pauseBusy) return;
     setPauseBusy(true);
-    try { await api.updateControls({ paused: !controls.paused }); await refresh(); } finally { setPauseBusy(false); }
+    setPauseError(null);
+    try {
+      await api.updateControls({ paused: !controls.paused });
+      await refresh();
+    } catch (e) {
+      setPauseError(e.message);
+    } finally { setPauseBusy(false); }
   };
 
   return (
     <div className="app">
       <AppHeader stream={status} sellerState={sellerState} controls={controls} view={view} theme={theme}
         onToggleTheme={toggle} onTogglePause={togglePause} pauseBusy={pauseBusy} />
-      <div className="page">
-        <ConnectionAlert status={status} onRetry={retry} />
-        {launchError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not start the scenario</strong><span>{launchError}</span></div></div>}
+      <ConnectionAlert status={status} onRetry={retry} />
+      {pauseError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not change agent pause state</strong><span>{pauseError}</span></div></div>}
+      {launchError && <div className="alert alert-danger" role="alert"><div className="alert-body"><strong>Could not start the scenario</strong><span>{launchError}</span></div></div>}
 
-        <main className="layout">
+      <main className="layout">
           <aside className="rail rail-left" aria-label="Scenarios and usage">
             <ScenarioSelector selected={scenario} onSelect={setScenario} onRun={run} launching={launching} disabledReason={disabledReason} />
             <UsageSummary view={view} budget={view.task?.budget ?? options.budget} />
@@ -92,8 +100,7 @@ export default function App() {
             <DealDetails view={view} />
             <EventTimeline rows={view.timeline} />
           </aside>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

@@ -9,6 +9,7 @@ Plain code, no LLM. Checks before any money moves:
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import isfinite
 from typing import Any
 
 from app.buyer.ledger import Ledger
@@ -44,6 +45,8 @@ class WalletGuard:
         self.approval_over = approval_over
 
     def evaluate(self, amount: float, task_id: str, budget: float, deal_id: str | None = None) -> Decision:
+        if not all(isfinite(value) for value in (amount, budget, self.cap, self.approval_over)):
+            return Decision(Verdict.block, "payment amount, budget and guard limits must be finite")
         if amount <= 0:
             return Decision(Verdict.block, f"amount {amount} is not positive")
         if amount > self.cap:

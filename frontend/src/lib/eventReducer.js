@@ -45,7 +45,7 @@ export function stagesOf(deal) {
   const verified = last(deal, "verified");
   if (verified) s.verify = verified.data.ok ? "done" : "fail";
   else if (s.delivery === "done") s.verify = "active";
-  if (outcome === "released") s.settle = "done";
+  if (outcome === "released") s.settle = last(deal, "released")?.data.release === "scheduled" ? "wait" : "done";
   else if (outcome === "refunded") s.settle = "fail";
   else if (verified) s.settle = "active";
   if (outcome === "error") {
@@ -90,6 +90,7 @@ export function guardOf(deal, stages, outcome) {
 }
 
 export function terminalOf(outcome, guard) {
+  if (guard.status === "release_scheduled") return { tone: "neutral", title: "Release scheduled", description: guard.message };
   const map = {
     released: ["success", "Deal complete", guard.message],
     refunded: ["warning", "Deal refunded", guard.message],
@@ -104,25 +105,28 @@ export function terminalOf(outcome, guard) {
 export function usageOf(events) {
   const dealIds = [...new Set(events.filter((e) => e.deal_id).map((e) => e.deal_id))];
   const outcomes = { released: 0, refunded: 0, blocked: 0, walked: 0, error: 0, running: 0 };
-  let released = 0, refunded = 0, locked = 0;
+  let released = 0, refunded = 0, locked = 0, scheduled = 0;
   for (const id of dealIds) {
     const d = byDeal(events, id);
     const o = outcomeOf(d);
     outcomes[o] += 1;
     const lock = last(d, "escrow_locked", "already_paid");
     const price = lock?.data.price ?? 0;
-    if (o === "released") released += price;
+    if (o === "released" && last(d, "released")?.data.release === "scheduled") {
+      scheduled += price;
+      locked += price;
+    } else if (o === "released") released += price;
     else if (o === "refunded") refunded += price;
-    else if (lock && o === "running") locked += price;
+    else if (lock) locked += price;
   }
   const maxLines = events.filter((e) => e.type === "negotiation" && e.data.speaker === "max");
   return {
     deals: dealIds.length,
     outcomes,
-    released, refunded, locked,
+    released, refunded, locked, scheduled,
     lines: events.filter((e) => e.type === "negotiation").length,
     viktor: events.filter((e) => e.type === "negotiation" && e.data.speaker === "viktor").length,
-    llm: maxLines.filter((e) => e.data.backend === "openai").length,
+    codex: maxLines.filter((e) => e.data.backend === "codex").length,
     scripted: maxLines.filter((e) => e.data.backend === "mock").length,
     fallback: maxLines.filter((e) => e.data.backend === "mock" && e.data.fallback_reason).length,
     voice: events.filter((e) => e.type === "negotiation" && e.data.audio_url).length,

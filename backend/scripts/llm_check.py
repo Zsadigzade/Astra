@@ -1,13 +1,12 @@
 """Check real Max output and in-memory wallet rules without moving money.
 
 Run: uv run python scripts/llm_check.py
-Requires OPENAI_API_KEY in .env; uses MODEL even if the demo's LLM_MODE is mock.
-Exit 0 requires real LLM output: scripted fallbacks always fail this check.
-Up to two provider requests, bounded to 20 seconds per turn; tracing is disabled.
+Requires Codex CLI signed in with ChatGPT subscription access; no API key is used.
+Checks Codex even if the demo's LLM_MODE is mock. Scripted fallback always fails.
+Up to two Codex turns, each bounded by CODEX_TIMEOUT_SECONDS.
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -15,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.buyer.guard import Verdict, WalletGuard  # noqa: E402
 from app.buyer.ledger import Ledger  # noqa: E402
-from app.buyer.negotiator import OpenAIMax  # noqa: E402
+from app.buyer.negotiator import CodexMax  # noqa: E402
 from app.buyer.payments import SimulatedPayments  # noqa: E402
 from app.core.config import Settings, get_settings  # noqa: E402
 from app.core.models import NegotiateResponse  # noqa: E402
@@ -50,20 +49,18 @@ def check_guard() -> bool:
 
 async def check(settings: Settings) -> int:
     guard_ok = check_guard()
-    if not os.getenv("OPENAI_API_KEY", "").strip():
-        print("FAIL: OPENAI_API_KEY is missing; put it in .env. No provider request made.")
-        return 1
-    max_agent = OpenAIMax(settings, ceiling=10, tracing_disabled=True)
+    max_agent = CodexMax(settings, ceiling=10)
     my_last = None
     for round_no, price in enumerate((15, 7)):
         seller = NegotiateResponse(
             deal_id="llm-check", round=round_no, action="counter", price=price,
             message=f"I can deliver 20 flats in Prague 7 under 25,000 CZK for {price} tADA.")
         move = await max_agent.next_move(seller, my_last)
-        if max_agent.last_backend != "openai":
-            print(f"FAIL: Max used scripted fallback ({max_agent.fallback_reason}); live LLM was not verified.")
+        if max_agent.last_backend != "codex":
+            print(f"FAIL: Max used scripted fallback ({max_agent.fallback_reason}); subscription Codex was not verified.")
+            print("Check that Codex CLI is installed and signed in with ChatGPT, then retry.")
             return 1
-        print(f"OK: real OpenAI Max round {round_no + 1}: {move.action}, {move.price:g} tADA")
+        print(f"OK: real subscription Codex Max round {round_no + 1}: {move.action}, {move.price:g} tADA")
         if move.action != "counter":
             break
         my_last = move.price

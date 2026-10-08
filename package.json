@@ -1,9 +1,11 @@
 {
   "name": "astra-haggle",
   "private": true,
-  "description": "Dashboard launcher. Backend is started separately (see README).",
+  "description": "One-command launcher: backend (seller + buyer) and dashboard.",
   "scripts": {
-    "start": "npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run dev -- --open",
+    "start": "node scripts/dev.mjs",
+    "web": "node scripts/dev.mjs --web-only",
+    "api": "node scripts/dev.mjs --api-only",
     "build": "npm --prefix frontend run build",
     "test": "npm --prefix frontend test"
   }

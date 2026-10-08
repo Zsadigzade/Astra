@@ -1,5 +1,7 @@
 from dataclasses import replace
+import asyncio
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -76,6 +78,9 @@ async def test_live_mapping_cache_and_offline_delivery(monkeypatch, settings):
     {"city": "Praha", "locality": "Holešovice"}, {"url": "https://example.invalid/flat/1"},
     {"url": "https://www.sreality.cz/detail/prodej/byt/2+kk/praha-holesovice/1"},
     {"url": "https://www.sreality.cz@evil.invalid/detail/pronajem/byt/2+kk/praha-holesovice/1"},
+    {"url": "https://www.sreality.cz/detail/pronajem/byt/2+kk/praha holesovice/1"},
+    {"url": "https://www.sreality.cz/detail/pronajem/byt/2+kk/praha-holesovice/1\n"},
+    {"url": "https://www.sreality.cz/detail/pronajem/byt/2+kk/praha-holesovice/1\x00"},
 ])
 def test_rejects_unproven_or_nonmatching_listings(changes):
     with pytest.raises(apify.ApifyError, match="Only 0"):
@@ -200,7 +205,7 @@ async def test_cache_rejects_untrusted_provenance_and_data(monkeypatch, settings
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("job,changes", [
-    (JobSpec(count=0), {}), (JobSpec(count=201), {}), (JobSpec(district="Praha 8"), {}),
+    (JobSpec.model_construct(count=0), {}), (JobSpec.model_construct(count=201), {}), (JobSpec(district="Praha 8"), {}),
     (JobSpec(), {"apify_max_items": 201}), (JobSpec(), {"apify_max_items": 1}),
     (JobSpec(), {"apify_timeout_seconds": 0}), (JobSpec(), {"apify_actor_id": "other/actor"}),
 ])
@@ -329,3 +334,92 @@ async def test_cli_failed_mapping_prints_recovery_links(monkeypatch, settings, c
     assert "Only 1" in output
     assert "https://console.apify.com/actors/runs/run1" in output
     assert "https://console.apify.com/storage/datasets/dataset1" in output
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mutation", ["bool_price", "string_price", "float_price", "bool_count", "bool_version", "unsupported_actor"])
+async def test_cache_rejects_coerced_fields_and_unsupported_actor(monkeypatch, settings, mutation):
+    success(monkeypatch, [row()])
+    job = JobSpec(count=1)
+    await run_job(job, DemoMode.honest, settings)
+    path = Path(settings.apify_cache_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if mutation.endswith("price"):
+        payload["result"]["flats"][0]["price_czk"] = {
+            "bool_price": True, "string_price": "22000", "float_price": 22000.0,
+        }[mutation]
+    elif mutation == "bool_count":
+        payload["job"]["count"] = True
+    elif mutation == "bool_version":
+        payload["version"] = True
+    else:
+        payload["result"]["actor_id"] = "other/actor"
+        settings = replace(settings, apify_actor_id="other/actor")
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(apify.ApifyError, match="exact job"):
+        apify.load_cache(job, settings)
+
+
+@pytest.mark.anyio
+async def test_polled_run_identity_cannot_change_provenance(monkeypatch, settings):
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        if request.url.path.endswith("/runs"):
+            return httpx.Response(201, json={"data": {"id": "run1", "status": "RUNNING"}})
+        return httpx.Response(200, json={"data": {
+            "id": "other_run", "status": "SUCCEEDED", "defaultDatasetId": "other_dataset"}})
+
+    mock_http(monkeypatch, handle)
+    with pytest.raises(apify.ApifyError, match="different run") as error:
+        await apify.scrape(JobSpec(count=1), settings)
+    assert error.value.run_id == "run1"
+    assert error.value.dataset_id is None
+    assert calls[-1].url.path == "/v2/actor-runs/run1/abort"
+    assert not any("/datasets/" in str(request.url) for request in calls)
+
+
+@pytest.mark.anyio
+async def test_cancellation_aborts_owned_run_without_cache_fallback(monkeypatch, settings):
+    started = asyncio.Event()
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        started.set()
+        return httpx.Response(200, json={"data": {"id": "run1", "status": "RUNNING"}})
+
+    mock_http(monkeypatch, handle)
+    task = asyncio.create_task(apify.rental_result(JobSpec(count=1), settings))
+    await asyncio.wait_for(started.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert calls[-1].url.path == "/v2/actor-runs/run1/abort"
+    assert not Path(settings.apify_cache_path).exists()
+
+
+@pytest.mark.anyio
+async def test_failed_atomic_replace_preserves_cache_and_cleans_temporary_file(monkeypatch, settings):
+    success(monkeypatch, [row()])
+    job = JobSpec(count=1)
+    result = await run_job(job, DemoMode.honest, settings)
+    path = Path(settings.apify_cache_path)
+    original = path.read_bytes()
+
+    def fail_replace(*args):
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(apify.os, "replace", fail_replace)
+    with pytest.raises(OSError):
+        apify.save_cache(job, result, settings)
+    assert path.read_bytes() == original
+    assert list(path.parent.glob(path.name + "*.tmp")) == []
+    assert apify.load_cache(job, settings).flats == result.flats
+
+
+def test_integer_rents_do_not_overflow_float_conversion():
+    price = 10 ** 400
+    flats = apify.map_items([row(price=price)], JobSpec(count=1, max_price_czk=price))
+    assert flats[0].price_czk == price

@@ -41,7 +41,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
   }, [view.chat.length]);
 
   const scenario = SCENARIOS[view.scenario];
-  const [tone, status] = STATUS[view.outcome];
+  const [tone, status] = view.guard.status === "release_scheduled" ? ["info", "Release scheduled"] : STATUS[view.outcome];
   const src = view.delivery?.source && SOURCE_LABEL[view.delivery.source];
 
   return (
@@ -66,7 +66,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
         <DealPipeline stages={view.stages} />
       </section>
 
-      {view.approval && <ApprovalCard key={view.approval.id} approval={view.approval} controls={controls} />}
+      {view.approval && <ApprovalCard key={eventKey(view.approval)} approval={view.approval} controls={controls} />}
 
       <section className="card conversation" aria-labelledby="conv-h">
         <div className="conv-head">
