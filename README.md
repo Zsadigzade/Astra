@@ -12,55 +12,17 @@ Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dus
 
 A buyer agent, **Max**, hires a seller agent, **Viktor**, to find 20 flats in Praha 7 under 25,000 CZK.
 They are separate HTTP services. They haggle over price. Max can agree to any price, but Max cannot pay.
-Only the **wallet guard** (`buyer/guard.py`, plain Python, no LLM) can move money. Money goes into
+Only the **wallet guard** (`backend/app/buyer/guard.py`, plain Python, no LLM) can move money. Money goes into
 escrow (Masumi on Cardano Preprod, or a labelled SIMULATED ledger). A rule-based verifier checks the
 delivery. Pass = release to Viktor. Fail = refund to Max.
 
-```mermaid
-sequenceDiagram
-    participant D as Dashboard
-    participant M as Max buyer
-    participant G as Wallet guard
-    participant V as Viktor seller
-    participant K as Masumi escrow
-
-    D->>M: POST /tasks with demo_mode
-    loop haggle rounds
-        M->>V: POST /negotiate with offer
-        V-->>M: counter, accept or walk
-    end
-    M->>G: evaluate agreed price
-    alt over cap 10 or over budget 20
-        G-->>M: BLOCKED, no money moves
-        M->>V: walk away
-        Note over G,V: Guard runs before start_job. A blocked deal costs nothing.
-    else over approval line 8
-        G->>D: needs_approval
-        D->>G: POST /approvals with approve true or false
-    end
-    M->>V: POST /start_job with agreed price
-    V->>K: create payment request, Masumi mode only
-    V-->>M: job_id and blockchainIdentifier
-    G->>K: lock funds, idempotent per deal_id
-    Note over G,K: Deal already paid means already_paid. Never pays twice.
-    V->>K: wait for FundsLocked, then do the job
-    V->>K: submit result hash
-    M->>V: GET /status until completed
-    M->>M: verifier checks count, price, district, URLs
-    alt verified
-        G->>K: release, settles after unlockTime
-    else failed
-        G->>K: refund
-    end
-    M-->>D: every step streamed over SSE GET /events
-```
 
 ## Why the guard is code, not prompt
 
 - **A prompt can be talked out of a rule. An `if` cannot.** `WalletGuard.evaluate` blocks any amount over
   `GUARD_CAP` (10 tADA) or over the task budget (20), whatever the negotiator agreed to. Act 2 proves it.
 - **The AI never holds the payment adapter.** Only `WalletGuard` has a `Payments` object
-  (`buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
+  (`backend/app/buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
 - **Never pays a deal twice.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
   writes `status="paying"` before locking, and both payment adapters are idempotent per `deal_id`.
   A crash at any point resumes without a second payment (Act 3).
@@ -69,34 +31,40 @@ sequenceDiagram
 
 ## The demo, in four acts
 
-| Act | Demo mode | Proves |
-|---|---|---|
-| 1 The deal | `honest` | haggle 18 → 7, escrow, delivery, verify, release |
-| 2 The con | `con` (STAGED) | Max accepts a fake "manager approved 25"; guard BLOCKS (cap 10) |
+| Act          | Demo mode                     | Proves                                                             |
+| ------------ | ----------------------------- | ------------------------------------------------------------------ |
+| 1 The deal   | `honest`                      | haggle 18 → 7, escrow, delivery, verify, release                   |
+| 2 The con    | `con` (STAGED)                | Max accepts a fake "manager approved 25"; guard BLOCKS (cap 10)    |
 | 3 The glitch | `CRASH_AFTER_LOCK=1` (STAGED) | buyer dies after paying; on restart: `already_paid`, no double pay |
-| 4 The refund | `junk` (STAGED) | garbage delivery fails verification, escrow refunded |
+| 4 The refund | `junk` (STAGED)               | garbage delivery fails verification, escrow refunded               |
 
 Non-honest acts carry `staged: true` on every event. All 4 acts plus the approval path run end to end in SIMULATED mode.
 
 ## Run
 
+Dashboard only, from the project root, one command: `npm start` (installs frontend deps if needed, serves
+http://localhost:5173 and opens it). It needs the backend on :8000 to show live data; without it the page
+reports the buyer as unreachable.
+
 ```bash
 cp .env.example .env                                 # fill in keys; never commit .env
+cd backend
 uv sync
 uv run pytest
-uv run uvicorn seller.app:app --port 8001            # terminal 1
-uv run uvicorn buyer.app:app --port 8000             # terminal 2
-cd dashboard && npm install && npm run dev           # terminal 3, open http://localhost:5173
+uv run uvicorn app.seller.app:app --port 8001        # terminal 1, from backend/
+uv run uvicorn app.buyer.app:app --port 8000         # terminal 2, from backend/
+cd ../frontend && npm install && npm run dev          # terminal 3, open http://localhost:5173
 curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo_mode":"honest"}'
 ```
 
-- One command for both servers: `uv run python scripts/up.py` (`--reset` clears data, `--crash` = Act 3:
+- Backend commands below run from `backend/`.
+- One command for both servers: `uv run python scripts/up.py` (`--reset` clears `backend/data`, `--crash` = Act 3:
   buyer dies after paying and auto-restarts, seller stays up).
 - Terminal demo (no dashboard): `uv run python scripts/act.py honest|con|junk` prints the haggle and money events live.
 - Act 3 by hand: start buyer with `CRASH_AFTER_LOCK=1`, run Act 1, buyer dies; restart buyer without it,
   then `scripts/act.py --watch`.
 - Approval path: start seller with `SELLER_FLOOR=9`, deal settles at 9, dashboard shows Approve.
-- Reset: `scripts/up.py --reset`, or delete `data/buyer.db`.
+- Reset: `scripts/up.py --reset`, or delete `backend/data/buyer.db` from the project root.
 
 **Masumi mode** (real Preprod escrow). Set in `.env`, both buyer and seller: `PAYMENTS_MODE=masumi`,
 `MASUMI_PAYMENT_URL`, `MASUMI_API_KEY`, `MASUMI_NETWORK=Preprod`, plus seller-side `MASUMI_AGENT_ID` and
@@ -109,7 +77,7 @@ All names and defaults are in [.env.example](.env.example).
    with a **Preprod** Blockfrost project key (`BLOCKFROST_API_KEY_PREPROD`). Set a private `ADMIN_KEY`
    in the node's variables. Wait for the payment service and PostgreSQL to start, then generate the
    service's public URL. See the [Masumi installation guide](https://www.masumi.network/dev/masumi/documentation/get-started/install-masumi-node).
-2. Open that host's `/admin`. In Astra's local `.env`, set `MASUMI_PAYMENT_URL=https://<host>/api/v1`
+2. Open that host's `/admin`. In Haggle's root `.env`, set `MASUMI_PAYMENT_URL=https://<host>/api/v1`
    and `MASUMI_API_KEY` to the node's `ADMIN_KEY`. A Sokosumi key will not work here.
    Keep `PAYMENTS_MODE=simulated` during setup.
 3. Run `uv run python scripts/masumi_check.py --node-only`. This checks health, authentication and a
@@ -133,38 +101,82 @@ Do not use `--reset` on a ledger with unfinished payments.
 
 **LLM mode:** `LLM_MODE=openai` runs Max on the OpenAI Agents SDK (`OPENAI_API_KEY`, `MODEL`). Default is `mock`.
 
+### Data, agents and voice (I path)
+
+Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider keys in `.env`.
+
+- **Rental data:** set `APIFY_TOKEN`, then run `uv run python scripts/scrape_flats.py`. This live-only
+  check uses the [Sreality Actor](https://apify.com/swerve/sreality-scraper), targets Praha 7 with at most 200
+  rentals, and requires 20 unique listings explicitly in Praha 7 at or below 25,000 CZK/month.
+  The run has a 90-second default deadline and requests `maxTotalChargeUsd=1.10` through the
+  [Apify run API](https://docs.apify.com/api/v2/actors-runs-post). Provider charges apply.
+  Too few proven matches fails explicitly; it never pads results or broadens the brief.
+- A successful scrape saves real records and run/dataset/timestamp provenance to
+  `APIFY_CACHE_PATH` (default `backend/data/flats-apify.json`, git-ignored). `APIFY_MODE=apify` uses live data
+  with a matching saved-cache fallback; `APIFY_MODE=cached` uses only that saved data. Cached results
+  carry `source: apify_cached` and show **CACHED APIFY** in the dashboard. The local cache contains
+  20 verified rentals; it is not committed. On another laptop with access to the same Apify account,
+  recover it without a new scrape: `uv run python scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ`.
+  Recovery verifies the Actor, result fields and original completion time. Failure output retains
+  run/dataset links so download or validation can be retried without paying for another run.
+  `APIFY_MODE=sample` remains the default and is labelled **SAMPLE**. A cache must match the exact job.
+- **Max:** `uv run python scripts/llm_check.py` checks real structured agent output and the actual
+  wallet guard in memory without moving money. It fails if the key is absent or Max falls back to
+  scripted output. `MODEL` remains configurable. Negotiation events identify scripted fallbacks;
+  the dashboard shows them. No OpenAI API key is available yet, so keep `LLM_MODE=mock`.
+- **Voices:** set `ELEVENLABS_API_KEY`, then run `uv run python scripts/voice_check.py` to list stock
+  and generated voices. Put two distinct IDs in `VOICE_MAX` and `VOICE_VIKTOR`, then run
+  `uv run python scripts/voice_check.py --synthesize` to generate two short samples using credits.
+  With `TTS_MODE=elevenlabs`, provider/timeouts/storage failures fall back to text.
+  `TTS_MODEL` and `TTS_TIMEOUT_SECONDS` control the model and per-line deadline.
+  Verified stock voices: Max = Brian (`nPczCjzI2devNBz1zQrb`), Viktor = Callum (`N2lVS1w4EtoT3dr4eOWO`).
+- In the dashboard, **Play voices** enables ordered playback. Duplicate SSE events do not replay
+  clips, including across reused ledger IDs; missing clips or 10 seconds without playback progress
+  are skipped. Stop/Mute keeps the transcript usable. The reusable component
+  is `frontend/src/components/VoicePlayback.jsx`; mount it once with `events` and `buyerUrl`.
+
+Offline validation from `backend/`: `uv run pytest`. From `frontend/`: run
+`npm test` (audio queue, event identity, event reducer, theme) and `npm run build`.
+
+Validation: 144 Python tests, 15 frontend tests, and production build pass. Headless Edge completed
+Act 1 over real buyer/seller HTTP: 20 **CACHED APIFY** rentals verified, **SIMULATED** escrow released,
+and all seven real ElevenLabs clips played sequentially without overlap. Separate browser checks
+cover SSE replay, reused IDs after reset, missing clips, Stop and Mute. Local rehearsal settings are
+`APIFY_MODE=cached`, `TTS_MODE=elevenlabs`, `LLM_MODE=mock`, `PAYMENTS_MODE=simulated`.
+
 ## Layout
 
 ```
-shared/     contracts (pydantic), env settings, Masumi client (masumi.py)
-buyer/      Max, :8000 - orchestrator, wallet guard, SQLite ledger, payments, verifier
-seller/     Viktor, :8001 - MIP-003 + POST /negotiate, persona, flats job
-voice/      ElevenLabs TTS for haggle lines, text fallback
-dashboard/  Vite + React, reads buyer SSE
-scripts/    up.py (both servers), act.py (one act in terminal), masumi_check.py
-tests/      guard, acts 1-4 + approval E2E (SIMULATED), crash resume, negotiator,
-            Masumi adapter against tests/fake_masumi.py
-memory/     shared team memory for humans and coding agents
+backend/
+  app/
+    buyer/   Max, :8000 - orchestrator, wallet guard, ledger, payments, verifier
+    seller/  Viktor, :8001 - MIP-003, negotiation persona, Apify rental job
+    core/    shared Pydantic contracts, settings, and Masumi client
+    voice/   ElevenLabs TTS with text fallback
+  scripts/   demo runner plus Masumi, Apify, LLM, and voice readiness checks
+  tests/     unit/E2E, integrations, crash recovery, and fake-Masumi coverage
+frontend/    Vite + React dashboard, SSE consumer, and ordered audio queue
+memory/      shared team decisions, contracts, handoff, and status
 ```
 
 VS Code/Cursor hides generated caches, virtual environments, dependencies and build output in the
 Explorer via [.vscode/settings.json](.vscode/settings.json). Runtime ledgers and audio remain in
-the git-ignored `data/` folder; local credentials stay in `.env`.
+the git-ignored `backend/data/` folder; local credentials stay in the root `.env`.
 
 ## Honest limitations
 
 What is real and what is not, as of this commit.
 
-| Area | State now |
-|---|---|
-| Money | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode. |
-| Masumi mode | Built (`shared/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `tests/fake_masumi.py`. Not yet run against a live payment node. |
-| Release | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`. |
-| Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo. |
-| Agents | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only, falls back to scripted Max on any error, and has not been tested live. Viktor has no LLM mode. |
-| Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway. |
-| Staging | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`. |
-| Flats | **Sample data** (`source: "sample"`, `APIFY_MODE=sample`) until the Apify scrape lands. |
-| Verifier | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one. |
-| Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes. |
-| Voice | ElevenLabs TTS (`TTS_MODE=elevenlabs`) not yet tested against the live API; text fallback works. |
+| Area         | State now                                                                                                                                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Money        | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode.                                                                                          |
+| Masumi mode  | Built (`backend/app/core/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `backend/tests/fake_masumi.py`. Not yet run against a live payment node.                                                       |
+| Release      | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`.                                     |
+| Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo.                                                                                            |
+| Agents       | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only; errors use a labelled scripted fallback. No API key is available for live verification. Viktor's optional LLM persona is deferred. |
+| Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway.                                                                                                  |
+| Staging      | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`.                                                                                                             |
+| Flats        | Template default is **sample data**. Live Apify returned 20 valid Praha 7 rentals; local rehearsal uses their labelled **CACHED APIFY** snapshot. Recovery command above recreates the ignored cache.                                            |
+| Verifier     | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one.                                                                                                                |
+| Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes.                                                                                                                      |
+| Voice        | Real ElevenLabs output for both speakers decoded and played in Edge, including all seven Act 1 lines. Ordered playback, Stop/Mute and unavailable-clip recovery passed; text fallback remains available.                                                            |

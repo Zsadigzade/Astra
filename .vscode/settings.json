@@ -6,6 +6,7 @@
     "**/.ruff_cache": true,
     "**/.venv": true,
     "**/node_modules": true,
-    "**/dist": true
+    "**/dist": true,
+    "backend/data/legacy-workspace": true
   }
 }

@@ -1,0 +1,1 @@
+"""Haggle backend application package."""
