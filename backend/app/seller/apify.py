@@ -38,9 +38,16 @@ class ApifyError(RuntimeError):
         self.dataset_id = dataset_id if isinstance(dataset_id, str) and re.fullmatch(r"[a-zA-Z0-9_-]+", dataset_id) else None
 
 
+def district_number(job: JobSpec) -> int:
+    """Explicit Prague district number (Praha 1-22). A bare neighbourhood name is ambiguous and rejected."""
+    m = re.fullmatch(r"(?:praha|prague)\s*(\d{1,2})", job.district.strip(), re.IGNORECASE)
+    if not m or not 1 <= int(m.group(1)) <= 22:
+        raise ApifyError("The rental integration supports an explicit Prague district, Praha 1 to Praha 22")
+    return int(m.group(1))
+
+
 def _validate_job(job: JobSpec) -> None:
-    if not re.fullmatch(r"(?:praha|prague)\s*7", job.district.strip(), re.IGNORECASE):
-        raise ApifyError("The rental integration currently supports Praha 7 only")
+    district_number(job)
     if not 1 <= job.count <= 200 or job.max_price_czk <= 0:
         raise ApifyError("Rental count must be 1–200 and maximum rent must be positive")
 
@@ -66,6 +73,7 @@ def _url(value: object) -> tuple[str, str] | None:
 def map_items(items: object, job: JobSpec) -> list[Flat]:
     """Reject unusable records; never invent addresses, prices, URLs or extra flats."""
     _validate_job(job)
+    wanted = str(district_number(job))
     if not isinstance(items, list):
         raise ApifyError("Apify dataset must be a list of rental records")
     flats, seen = [], set()
@@ -84,7 +92,7 @@ def map_items(items: object, job: JobSpec) -> list[Flat]:
             continue
         location = " · ".join(item[k].strip() for k in ("city", "locality", "district")
                               if isinstance(item.get(k), str) and item[k].strip())
-        if set(DISTRICT.findall(location)) != {"7"}:
+        if set(DISTRICT.findall(location)) != {wanted}:
             continue
         url = _url(item.get("url"))
         if url is None or url[1] in seen:
@@ -94,7 +102,7 @@ def map_items(items: object, job: JobSpec) -> list[Flat]:
                           district=f"{job.district} — {location}", url=url[0]))
         if len(flats) == job.count:
             return flats
-    raise ApifyError(f"Only {len(flats)} valid unique Praha 7 rentals matched; {job.count} required")
+    raise ApifyError(f"Only {len(flats)} valid unique Praha {wanted} rentals matched; {job.count} required")
 
 
 def _identifier(value: object) -> str:
@@ -138,7 +146,7 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                     f"/acts/{ACTOR_ID.replace('/', '~')}/runs",
                     params={"timeout": math.ceil(timeout), "waitForFinish": 1,
                             "maxTotalChargeUsd": MAX_CHARGE_USD},
-                    json={"location": "Praha 7", "dealType": "rent", "propertyType": "apartment",
+                    json={"location": f"Praha {district_number(job)}", "dealType": "rent", "propertyType": "apartment",
                           "maxItems": settings.apify_max_items, "maxPrice": job.max_price_czk,
                           "fetchDetails": False},
                 ))
@@ -279,6 +287,15 @@ def load_cache(job: JobSpec, settings: Settings) -> JobResult:
         raise ApifyError("No valid saved Apify rental cache matches this exact job") from None
 
 
+def _cache_free_or_same_job(job: JobSpec, settings: Settings) -> bool:
+    """One saved cache file: refresh it for the same request, but do not replace it with a different one."""
+    try:
+        saved = json.loads(Path(settings.apify_cache_path).read_text(encoding="utf-8")).get("job")
+    except (OSError, ValueError, AttributeError):
+        return True  # missing or unreadable: nothing worth protecting
+    return saved == job.model_dump()
+
+
 async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
     if settings.apify_mode == "cached":
         result = load_cache(job, settings)
@@ -295,7 +312,8 @@ async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
         log.warning("Live rental data unavailable; using apify_cached data from %s", result.fetched_at)
         return result
     try:
-        save_cache(job, result, settings)
+        if _cache_free_or_same_job(job, settings):
+            save_cache(job, result, settings)
     except OSError:
         log.warning("Live Apify rentals delivered, but saving their offline cache failed")
     return result

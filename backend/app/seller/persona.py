@@ -33,7 +33,7 @@ class Viktor:
 
         if req.action == "open":
             return reply("counter", st.ask,
-                         f"Twenty flats in {req.job.district}, fresh, hand-scraped. For you, {st.ask:g} coins.")
+                         f"{req.job.count} flat{'s' if req.job.count != 1 else ''} in {req.job.district}, fresh, hand-scraped. For you, {st.ask:g} coins.")
         if req.action == "walk":
             st.walked = True
             return reply("walk", st.ask, "Your loss, my friend. Viktor never forgets a cheapskate.")

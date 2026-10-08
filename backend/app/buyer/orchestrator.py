@@ -42,7 +42,7 @@ class Orchestrator:
         bus: EventBus,
         guard: WalletGuard,
         http: httpx.AsyncClient,
-        make_max: Callable[[float, int], Negotiator],
+        make_max: Callable[..., Negotiator],
         tts: TTS,
         controls: Controls,
     ):
@@ -126,7 +126,7 @@ class Orchestrator:
         # A runtime update affects the next deal; this deal's prompt and loop agree.
         max_rounds = self.controls.max_rounds
         # The advertised con is a STAGED test of the guard, with deliberately gullible dialogue.
-        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling, max_rounds)
+        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling, max_rounds, task.job)
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
         my_last: float | None = None
         for rnd in range(max_rounds):

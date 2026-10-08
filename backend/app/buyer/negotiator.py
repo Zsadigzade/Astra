@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
 from app.core.config import Settings
-from app.core.models import NegotiateResponse
+from app.core.models import JobSpec, NegotiateResponse, describe_job
 
 OPENING_OFFER = 5.0
 STEP = 1.0
@@ -56,7 +56,7 @@ class MockMax:
 log = logging.getLogger(__name__)
 
 MAX_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
-"20 flats in Prague 7 under 25,000 CZK". Prices are in tADA.
+"{job}". Prices are in tADA.
 Your budget is {ceiling:g} tADA. Start at 5 tADA (or your budget if lower); raise counteroffers
 by 1 tADA per round while staying within budget. There are at most {max_rounds} buyer decisions,
 with seller rounds numbered from 0. If the seller repeats an affordable final price, accept it.
@@ -88,10 +88,11 @@ class CodexMax:
     (bad output, login failure, timeout) falls back to MockMax for that round.
     """
 
-    def __init__(self, settings: Settings, ceiling: float):
+    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None = None):
         self.settings = settings
         self.ceiling = ceiling
-        self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds)
+        self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds,
+                                                    job=describe_job(job or JobSpec()))
         self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling)
         self.last_backend: Literal["codex", "mock"] | None = None
@@ -141,9 +142,9 @@ class CodexMax:
         return Move("walk", my_last or 0, message)
 
 
-def make_negotiator(settings: Settings, ceiling: float) -> Negotiator:
+def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = None) -> Negotiator:
     if settings.llm_mode == "codex":
-        return CodexMax(settings, ceiling)
+        return CodexMax(settings, ceiling, job)
     if settings.llm_mode == "mock":
         return MockMax(ceiling)
     raise ValueError("LLM_MODE must be mock or codex; API-key negotiation is not supported")

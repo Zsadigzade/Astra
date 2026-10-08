@@ -9,14 +9,17 @@ import DealDetails from "./components/DealDetails.jsx";
 import EmptyDealState from "./components/EmptyDealState.jsx";
 import EventTimeline from "./components/EventTimeline.jsx";
 import NegotiationWorkspace from "./components/NegotiationWorkspace.jsx";
+import RequestComposer from "./components/RequestComposer.jsx";
 import ScenarioSelector from "./components/ScenarioSelector.jsx";
 import UsageSummary from "./components/UsageSummary.jsx";
 import WalletGuardCard from "./components/WalletGuardCard.jsx";
 import useControls from "./hooks/useControls.js";
 import useDealState from "./hooks/useDealState.js";
 import useEventStream from "./hooks/useEventStream.js";
+import useRequestParse from "./hooks/useRequestParse.js";
 import useServiceHealth from "./hooks/useServiceHealth.js";
 import useTheme from "./hooks/useTheme.js";
+import { EXAMPLES, SCENARIOS } from "./lib/formatters.js";
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -26,15 +29,18 @@ export default function App() {
   const view = useDealState(events);
 
   const [scenario, setScenario] = useState("honest");
-  const [options, setOptions] = useState({ budget: 20, count: 20, maxRent: 25000 });
+  const [options, setOptions] = useState({ budget: 20 });
+  const [requestText, setRequestText] = useState(EXAMPLES[0]);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);
   const [pauseBusy, setPauseBusy] = useState(false);
   const [pauseError, setPauseError] = useState(null);
 
   const offline = status !== "live";
-  const disabledReason = offline ? "Connect to the buyer service to run a scenario."
-    : controls?.paused ? "Agents are paused. Resume them to run a scenario."
+  const parse = useRequestParse(requestText, !offline);
+  const disabledReason = offline ? "Connect to the buyer service to run a request."
+    : controls?.paused ? "Agents are paused. Resume them to run a request."
+    : SCENARIOS[scenario]?.terminalOnly ? "Recovery starts from a terminal; see the command under Mode."
     : null;
 
   // Stay "launching" until the buyer's task_created event for this launch arrives, so a double click
@@ -45,15 +51,15 @@ export default function App() {
   }, [events, launching]);
 
   const run = async () => {
-    if (launching || disabledReason) return;
+    if (launching || disabledReason || !parse.parsed?.ok) return;
     baseline.current = events.length;
     setLaunching(true);
     setLaunchError(null);
     try {
       await api.startTask({
         demo_mode: scenario, budget: options.budget,
-        job: { count: options.count, district: "Praha 7", max_price_czk: options.maxRent },
-        text: `Find me ${options.count} flats in Prague 7 under ${options.maxRent.toLocaleString("en-US")} CZK`,
+        job: parse.parsed.job,
+        text: requestText.trim(),
       });
       setTimeout(() => setLaunching(false), 6000);
     } catch (e) {
@@ -84,7 +90,9 @@ export default function App() {
 
       <main className="layout">
           <aside className="rail rail-left" aria-label="Scenarios and usage">
-            <ScenarioSelector selected={scenario} onSelect={setScenario} onRun={run} launching={launching} disabledReason={disabledReason} />
+            <RequestComposer text={requestText} onText={setRequestText} parse={parse} onRun={run}
+              launching={launching} disabledReason={disabledReason} />
+            <ScenarioSelector selected={scenario} onSelect={setScenario} />
             <UsageSummary view={view} budget={view.task?.budget ?? options.budget} />
             <AgentLimits controls={controls} options={options} onOptions={setOptions} onChanged={refresh} />
           </aside>
@@ -92,7 +100,7 @@ export default function App() {
           <div className="center">
             {view.dealId
               ? <NegotiationWorkspace view={view} events={events} controls={controls} />
-              : <EmptyDealState scenario={scenario} onRun={run} launching={launching} disabledReason={disabledReason} />}
+              : <EmptyDealState scenario={scenario} summary={parse.parsed?.ok ? parse.parsed.summary : null} onRun={run} launching={launching} disabledReason={disabledReason || (!parse.parsed?.ok ? "Fix the request first." : null)} />}
           </div>
 
           <aside className="rail rail-right" aria-label="Deal safety">

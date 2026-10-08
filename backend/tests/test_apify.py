@@ -205,7 +205,7 @@ async def test_cache_rejects_untrusted_provenance_and_data(monkeypatch, settings
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("job,changes", [
-    (JobSpec.model_construct(count=0), {}), (JobSpec.model_construct(count=201), {}), (JobSpec(district="Praha 8"), {}),
+    (JobSpec.model_construct(count=0), {}), (JobSpec.model_construct(count=201), {}), (JobSpec(district="Praha 23"), {}), (JobSpec(district="Brno"), {}), (JobSpec(district="Holešovice"), {}),
     (JobSpec(), {"apify_max_items": 201}), (JobSpec(), {"apify_max_items": 1}),
     (JobSpec(), {"apify_timeout_seconds": 0}), (JobSpec(), {"apify_actor_id": "other/actor"}),
 ])
@@ -423,3 +423,31 @@ def test_integer_rents_do_not_overflow_float_conversion():
     price = 10 ** 400
     flats = apify.map_items([row(price=price)], JobSpec(count=1, max_price_czk=price))
     assert flats[0].price_czk == price
+
+
+def other_district(number, district):
+    return row(number, city=f"Praha {district}", locality=f"Ulice, Praha {district}", district="X")
+
+
+def test_any_prague_district_maps_only_its_own_listings():
+    job = JobSpec(count=2, district="Praha 2", max_price_czk=30000)
+    items = [row(1), other_district(2, 2), other_district(3, 3), other_district(4, 2)]  # row(1) is Praha 7
+    flats = apify.map_items(items, job)
+    assert [f.url[-1] for f in flats] == ["2", "4"]
+    assert all("Praha 2" in f.district for f in flats)
+
+
+def test_district_number_accepts_spellings_and_rejects_the_rest():
+    for text, n in [("Praha 2", 2), ("prague 10", 10), (" PRAHA   22 ", 22)]:
+        assert apify.district_number(JobSpec(district=text)) == n
+    for text in ["Praha 0", "Praha 23", "Praha", "Brno", "Praha 2a", "Holešovice"]:
+        with pytest.raises(apify.ApifyError):
+            apify.district_number(JobSpec(district=text))
+
+
+@pytest.mark.anyio
+async def test_live_scrape_asks_the_actor_for_the_requested_district(monkeypatch, settings):
+    calls = success(monkeypatch, [other_district(1, 5)])
+    result = await run_job(JobSpec(count=1, district="Praha 5", max_price_czk=30000), DemoMode.honest, settings)
+    assert json.loads(calls[0].content)["location"] == "Praha 5"
+    assert result.source == "apify" and "Praha 5" in result.flats[0].district

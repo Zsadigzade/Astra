@@ -41,16 +41,10 @@ export default function AgentLimits({ controls, options, onOptions, onChanged })
     <details className="card disclosure">
       <summary><span className="card-title">Run options and limits</span><Icon name="chevron" size={14} className="chev" /></summary>
 
-      <div className="grid2">
+      <div className="grid2 single">
         <div className="field"><label htmlFor="opt-budget">Task budget (tADA)</label>
           <input id="opt-budget" type="number" min="1" step="1" value={options.budget}
             onChange={(e) => set({ budget: Math.max(1, Number(e.target.value) || 1) })} /></div>
-        <div className="field"><label htmlFor="opt-count">Flats wanted</label>
-          <input id="opt-count" type="number" min="1" max="50" value={options.count}
-            onChange={(e) => set({ count: Math.max(1, Number(e.target.value) || 1) })} /></div>
-        <div className="field span2"><label htmlFor="opt-rent">Max rent (CZK / month)</label>
-          <input id="opt-rent" type="number" min="1000" step="500" value={options.maxRent}
-            onChange={(e) => set({ maxRent: Math.max(1000, Number(e.target.value) || 1000) })} /></div>
       </div>
 
       {!controls || !draft ? <p className="hint">Guard limits load once the buyer is online.</p> : (

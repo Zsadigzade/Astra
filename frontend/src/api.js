@@ -17,6 +17,7 @@ async function call(path, method = "GET", body) {
 export const api = {
   controls: () => call("/controls"),
   updateControls: (patch) => call("/controls", "PUT", patch),
+  parseRequest: (text) => call("/requests/parse", "POST", { text }),
   startTask: (task) => call("/tasks", "POST", task),
   decide: (dealId, approve) => call(`/approvals/${dealId}`, "POST", { approve }),
 };

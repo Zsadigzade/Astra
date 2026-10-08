@@ -2,6 +2,23 @@
 
 updated: 2026-10-09 00:24 · ziya · scoped hour audit in progress
 
+## Go-live preflight (added 2026-10-09, samir/claude; uncommitted)
+- New: `npm run setup`, `npm run doctor`, `npm run doctor:live` (`backend/scripts/doctor.py`): per-integration readiness, no secrets printed.
+- Verified on this laptop: Codex CLI signed in and working (`LLM_MODE=codex`); the honest deal ran with genuine Codex Max lines and released;
+  the dashboard shows "Codex subscription" + "VIKTOR SCRIPTED". The staged con act intentionally keeps a scripted Max (label: mock).
+- 2026-10-09 00:50 (samir laptop): live Apify scrape OK (run LtcCqpY0nOPVlYmtt, 20 real Praha 7 rentals saved to backend/data/flats-apify.json, git-ignored); `.env` has APIFY_MODE=cached + LLM_MODE=codex. Full deal with real Codex Max + `apify_cached` data released (SIMULATED money). Voice and Masumi still off here.
+- 2026-10-09 01:15 (samir laptop): ElevenLabs live. Key is restricted (no voices_read/models_read), so `voice_check.py` cannot list voices but text-to-speech works; voices are premade Antoni (Max, ErXwobaYiN019PkySvjV) and Arnold (Viktor, VR6AewLTigWG4xSOukaG). A full deal voiced 7/7 lines, 383 characters (~400 of 10,000 free credits). `doctor:live` now falls back to a tiny speech probe. Audible playback not confirmed in headless; listen once in a real browser.
+- Not live here: Apify (no token), ElevenLabs (no key/voices), Masumi (no node key/agent/vkey). They need the keys from Ziya's .env, shared out of band.
+- Track fit (Agentic Economy: discovery, transactions, payments, wallets, dispute resolution): payments, wallets (guard + escrow) and
+  transactions exist. **Agent discovery** (the seller URL is configured, not looked up in the Masumi registry) and **dispute resolution**
+  (only the dispute-window timestamp is passed through; no flow or UI) are not built. State that in the video and README limitations.
+
+## General requests (added 2026-10-09, samir/claude; uncommitted)
+- Request box in the dashboard + `POST /requests/parse` (`backend/app/core/intent.py`). The job (count, Praha 1-22, rent cap) now drives Max's prompt,
+  Viktor's opening line, sample data, the Apify scrape (`location: Praha N`) and the verifier. Bounds enforced on the network (count 1-100).
+- Live-verified here: "4 flats in Prague 2 under 30k" -> parsed, real Apify scrape for Praha 2 (LIVE APIFY), real Codex Max, all 4 checks passed, released (SIMULATED money).
+- `.env` on this laptop: LLM_MODE=codex, APIFY_MODE=apify, TTS_MODE=elevenlabs, PAYMENTS_MODE=simulated. A live scrape for a different request does NOT overwrite the saved demo cache.
+
 ## Current verification
 - I-path audit: 344 backend tests pass on Python 3.13 and fresh Python 3.11; fresh live Codex/cached-data/seven-clip Act 1 and browser scenarios pass. Fixes cover cancellation, cache/voice validation, bounded TTS, seller-response binding and strict delivery validation; invalid legacy tasks no longer block other recovery. A 50-minute endurance run is in progress; final results will be recorded in SYSTEM_CHECK.md.
 - Terminal replay now follows the latest deal and suppresses stale approvals; 10 real-HTTP CLI scenarios pass. Tests default to an in-memory ledger.

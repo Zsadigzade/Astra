@@ -50,6 +50,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
         <div className="deal-head-top">
           <div>
             <h2 id="deal-h">{scenario ? scenario.name : "Current deal"}</h2>
+            {view.task?.text && <p className="deal-request">“{view.task.text}”</p>}
             <div className="deal-sub">
               <span>Round <b className="num">{view.round}</b></span>
               <span className="sep" aria-hidden="true" />

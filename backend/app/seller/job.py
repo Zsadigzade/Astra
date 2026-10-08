@@ -10,15 +10,27 @@ from app.seller.apify import rental_result, scrape
 
 STREETS = ["Milady Horákové", "Dukelských hrdinů", "Kamenická", "Letohradská", "Šimáčkova",
            "Komunardů", "Veletržní", "Jana Zajíce", "Ovenecká", "Tusarova"]
-AREAS = ["Holešovice", "Letná", "Bubeneč"]
+AREAS = ["Holešovice", "Letná", "Bubeneč"]  # Praha 7
+AREAS_BY_DISTRICT = {
+    1: ["Staré Město", "Malá Strana", "Josefov"], 2: ["Vinohrady", "Vyšehrad", "Nové Město"],
+    3: ["Žižkov", "Vinohrady", "Olšany"], 4: ["Nusle", "Podolí", "Krč"], 5: ["Smíchov", "Košíře", "Motol"],
+    6: ["Dejvice", "Břevnov", "Vokovice"], 7: AREAS, 8: ["Karlín", "Libeň", "Kobylisy"],
+    9: ["Vysočany", "Prosek", "Střížkov"], 10: ["Vršovice", "Strašnice", "Záběhlice"],
+}
+
+
+def _areas(district: str) -> list[str]:
+    digits = "".join(c for c in district if c.isdigit())
+    return AREAS_BY_DISTRICT.get(int(digits), [district]) if digits else [district]
 
 
 def sample_flats(job: JobSpec) -> list[Flat]:
+    areas = _areas(job.district)
     return [
         Flat(
-            title=f"{1 + i % 3}+kk, {STREETS[i % len(STREETS)]}, {AREAS[i % len(AREAS)]}",
+            title=f"{1 + i % 3}+kk, {STREETS[i % len(STREETS)]}, {areas[i % len(areas)]}",
             price_czk=min(job.max_price_czk, 16_500 + (i * 437) % 8_000),
-            district=f"{job.district} - {AREAS[i % len(AREAS)]}",
+            district=f"{job.district} - {areas[i % len(areas)]}",
             url=f"https://example.invalid/sample/flat-{i + 1}",
         )
         for i in range(job.count)

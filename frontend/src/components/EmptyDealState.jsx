@@ -15,15 +15,17 @@ function Diagram() {
   );
 }
 
-export default function EmptyDealState({ scenario, onRun, launching, disabledReason }) {
+export default function EmptyDealState({ scenario, summary, onRun, launching, disabledReason }) {
   const s = SCENARIOS[scenario] ?? SCENARIOS.honest;
   const terminalOnly = s.terminalOnly;
   return (
     <section className="card empty" aria-labelledby="empty-h">
       <h2 id="empty-h">Start a negotiation</h2>
-      <p className="empty-lead">Pick a scenario and watch two agents haggle over Prague rental data, with a deterministic guard deciding whether money may move.</p>
+      <p className="empty-lead">Type a request in plain words, for example "10 flats in Praha 2 under 30,000 CZK". Two agents haggle over the price and a deterministic guard decides whether money may move.</p>
 
       <Diagram />
+
+      {summary && <p className="empty-request"><Icon name="check" size={13} /> Ready to run: <b>{summary}</b></p>}
 
       <div className="empty-scenario">
         <div className="empty-scenario-head">
@@ -39,7 +41,7 @@ export default function EmptyDealState({ scenario, onRun, launching, disabledRea
       ) : (
         <div className="empty-actions">
           <button type="button" className="btn btn-primary" onClick={onRun} disabled={launching || !!disabledReason}>
-            {launching ? <><Icon name="refresh" size={14} className="spin" /> Starting...</> : <><Icon name="play" size={14} /> Run scenario</>}
+            {launching ? <><Icon name="refresh" size={14} className="spin" /> Starting...</> : <><Icon name="play" size={14} /> Run request</>}
           </button>
           {disabledReason && <span className="hint">{disabledReason}</span>}
         </div>

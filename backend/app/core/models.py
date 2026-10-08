@@ -31,6 +31,11 @@ class JobSpec(BaseModel):
         return value
 
 
+def describe_job(job: JobSpec) -> str:
+    """The request in one line, used in agent prompts and dialogue so they follow the real job."""
+    return f"{job.count} flat{'s' if job.count != 1 else ''} in {job.district} under {job.max_price_czk:,} CZK per month"
+
+
 class BoundedJobSpec(JobSpec):
     """JobSpec as accepted from the network. The seller builds `count` listings in-process, so an
     unbounded count can stall it for every deal. Adapters keep taking plain JobSpec (they re-check themselves)."""
@@ -50,6 +55,10 @@ class TaskCreate(BaseModel):
 class TaskCreated(BaseModel):
     task_id: str
     deal_id: str
+
+
+class RequestText(BaseModel):
+    text: str = Field(default="", max_length=600)
 
 
 class ApprovalDecision(BaseModel):

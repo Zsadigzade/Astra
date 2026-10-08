@@ -7,6 +7,9 @@
     "web": "node scripts/dev.mjs --web-only",
     "api": "node scripts/dev.mjs --api-only",
     "build": "npm --prefix frontend run build",
-    "test": "npm --prefix frontend test"
+    "test": "npm --prefix frontend test",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "cd backend && uv run python scripts/doctor.py",
+    "doctor:live": "cd backend && uv run python scripts/doctor.py --live"
   }
 }

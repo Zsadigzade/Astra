@@ -12,7 +12,7 @@ export const shortId = (id, n = 6) => (id ? String(id).slice(-n) : null);
 export const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
 export const SCENARIOS = {
-  honest: { n: 1, mode: "honest", name: "The Deal", purpose: "Successful negotiation and escrow release", staged: false,
+  honest: { n: 1, mode: "honest", name: "Normal request", purpose: "Max negotiates, the guard pays, you get the data", staged: false,
     explain: "Max haggles Viktor down to a fair price, the wallet guard lets payment through, escrow locks, the delivery is verified and funds are released." },
   con: { n: 2, mode: "con", name: "The Con", purpose: "Unsafe agreement blocked by the wallet guard", staged: true,
     explain: "Viktor fakes a manager approval and Max falls for it. The guard still refuses: the price is over the hard cap, so no money moves." },
@@ -21,6 +21,12 @@ export const SCENARIOS = {
   junk: { n: 4, mode: "junk", name: "The Refund", purpose: "Invalid delivery fails verification and is refunded", staged: true,
     explain: "Viktor delivers garbage. The rule-based verifier rejects it and the escrow is refunded to Max." },
 };
+export const EXAMPLES = [
+  "Find me 20 flats in Praha 7 under 25,000 CZK",
+  "10 apartments in Prague 2, max 30k",
+  "5 cheap flats in Praha 5 up to 18000 CZK",
+];
+
 export const SCENARIO_LIST = [SCENARIOS.honest, SCENARIOS.con, SCENARIOS.recovery, SCENARIOS.junk];
 export const RECOVERY_COMMAND = "cd backend && uv run python scripts/up.py --crash";
 export const BACKEND_COMMAND = "cd backend && uv run python scripts/up.py";

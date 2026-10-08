@@ -21,7 +21,8 @@ from app.buyer.negotiator import make_negotiator
 from app.buyer.orchestrator import Orchestrator
 from app.buyer.payments import make_payments
 from app.core.config import Settings, get_settings
-from app.core.models import ApprovalDecision, TaskCreate, TaskCreated
+from app.core.intent import parse_request
+from app.core.models import ApprovalDecision, RequestText, TaskCreate, TaskCreated
 from app.voice.tts import TTS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -42,7 +43,7 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
         client = http or httpx.AsyncClient(timeout=30)
         app.state.orch = Orchestrator(
             s, ledger, bus, guard, client,
-            lambda ceiling, rounds: make_negotiator(replace(s, max_rounds=rounds), ceiling),
+            lambda ceiling, rounds, job=None: make_negotiator(replace(s, max_rounds=rounds), ceiling, job),
             tts, controls)
         try:
             await app.state.orch.resume_unfinished()
@@ -66,6 +67,11 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     async def health():
         return {"ok": True, "payments_mode": s.payments_mode, "simulated": s.simulated, "llm_mode": s.llm_mode,
                 "tts_mode": s.tts_mode, "guard": {"cap": guard.cap, "approval_over": guard.approval_over}}
+
+    @app.post("/requests/parse")
+    async def parse(body: RequestText):
+        """Preview only: what Max would buy for this text. Creates nothing, spends nothing."""
+        return parse_request(body.text).public()
 
     @app.post("/tasks", response_model=TaskCreated)
     async def create_task(task: TaskCreate, request: Request):
