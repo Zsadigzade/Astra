@@ -1,0 +1,9 @@
+---
+description: Astra team memory map - read before every task
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repo root before every task and follow its memory map rules:
+read `memory/MAP.md` and `memory/HANDOFF.md` first, update `memory/status/<you>.md` at the
+start and end of each task, append-only to `memory/DECISIONS.md` and `memory/TRAPS.md`,
+never write secrets.
