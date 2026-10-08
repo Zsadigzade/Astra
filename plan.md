@@ -1,119 +1,79 @@
-# Astra build plan · 2026-10-08 → 10-09
+﻿# The Haggle — build checklist
 
-> **Now:** 21:40–22:15 · Skeleton runs  **Next gate:** 22:15  **Submit by:** 07:00 (hard deadline 07:14)
->
-> **Rule:** at each gate, stop and check it. Gate fails → apply its fallback and move on. Never let a gate slip.
+**2026-10-08 → 10-09 · Prague time · Target submission 07:00 · Hard deadline 07:14**
 
-## Gates at a glance
+Tasks are unassigned so the team can split them later. Use the IDs when claiming work;
+record active work in `memory/status/`. Check a task only after its acceptance condition
+is met. The baseline below describes existing code, not proof that live integrations work.
 
-| Time | Gate | Pass when | If it fails |
-|---|---|---|---|
-| **22:15** | Skeleton runs | Act 1 (honest) runs end to end, SIMULATED, text only, on **every** laptop | Ziya fixes the blocker; others keep working on their own parts |
-| **23:30** | Acts from dashboard | Acts 1, 2, 4 run from dashboard buttons (SIMULATED) | — |
-| **01:00** | Full E2E *(decided)* | All 4 acts + approval path run E2E. SIMULATED is OK | See the 01:00 decisions below |
-| **04:00** | Feature freeze | — | Bug fixes only from here on |
-| **06:30** | Video + repo *(decided)* | Video done, repo public | — |
-| **07:00** | Submitted | Form sent, links checked in incognito | 14 min buffer to 07:14 |
+## Gates
 
-## Who owns what
-
-| Person | Area | Files |
+| Time | Pass condition | Fallback / action |
 |---|---|---|
-| Ziya | Buyer "Max", wallet guard, Masumi payments | `buyer/`, `shared/` |
-| Murad | Seller "Viktor", Apify scrape, ElevenLabs voice | `seller/`, `voice/` |
-| Mais | Dashboard, video | `dashboard/` |
+| **22:15** | Act 1 runs SIMULATED, text only, on every laptop | Fix the shared startup blocker before integration |
+| **23:30** | Acts 1, 2 and 4 run from dashboard buttons; Masumi node is available | No live node → commit to SIMULATED money for the video |
+| **01:00** | All four acts and the approval path run end to end | No Preprod escrow → SIMULATED video; cut broken voice first; flaky Apify → labelled saved real JSON |
+| **03:30** | Full demo rehearsal finishes within 2 minutes | Trim the script before recording |
+| **04:00** | Feature freeze; recording starts | Bug fixes only |
+| **06:30** | Video exported; repository public | Check submission links immediately |
+| **07:00** | Submission sent and links checked in incognito | Keep the 14-minute buffer; **07:14 is final** |
 
----
+## Existing baseline
 
-## 1 · 21:40–22:15 · Skeleton runs
+- [x] **B01** Buyer and seller HTTP services, negotiation, wallet guard and verifier exist.
+- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval and crash recovery. Last recorded suite: 58 passing tests.
+- [x] **B03** Masumi adapter and seller payment flow implemented and tested against a fake node; readiness checker supports `--node-only`.
+- [x] **B04** OpenAI Agents SDK mode for Max implemented with scripted fallback; live API still unverified.
+- [x] **B05** Dashboard stub consumes SSE, starts acts 1/2/4, displays balances and supports approval/decline. Production build verified.
 
-**Ziya**
-- [x] Finish skeleton, `uv sync`, `uv run pytest` (11 pass)
-- [x] Buyer :8000 + seller :8001 answer `/health`
-- [ ] Share branch `feat/ziya-skeleton` + this plan
+## Startup and dashboard — by 23:30
 
-**Murad**
-- [ ] Pull branch, read `seller/`
-- [ ] Pick Apify actor for Prague 7 rentals
-- [ ] Create ElevenLabs voices for Max + Viktor, put IDs in `.env` (`VOICE_MAX`, `VOICE_VIKTOR`)
+- [ ] **D01** Sync dependencies and run Act 1 on every laptop: `uv sync`, `scripts/up.py --reset`, then `scripts/act.py honest`. Reset only a disposable simulated ledger.
+- [ ] **D02** Replace the dashboard stub with two avatars, readable chat bubbles, balances and a clear event timeline.
+- [ ] **D03** Show persistent **SIMULATED** and **STAGED** labels where applicable, sample/cached data provenance, a red **BLOCKED** banner and clear approval/decline controls.
+- [ ] **D04** Verify dashboard act selection and complete acts 1, 2 and 4 from the UI; confirm each reaches its expected terminal state.
+- [ ] **D05** Show Preprod transaction links and scheduled release time from SSE; do not present a scheduled release as settled funds. Depends on **M04** for live verification.
 
-**Mais**
-- [ ] Pull branch, `npm install` in `dashboard/`
-- [ ] Connect to `GET /events`, show raw event list
+## Masumi payments — node by 23:30, live escrow by 01:00
 
-🚦 **Gate 22:15:** Act 1 SIMULATED, text only, on every laptop.
+- [ ] **M01** Bring up the hosted Railway/Blockfrost Preprod node or obtain a mentor-hosted node; pass `uv run python scripts/masumi_check.py --node-only`.
+- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**.
+- [ ] **M03** Set local seller identifiers and pass the full `scripts/masumi_check.py`. This checks configuration, not live escrow. Depends on **M02**.
+- [ ] **M04** Run Act 1 with `PAYMENTS_MODE=masumi` and a separate `LEDGER_PATH`; inspect the actual Preprod transaction and scheduled release. Depends on **M03**.
+- [ ] **M05** Run staged Act 3 on the real setup: crash after lock, restart only the buyer, confirm `already_paid` and exactly one purchase. Depends on **M04**.
 
-## 2 · 22:15–23:30 · Real parts, one each
+**Payment boundary:** Act 4 refund stays **SIMULATED**, even if acts 1 and 3 use Preprod.
+Use separate real/simulated ledgers and restart services between modes after deals finish.
+Never reset a ledger with unfinished payments or restart the seller mid-deal.
 
-**Ziya**
-- [ ] Hosted Masumi `/health`
-- [ ] Register Viktor only, with Dynamic pricing (DECISIONS.md 21:50; Max does not register)
-- [ ] Fund buyer and seller wallets from Preprod faucet
-- [ ] One manual test escrow
+## Data, agents and voice — by 01:00
 
-**Murad**
-- [ ] Real Apify scrape behind `APIFY_MODE=apify`, map to `Flat`
-- [ ] Save one real result JSON as offline fallback
-- [ ] `TTS_MODE=elevenlabs` working
+- [ ] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
+- [ ] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
+- [ ] **I03** With OpenAI access, run Max using `LLM_MODE=openai`; verify the guard still enforces cap 10, budget 20 and approval above 8, including scripted fallback on API failure.
+- [ ] **I04** Optional after the core flow works: add Viktor's LLM persona if OpenAI access is available. Viktor currently remains scripted.
+- [ ] **I05** Configure ElevenLabs voice IDs (`VOICE_MAX`, `VOICE_VIKTOR`) in `.env` and verify live `TTS_MODE=elevenlabs` output for both speakers.
+- [ ] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. Depends on **I05**.
 
-**Mais**
-- [ ] Real layout: 2 avatars, chat bubbles, balances
-- [ ] SIMULATED + STAGED badges, red BLOCKED banner, Approve button
+## Integration and reliability — 01:00–02:30
 
-🚦 **Gate 23:30:** Acts 1, 2, 4 run from dashboard buttons (SIMULATED).
+- [ ] **R01** Pass the 01:00 gate: all four acts plus approval/decline end to end; record which live integrations and fallbacks will appear in the video. Set `SELLER_FLOOR=9` to exercise approval.
+- [ ] **R02** Run each act three consecutive times in the chosen demo configuration; fix any failure and repeat the affected act.
+- [ ] **R03** Restart the buyer twice around the crash scenario and confirm one payment per deal; keep the seller running. Verify on Preprod if **M04** passed, otherwise label SIMULATED.
+- [ ] **R04** Exercise Apify and TTS timeouts/failures; confirm the selected labelled data fallback or text fallback keeps the demo usable.
+- [ ] **R05** Check the dashboard at 1080p: negotiation, guard decision, escrow outcome, approval controls and honesty labels must be readable in the recording.
 
-## 3 · 23:30–01:00 · Integrate
+## Video and release — 02:30–06:30
 
-**Ziya**
-- [x] `MasumiPayments.lock` / `refund` + seller side of Masumi payment (code done, tested on fake)
-- [ ] Act 3 crash + restart (`CRASH_AFTER_LOCK=1`) on real setup
-- [ ] OpenAI Max, only if credits arrived
+- [ ] **V01** Write a four-act script and storyboard, at most 2 minutes; include the wallet guard, crash recovery and honest limitations.
+- [ ] **V02** Record backup footage of each working act, then complete the timed rehearsal by **03:30**. Depends on **R02**.
+- [ ] **V03** After the **04:00 feature freeze**, record the demo with visible SIMULATED/STAGED labels; fix bugs between takes.
+- [ ] **V04** Edit, add voiceover/captions and export the final video by **06:30**.
+- [ ] **V05** Finalize README run steps, architecture and actual limitations; complete `.env.example`, update `memory/HANDOFF.md`, and verify startup from a fresh clone.
+- [ ] **V06** Scan the repository and git history for secrets, then make the repository public by **06:30**. Keep credentials in ignored `.env` files only.
 
-**Murad**
-- [ ] Viktor LLM persona (only if OpenAI)
+## Submission — 06:30–07:14
 
-**Mais**
-- [ ] Audio playback queue (lines play in order)
-- [ ] Preprod tx link on screen
-- [ ] Act selector
-
-🚦 **Gate 01:00 (decided):** all 4 acts + approval path E2E. SIMULATED is OK. Decide here:
-1. **Masumi:** no Preprod escrow by now → SIMULATED for the video, stated as a limitation
-2. **Voice:** broken → cut it, text only (first in cut order)
-3. **Apify:** flaky → use the saved real JSON, labelled
-
-## 4 · 01:00–02:30 · Harden
-
-- [ ] **Everyone:** run each act **3 times** in a row; fix anything that fails even once
-- [ ] **Ziya:** real Masumi in Act 1 if go. Idempotency: restart twice, still one payment
-- [ ] **Murad:** timeouts + fallbacks for Apify and TTS
-- [ ] **Mais:** polish; readable at 1080p video size
-
-## 5 · 02:30–04:00 · Prepare the video
-
-- [ ] **Mais:** video script + storyboard (4 acts, ≤ 2:00)
-- [ ] **Ziya:** README (run steps, architecture, honest limitations)
-- [ ] **Murad:** screen-record each working act as **backup footage**
-- [ ] **03:30 · Everyone:** full rehearsal of the demo script, timed
-
-🚦 **Gate 04:00: FEATURE FREEZE.** Bug fixes only from here on.
-
-## 6 · 04:00–05:30 · Record
-
-- [ ] **Mais:** records
-- [ ] **Ziya + Murad:** run the backend live, fix issues between takes
-- [ ] Captions on screen: SIMULATED / STAGED wherever they apply
-
-## 7 · 05:30–06:30 · Edit + clean up
-
-- [ ] **Mais:** edit, voiceover, captions, export
-- [ ] **Ziya:** `memory/HANDOFF.md` final; secret scan of repo + git history (`.env` never committed)
-- [ ] **Murad:** `.env.example` complete; fresh-clone run test
-
-🚦 **Gate 06:30 (decided):** video done, repo public.
-
-## 8 · 06:30–07:14 · Submit
-
-- [ ] **06:30** submit form, video link, repo link
-- [ ] **06:50** open every link in incognito: repo visible, video plays
-- [ ] **07:00 submitted.** 14 min buffer
+- [ ] **S01** Submit the form with the final video and repository links from **06:30**. Depends on **V04–V06**.
+- [ ] **S02** By **06:50**, open every submitted link in incognito: repository accessible, video plays.
+- [ ] **S03** Confirm submission by **07:00**, leaving the buffer before **07:14**.

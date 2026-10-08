@@ -1,6 +1,6 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 22:14 · ziya
+updated: 2026-10-08 22:16 · ziya
 
 ## What works
 - Product "The Haggle": buyer Max (:8000, `buyer/`) haggles with seller Viktor (:8001, `seller/`),
@@ -17,11 +17,10 @@ updated: 2026-10-08 22:14 · ziya
   Fails incomplete setup; never claims registration, funding or live escrow was verified. README has setup steps.
 - Tests: `uv run pytest` → 58 pass (25 new readiness cases). Dashboard stub builds (`dashboard/`).
 
-## What's next
-1. Gate 22:15: Act 1 on every laptop (`git pull && uv sync`, `scripts/up.py --reset`, `scripts/act.py honest`).
-2. Ziya: Masumi node → `scripts/masumi_check.py --node-only` → fund wallets/register Viktor Dynamic → full check → live Act 1. Hard stop 23:30.
-3. Murad: real Apify scrape (`APIFY_MODE=apify`), ElevenLabs voice IDs, `TTS_MODE=elevenlabs`.
-4. Mais: real dashboard layout on the SSE contract (INTERFACES.md).
+## Work queue
+- [plan.md](../plan.md) is the unassigned task checklist, including deadlines and fallback gates.
+  The team will split the remaining tasks later; completed code is separate from live checks.
+- README links to setup, the checklist and memory; VS Code/Cursor hides generated folders.
 
 ## Known broken / risky
 - No Masumi node yet: money is SIMULATED; masumi mode never ran against a real service.

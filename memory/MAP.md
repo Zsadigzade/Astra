@@ -9,4 +9,5 @@ One line per file. Add a line when you add a memory file.
 - [status/ziya.md](status/ziya.md) — Ziya's current task.
 - [status/murad.md](status/murad.md) — Murad's current task.
 - [status/mais.md](status/mais.md) — Mais's current task.
-- [../TOPICS.md](../TOPICS.md) — topic shortlist (input to the topic decision).
+- [../plan.md](../plan.md) — unassigned task checklist, deadlines and fallback gates.
+- [../README.md](../README.md) — product overview, run instructions and honest limitations.

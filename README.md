@@ -5,7 +5,7 @@ Two AI agents haggle out loud over a job, one of them is a con artist, and the w
 
 Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dusk Till Dawn", Agentic Economy track.
 
-- Working rules for humans and coding agents: [AGENTS.md](AGENTS.md)
+- Unassigned tasks and deadlines: [plan.md](plan.md)
 - Team memory (decisions, contracts, current state): [memory/MAP.md](memory/MAP.md)
 
 ## How it works
@@ -103,7 +103,7 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo
 `SELLER_VKEY`. Check the node first with `uv run python scripts/masumi_check.py` (read-only).
 All names and defaults are in [.env.example](.env.example).
 
-### Ziya: bring the Masumi node online
+### Bring the Masumi node online
 
 1. Deploy the [official Railway template](https://railway.com/deploy/masumi-payment-service-official--masumi-payment-service-official)
    with a **Preprod** Blockfrost project key (`BLOCKFROST_API_KEY_PREPROD`). Set a private `ADMIN_KEY`
@@ -137,15 +137,19 @@ Do not use `--reset` on a ledger with unfinished payments.
 
 ```
 shared/     contracts (pydantic), env settings, Masumi client (masumi.py)
-buyer/      Max, :8000 - orchestrator, wallet guard, SQLite ledger, payments, verifier   (ziya)
-seller/     Viktor, :8001 - MIP-003 + POST /negotiate, persona, flats job              (murad)
-voice/      ElevenLabs TTS for haggle lines, text fallback                               (murad)
-dashboard/  Vite + React, reads buyer SSE                                                (mais)
+buyer/      Max, :8000 - orchestrator, wallet guard, SQLite ledger, payments, verifier
+seller/     Viktor, :8001 - MIP-003 + POST /negotiate, persona, flats job
+voice/      ElevenLabs TTS for haggle lines, text fallback
+dashboard/  Vite + React, reads buyer SSE
 scripts/    up.py (both servers), act.py (one act in terminal), masumi_check.py
 tests/      guard, acts 1-4 + approval E2E (SIMULATED), crash resume, negotiator,
             Masumi adapter against tests/fake_masumi.py
 memory/     shared team memory for humans and coding agents
 ```
+
+VS Code/Cursor hides generated caches, virtual environments, dependencies and build output in the
+Explorer via [.vscode/settings.json](.vscode/settings.json). Runtime ledgers and audio remain in
+the git-ignored `data/` folder; local credentials stay in `.env`.
 
 ## Honest limitations
 
