@@ -37,7 +37,7 @@ is met. The baseline below describes existing code, not proof that live integrat
 ## Masumi payments — node by 23:30, live escrow by 01:00
 
 - [ ] **M01** Bring up the hosted Railway/Blockfrost Preprod node or obtain a mentor-hosted node; pass `uv run python scripts/masumi_check.py --node-only`. 23:04: deployed at `https://masumi-payment-service-production-96e0.up.railway.app/api/v1`; node check not yet passed.
-- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**.
+- [ ] **M02** Fund purchasing and selling wallets; register **Viktor only** with **Dynamic** pricing; confirm registration and balances in the admin UI. Depends on **M01**. **BLOCKED (2026-10-09):** faucet reported success but its transaction hash is not found on Preprod Cardanoscan; Masumi support follow-up pending. Keep demo payments **SIMULATED** until funding and registration are confirmed.
 - [ ] **M03** Set local seller identifiers and pass the full `scripts/masumi_check.py`. This checks configuration, not live escrow. Depends on **M02**.
 - [ ] **M04** Run Act 1 with `PAYMENTS_MODE=masumi` and a separate `LEDGER_PATH`; inspect the actual Preprod transaction and scheduled release. Depends on **M03**.
 - [ ] **M05** Run staged Act 3 on the real setup: crash after lock, restart only the buyer, confirm `already_paid` and exactly one purchase. Depends on **M04**.
