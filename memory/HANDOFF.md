@@ -12,4 +12,6 @@ updated: 2026-10-08 19:32 · ziya
 4. Mais: dashboard skeleton reading buyer event feed (contract TBD with Ziya).
 
 ## Known broken / risky
+- No OpenAI access yet (2026-10-08 20:10). Verifier and research seller need it; keep LLM calls behind `MODEL` env + mockable interface.
+- Hosted Masumi URL not yet in anyone's `.env`; `/health` unchecked.
 - No one on the team has Cardano/Masumi experience. Default PAYMENTS_MODE=simulated until escrow test passes.
