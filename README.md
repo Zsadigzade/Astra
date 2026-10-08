@@ -16,44 +16,6 @@ Only the **wallet guard** (`backend/app/buyer/guard.py`, plain Python, no LLM) c
 escrow (Masumi on Cardano Preprod, or a labelled SIMULATED ledger). A rule-based verifier checks the
 delivery. Pass = release to Viktor. Fail = refund to Max.
 
-```mermaid
-sequenceDiagram
-    participant D as Dashboard
-    participant M as Max buyer
-    participant G as Wallet guard
-    participant V as Viktor seller
-    participant K as Masumi escrow
-
-    D->>M: POST /tasks with demo_mode
-    loop haggle rounds
-        M->>V: POST /negotiate with offer
-        V-->>M: counter, accept or walk
-    end
-    M->>G: evaluate agreed price
-    alt over cap 10 or over budget 20
-        G-->>M: BLOCKED, no money moves
-        M->>V: walk away
-        Note over G,V: Guard runs before start_job. A blocked deal costs nothing.
-    else over approval line 8
-        G->>D: needs_approval
-        D->>G: POST /approvals with approve true or false
-    end
-    M->>V: POST /start_job with agreed price
-    V->>K: create payment request, Masumi mode only
-    V-->>M: job_id and blockchainIdentifier
-    G->>K: lock funds, idempotent per deal_id
-    Note over G,K: Deal already paid means already_paid. Never pays twice.
-    V->>K: wait for FundsLocked, then do the job
-    V->>K: submit result hash
-    M->>V: GET /status until completed
-    M->>M: verifier checks count, price, district, URLs
-    alt verified
-        G->>K: release, settles after unlockTime
-    else failed
-        G->>K: refund
-    end
-    M-->>D: every step streamed over SSE GET /events
-```
 
 ## Why the guard is code, not prompt
 
@@ -69,12 +31,12 @@ sequenceDiagram
 
 ## The demo, in four acts
 
-| Act | Demo mode | Proves |
-|---|---|---|
-| 1 The deal | `honest` | haggle 18 → 7, escrow, delivery, verify, release |
-| 2 The con | `con` (STAGED) | Max accepts a fake "manager approved 25"; guard BLOCKS (cap 10) |
+| Act          | Demo mode                     | Proves                                                             |
+| ------------ | ----------------------------- | ------------------------------------------------------------------ |
+| 1 The deal   | `honest`                      | haggle 18 → 7, escrow, delivery, verify, release                   |
+| 2 The con    | `con` (STAGED)                | Max accepts a fake "manager approved 25"; guard BLOCKS (cap 10)    |
 | 3 The glitch | `CRASH_AFTER_LOCK=1` (STAGED) | buyer dies after paying; on restart: `already_paid`, no double pay |
-| 4 The refund | `junk` (STAGED) | garbage delivery fails verification, escrow refunded |
+| 4 The refund | `junk` (STAGED)               | garbage delivery fails verification, escrow refunded               |
 
 Non-honest acts carry `staged: true` on every event. All 4 acts plus the approval path run end to end in SIMULATED mode.
 
@@ -189,16 +151,16 @@ the git-ignored `backend/data/` folder; local credentials stay in the root `.env
 
 What is real and what is not, as of this commit.
 
-| Area | State now |
-|---|---|
-| Money | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode. |
-| Masumi mode | Built (`backend/app/core/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `backend/tests/fake_masumi.py`. Not yet run against a live payment node. |
-| Release | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`. |
-| Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo. |
-| Agents | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only; errors use a labelled scripted fallback. No API key is available for live verification. Viktor's optional LLM persona is deferred. |
-| Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway. |
-| Staging | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`. |
-| Flats | Default is **sample data**. Live Apify adapter and labelled real-cache fallback are implemented and mock-tested; no successful live scrape or real cached dataset has been obtained yet. |
-| Verifier | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one. |
-| Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes. |
-| Voice | ElevenLabs TTS and ordered playback are implemented and tested with mocks. Live API generation and browser listening await a key and two voice IDs; text fallback works. |
+| Area         | State now                                                                                                                                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Money        | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode.                                                                                          |
+| Masumi mode  | Built (`backend/app/core/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `backend/tests/fake_masumi.py`. Not yet run against a live payment node.                                                       |
+| Release      | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`.                                     |
+| Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo.                                                                                            |
+| Agents       | Max and Viktor are **scripted** by default (`LLM_MODE=mock`). `LLM_MODE=openai` drives Max only; errors use a labelled scripted fallback. No API key is available for live verification. Viktor's optional LLM persona is deferred. |
+| Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway.                                                                                                  |
+| Staging      | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`.                                                                                                             |
+| Flats        | Default is **sample data**. Live Apify adapter and labelled real-cache fallback are implemented and mock-tested; no successful live scrape or real cached dataset has been obtained yet.                                            |
+| Verifier     | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one.                                                                                                                |
+| Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes.                                                                                                                      |
+| Voice        | ElevenLabs TTS and ordered playback are implemented and tested with mocks. Live API generation and browser listening await a key and two voice IDs; text fallback works.                                                            |
