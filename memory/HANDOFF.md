@@ -1,8 +1,9 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 22:34 · codex
+updated: 2026-10-08 22:37 · codex
 
 ## Latest changes on main
+- Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.
 - `036105e`: Masumi readiness checks reject incomplete setup; node-only bootstrap and README runbook.
 - `1244aa6`: unassigned checklist, workspace cleanup, confirmed removal of agent-instruction files.
 - `bc621da`: repository split into `backend/` and `frontend/`; Python imports now use the `app` namespace.

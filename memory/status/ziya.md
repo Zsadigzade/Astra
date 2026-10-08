@@ -1,7 +1,7 @@
 # ziya — status
-updated: 2026-10-08 22:32
-doing: I-path code integrated and offline checks green; live provider verification pending
-touching: seller/apify.py + job.py, voice/, buyer/negotiator.py + orchestrator.py, dashboard audio, shared/, scripts/, tests/, docs/memory
+updated: 2026-10-08 22:35
+doing: branch consolidation complete; only main remains locally and on origin
+touching: git branch refs, memory/status/ziya.md, memory/DECISIONS.md, memory/HANDOFF.md
 blocked on: APIFY_TOKEN, ElevenLabs key + voice IDs; user confirms no OpenAI API key was supplied
 next: scrape_flats.py -> genuine cache -> live/cached demo; voice_check.py -> select voices -> --synthesize/listen
 done today:
@@ -13,3 +13,4 @@ done today:
 - 22:17 plan has unassigned tasks/deadlines; stale navigation removed; generated folders hidden (cache deletion blocked by policy)
 - 22:19 memory refreshed with main commits 036105e/1244aa6, task IDs, validation limits and reset caveat; other owners' status files preserved
 - 22:32 I01/I02 adapters ready, I03 honest readiness check, I05 TTS hardened, I06 ordered queue integrated; 129 Python + 7 JS tests and build pass; no live provider result claimed
+- 22:35 verified all feature tips were already in main; deleted four local branches and remote feat/ziya-skeleton
