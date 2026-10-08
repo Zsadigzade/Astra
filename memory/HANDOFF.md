@@ -1,9 +1,10 @@
 # Handoff — integrated main
 
-updated: 2026-10-08 23:53 · ziya · full system check and fixes
+updated: 2026-10-09 00:24 · ziya · scoped hour audit in progress
 
 ## Current verification
-- 00:11 I-path audit: 315 backend tests pass on Python 3.13 and fresh Python 3.11; fresh live Codex/cached-data/seven-clip Act 1 and browser scenarios pass. Fixes cover cancellation, cache/voice validation, bounded TTS and seller-response binding; invalid legacy tasks no longer block other recovery. A 50-minute endurance run is in progress; final results will be recorded in SYSTEM_CHECK.md.
+- I-path audit: 344 backend tests pass on Python 3.13 and fresh Python 3.11; fresh live Codex/cached-data/seven-clip Act 1 and browser scenarios pass. Fixes cover cancellation, cache/voice validation, bounded TTS, seller-response binding and strict delivery validation; invalid legacy tasks no longer block other recovery. A 50-minute endurance run is in progress; final results will be recorded in SYSTEM_CHECK.md.
+- Terminal replay now follows the latest deal and suppresses stale approvals; 10 real-HTTP CLI scenarios pass. Tests default to an in-memory ledger.
 - Audited team commits through 8a24b38 plus fixes recorded in [SYSTEM_CHECK.md](SYSTEM_CHECK.md). Murad's UI update 2d0d987 also passed merged frontend/browser revalidation; its API-era scripted-mode label was corrected for subscription Codex.
 - 255 backend tests, 32 frontend tests and production build pass. Eleven fresh HTTP/Edge browser checks pass with zero page errors: honest release, con block, refund, approval/decline, controls, offline/reconnect, theme and responsive widths.
 - Actual runner rehearsal: one staged buyer crash, one restart, seller survives, one lock, one recovery and one release at 7; SIMULATED balances 93/7/0. Reset preserves the original ledger byte-for-byte and starts empty.
@@ -19,7 +20,7 @@ updated: 2026-10-08 23:53 · ziya · full system check and fixes
 
 ## What works
 - The Haggle: buyer Max (:8000, backend/app/buyer) negotiates with seller Viktor (:8001, backend/app/seller), wallet guard locks escrow, verifier checks delivery, then release/refund. Dashboard consumes SSE /events.
-- Backend commands run from backend/: uv run python scripts/up.py [--reset] [--crash]; terminal scripts/act.py honest|con|junk. Murad's launcher update makes root npm start run backend and dashboard; npm run web/api select one side. Clean-checkout startup verification is in progress.
+- Backend commands run from backend/: uv run python scripts/up.py [--reset] [--crash]; terminal scripts/act.py honest|con|junk. Murad's launcher update makes root npm start run backend and dashboard; npm run web/api select one side. Fresh checkout installed dependencies, started all three services and completed a credential-free SIMULATED deal.
 - All four acts work in SIMULATED mode. Guard cap 10, budget 20, approval above 8; staged con at 25 is blocked. Restart never pays an already-funded deal twice.
 - Permanent subscription-only access: LLM_MODE=codex uses local ChatGPT-authenticated Codex CLI with labelled scripted fallback. No OpenAI API token or SDK. Viktor and STAGED Act 2 Max remain scripted.
 - Genuine data: swerve/sreality-scraper; Praha 7/monthly-CZK validation, provenance and matching apify_cached fallback. GET-only scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ restores the 20-listing cache without another paid run.

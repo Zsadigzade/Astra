@@ -99,7 +99,7 @@ JobStatus = Literal["awaiting_payment", "running", "completed", "failed"]
 
 class Flat(BaseModel):
     title: str
-    price_czk: int
+    price_czk: int = Field(strict=True)
     district: str
     url: str
 

@@ -13,7 +13,8 @@ from app.seller.job import sample_flats
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("fault", ["deal", "round", "open_accept", "accept_price", "ack", "start_error", "start_price", "empty_job", "status_job", "failed_with_result"])
+@pytest.mark.parametrize("fault", ["deal", "round", "open_accept", "accept_price", "ack", "start_error", "start_price", "empty_job", "status_job", "failed_with_result",
+                                  "malformed_port", "control_url", "bool_rent", "string_rent", "float_rent"])
 async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
     def seller(request):
         if request.url.path == "/negotiate":
@@ -37,10 +38,19 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
                 "job_id": " " if fault == "empty_job" else "this-job",
                 "price": 8 if fault == "start_price" else 7})
         assert request.url.path == "/status"
+        result = JobResult(flats=sample_flats(JobSpec()), source="sample").model_dump()
+        if fault == "malformed_port":
+            result["flats"][0]["url"] = "https://example.com:bad/flat"
+        elif fault == "control_url":
+            result["flats"][0]["url"] = "\x00https://example.com/flat"
+        elif fault in {"bool_rent", "string_rent", "float_rent"}:
+            result["flats"][0]["price_czk"] = {
+                "bool_rent": True, "string_rent": "20000", "float_rent": 20000.0,
+            }[fault]
         return httpx.Response(200, json={
             "job_id": "different-job" if fault == "status_job" else "this-job",
             "status": "failed" if fault == "failed_with_result" else "completed",
-            "result": JobResult(flats=sample_flats(JobSpec()), source="sample").model_dump()})
+            "result": result})
 
     settings = Settings(ledger_path=str(tmp_path / "buyer.db"), audio_dir=str(tmp_path / "audio"),
                         seller_url="http://seller")
@@ -55,12 +65,13 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
         events = buyer.state.bus.history
         assert "released" not in {event.type for event in events}
         assert balances["seller"] == 0
-        if fault == "status_job":
+        if fault in {"status_job", "bool_rent", "string_rent", "float_rent"}:
             assert balances["escrow"] == 7
+            assert balances["buyer"] == 93
             assert buyer.state.ledger.unfinished()  # Keep the original funded job recoverable.
         else:
             assert balances["buyer"] == 100 and balances["escrow"] == 0
-        if fault == "failed_with_result":
+        if fault in {"failed_with_result", "malformed_port", "control_url"}:
             assert "refunded" in {event.type for event in events}
         else:
             assert "error" in {event.type for event in events}

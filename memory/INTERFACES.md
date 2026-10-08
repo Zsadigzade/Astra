@@ -10,6 +10,9 @@ I-path integration notice: JobResult.source adds `apify_cached`; optional `fetch
 `dataset_id`, `run_id` describe real data provenance. Dashboard should distinguish sample/live/cached.
 Negotiation event data may additionally carry `backend` and `fallback_reason` for Max's actual mode.
 Existing required fields and event names stay unchanged. Audio queue is isolated in components/VoicePlayback.jsx.
+Rental `price_czk` is a JSON integer: booleans, strings and floating-point values are rejected
+at the seller-response boundary. Verification rejects URL control characters and invalid ports;
+malformed typed responses retain funded escrow for recovery instead of authorizing release.
 Subscription migration: `LLM_MODE=codex` replaces the removed API mode. `backend=codex` marks
 subscription-generated Max lines; `mock` still marks scripted lines/fallback. Act 2 forces scripted Max.
 

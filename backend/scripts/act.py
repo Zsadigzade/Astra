@@ -14,6 +14,7 @@ FINAL = {"released", "refunded", "walked_away", "error"}
 COLORS = {"blocked": "\033[1;31m", "error": "\033[1;31m", "released": "\033[1;32m", "refunded": "\033[1;33m",
           "needs_approval": "\033[1;35m", "already_paid": "\033[1;36m", "escrow_locked": "\033[36m"}
 RESET = "\033[0m"
+REQUEST_TIMEOUT = 10.0
 
 
 def line(ev: dict) -> str:
@@ -26,40 +27,78 @@ def line(ev: dict) -> str:
     return f"{COLORS.get(t, '')}{t.upper():15}{RESET} {tags} {json.dumps(extra, ensure_ascii=False)[:160]}"
 
 
+def current_deal(client: httpx.Client, deal_id: str) -> dict | None:
+    return next((deal for deal in client.get("/deals").raise_for_status().json()
+                 if deal["deal_id"] == deal_id), None)
+
+
+def run(client: httpx.Client, mode: str, watch: bool) -> int:
+    prompted: set[str] = set()
+    if watch:
+        deals = client.get("/deals").raise_for_status().json()
+        # The API sorts by latest update. SSE starts with all historic events;
+        # those events must never repoint an already selected watch target.
+        deal_id = deals[0]["deal_id"] if deals else None
+    else:
+        deal_id = client.post("/tasks", json={"demo_mode": mode}).raise_for_status().json()["deal_id"]
+        print(f"deal {deal_id} ({mode})")
+    with client.stream("GET", "/events", timeout=httpx.Timeout(REQUEST_TIMEOUT, read=None)) as response:
+        response.raise_for_status()
+        for raw in response.iter_lines():
+            if not raw.startswith("data: "):
+                continue
+            ev = json.loads(raw[6:])
+            if watch and deal_id is None and ev["type"] == "task_created":
+                deal_id = ev["deal_id"]
+            if deal_id is None or ev["deal_id"] != deal_id:
+                continue
+            print(line(ev), flush=True)
+            if ev["type"] == "needs_approval" and deal_id not in prompted:
+                deal = current_deal(client, deal_id)
+                if (deal and deal["status"] == "agreed" and not deal.get("approved")
+                        and not deal.get("escrow_ref")):
+                    prompted.add(deal_id)
+                    ok = input("approve? [y/N] ").strip().lower() == "y"
+                    approval = client.post(f"/approvals/{deal_id}", json={"approve": ok})
+                    if approval.status_code == 404:
+                        print("Approval was already resolved or expired; continuing to watch.")
+                    else:
+                        approval.raise_for_status()
+            if ev["type"] in FINAL:
+                deal = current_deal(client, deal_id)
+                expected = {"released": {"released"}, "refunded": {"refunded"},
+                            "walked_away": {"walked", "blocked"}, "error": {"error", "paying"}}
+                if deal and deal["status"] not in expected[ev["type"]]:
+                    continue  # An older failed attempt may already be recovering.
+                return 0 if ev["type"] != "error" else 1
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", nargs="?", choices=["honest", "con", "junk"], default="honest")
     ap.add_argument("--buyer", default="http://localhost:8000")
     ap.add_argument("--watch", action="store_true", help="don't start a task; follow the newest deal")
     a = ap.parse_args()
-    sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles default to cp1252; flats have Czech names
-
-    with httpx.Client(base_url=a.buyer, timeout=None) as c:
-        deal_id = None
-        if not a.watch:
-            deal_id = c.post("/tasks", json={"demo_mode": a.mode}).raise_for_status().json()["deal_id"]
-            print(f"deal {deal_id} ({a.mode})")
-        with c.stream("GET", "/events") as r:
-            for raw in r.iter_lines():
-                if not raw.startswith("data: "):
-                    continue
-                ev = json.loads(raw[6:])
-                if a.watch and ev["type"] in ("already_paid", "task_created"):
-                    deal_id = ev["deal_id"]  # replayed history: follow the newest deal
-                if ev["deal_id"] != deal_id:
-                    continue
-                print(line(ev), flush=True)
-                if ev["type"] == "needs_approval":
-                    ok = input("approve? [y/N] ").strip().lower() == "y"
-                    c.post(f"/approvals/{deal_id}", json={"approve": ok}).raise_for_status()
-                if ev["type"] in FINAL:
-                    return 0 if ev["type"] != "error" else 1
-    return 1
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles; flats have Czech names.
+    try:
+        with httpx.Client(base_url=a.buyer, timeout=REQUEST_TIMEOUT) as client:
+            return run(client, a.mode, a.watch)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 423:
+            print("Agents are paused; resume them in the dashboard before starting an act.")
+        else:
+            print(f"Buyer request failed (HTTP {exc.response.status_code}); check the buyer service.")
+        return 1
+    except httpx.RequestError:
+        print(f"{COLORS['blocked']}BUYER DOWN{RESET} connection lost or timed out. "
+              "Act 3: restart the buyer, then `act.py --watch`.")
+        return 2
+    except (ValueError, KeyError, TypeError):
+        print("Buyer returned an invalid response; check the buyer service.")
+        return 1
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except (httpx.ReadError, httpx.RemoteProtocolError, httpx.ConnectError):
-        print(f"{COLORS['blocked']}BUYER DOWN{RESET} connection lost. Act 3: restart the buyer, then `act.py --watch`.")
-        sys.exit(2)
+    sys.exit(main())
