@@ -2,13 +2,13 @@
 
 **2026-10-08 → 10-09 — Prague time — Target submission 07:00 — Hard deadline 07:14**
 
-**Updated 2026-10-09 01:45 +02:00.** [23 completed items are archived](memory/archive/COMPLETED.md),
-including all **I01–I06** and **R01–R05**. This list contains **12 carried-forward tasks**
-and **15 new follow-ups**: 17 release/conditional tasks, 8 new I-path features and 2 optional improvements.
-An unchecked item still needs its stated acceptance; completed new work is recorded below and in `memory/status/`.
-**I13 and I14 are complete; 25 items remain open.** I07–I12 are in progress with the
-data/voice owner in [Ziya's status](memory/status/ziya.md). Consult `memory/status/`
-before claiming work or editing shared files.
+**Updated 2026-10-09 01:50.** [31 completed items are archived](memory/archive/COMPLETED.md),
+including all **I01–I14** and the earlier **R01–R05** acceptance. **19 tasks remain open**:
+12 release/submission tasks, 5 conditional live-payment tasks and 2 optional improvements.
+Use IDs to claim work in `memory/status/`; assignments remain open.
+New I-path acceptance: 527 backend tests, 41 frontend tests/build, synthetic Edge controls/layout,
+and one live run of each of the four acts with SIMULATED money. This is not a new three-runs-per-act
+R02 acceptance or a timed video rehearsal. Evidence: [system checks](memory/SYSTEM_CHECK.md).
 
 **Next:** agree the recording profile (P01), confirm laptop/operator readiness (D01/P02),
 then capture and time the demo (V02). Continue M02–M05/D05 separately if live payments
@@ -73,33 +73,17 @@ with unfinished payments or restart the seller mid-deal. Live release is schedul
 - [ ] **S02** By **06:50**, open every submitted link in incognito: repository accessible and video plays. Fix permissions or links and recheck if necessary.
 - [ ] **S03** Confirm submission by **07:00**, leaving the buffer before **07:14**. Record the confirmation and exact submitted links.
 
-## New data features — I07–I09
+## Completed data, agent and voice improvements
 
-These features extend the completed I work. **I13/I14 are complete**; **I07–I12 are in progress**
-with the data/voice owner, and remain unchecked until their stated acceptance is recorded.
-Release/video gates above still take priority;
-any feature selected before the freeze needs its acceptance checks and an affected-profile
-rehearsal. Coordinate proposed shared payload/UI changes before implementation and document
-the agreed contract in `memory/INTERFACES.md`. This checklist does not change contracts itself.
-
-- [ ] **I07 · NEW — Cache freshness policy.** Add a configurable maximum age and an explicit offline-demo override for saved rentals. Currently timestamps are validated, but old caches have no age limit. Acceptance: fresh, expired, future-dated and override cases are covered; normal mode refuses expired data, while the override retains the original timestamp and clearly identifies stale cached data. Never silently replace real data with samples or trigger a paid refresh.
-- [ ] **I08 · NEW — Cache multiple rental requests.** Store validated results by a canonical job key instead of replacing one cache file for every request. Keep the existing cache readable or provide migration. Acceptance: two supported Praha 7 requests with different counts/rent ceilings coexist, each retrieves only its exact match, and interrupted/concurrent writes cannot mix their data. Depends on **I07** for per-entry freshness handling.
-- [ ] **I09 · NEW — Explain data-quality failures.** Extend the existing scrape/recovery command with a compact validation report: accepted records, duplicates, wrong district/currency, invalid prices/URLs and insufficient matches. Acceptance: a mixed fixture produces accurate rejection counts and safe source identifiers; failure still refuses an incomplete delivery and reports no secrets or fabricated listings. Reuse the saved run for verification rather than starting another paid scrape.
-
-## New voice features — I10–I12
-
-- [ ] **I10 · NEW — Reuse speech and bound disk usage.** Cache successful MP3s by exact text, voice, model and synthesis settings; combine simultaneous identical requests into one synthesis. Add bounded retention that preserves clips needed by active deals and retained replay. Acceptance: a repeated line makes one provider request, changed voices/settings never reuse the wrong clip, corrupt/failed audio is not cached, and cleanup cannot delete files currently being published or played. Keep text fallback and the existing response/time limits.
-- [ ] **I11 · NEW — Show dialogue before speech is ready.** Decouple transcript publication from TTS completion so slow speech generation does not delay visible negotiation. Agree a compatible audio-ready update keyed to the original deal/message with the dashboard owner. Acceptance: text appears while a deliberately slow synthesis is pending; out-of-order completions still play in dialogue order, failed clips do not stall later lines, and reconnect/reset never attaches audio to a different message. Schedule this shared-contract change after submission unless explicitly selected and fully rehearsed.
-- [ ] **I12 · NEW — Replay and adjust voice playback.** Add replay of an individual completed line and playback-speed controls to the existing voice component/queue. Acceptance: replay uses the saved clip without another synthesis, only one clip plays at a time, keyboard controls and Stop/Mute work, and changing deals or replaying SSE does not unexpectedly restart old speech. Keep the readable transcript available throughout.
-
-## New subscription-agent and readiness features — I13–I14
-
-- [x] **I13 · NEW — Bound concurrent model work and repeated failures.** Implemented service-wide CLI concurrency limits, bounded queue waiting within the existing turn deadline, and a local repeated-failure cooldown with one recovery probe. Queue/cooldown rejection produces labelled scripted fallback; queued cancellation starts no child, running cancellation retains its slot through cleanup, and successful recovery restores subscription turns. Defaults: 2 turns, 5s queue, 3 failures, 15s cooldown; no quota-reset inference or API-token access. Guard/floor checks remain authoritative. Acceptance: 145 focused checks and 523 full backend tests passed, including real local child concurrency and repeated-cancellation cleanup. Evidence: [I13 runtime status](memory/status/i13-runtime.md). Live-profile rehearsal remains separate.
-- [x] **I14 · NEW — One data/agent/voice readiness command.** Implemented in `backend/scripts/readiness.py`; run `uv run python scripts/readiness.py` from `backend/`. Reports Codex availability/ChatGPT sign-in, exact rental-cache match/provenance (including stale override), voice configuration and writable audio storage. Default checks start no Actor runs, synthesize no speech and move no money; `--live-probe` opts into enabled subscription/voice checks. Missing prerequisites fail actionably; cached/sample/live capability and untested scope are explicit; credential values stay out of output. Acceptance: 62 focused readiness/agent/runtime tests passed, plus the actual local profile check; no live probes run. Evidence: [readiness status](memory/status/readiness.md). A passing report does not claim live escrow or full E2E acceptance.
+I07–I14 are implemented and [archived with acceptance notes](memory/archive/COMPLETED.md):
+cache freshness and separate request caches, validation reports, reusable speech, immediate
+transcripts, replay/speed controls, bounded Codex concurrency and unified readiness.
+I13/I14 were completed by the parallel terminal sessions. The affected four-act live run passed;
+recording, repeated final-profile acceptance if needed, and release/submission gates remain above.
 
 ## Optional improvements to existing I work — after submission
 
-These are follow-ups, not unfinished I01–I06 acceptance. Defer them until submission;
+These are follow-ups, not unfinished I01–I14 acceptance. Defer them until submission;
 if the team chooses subscription Viktor for this video, bring O01 forward before V02.
 
 - [ ] **O01 · NEW** Repeat the full three-runs-per-act plus approval/decline rehearsal with `SELLER_LLM_MODE=codex`. Record per-agent live/fallback counts, voice results, payment recovery and timings; keep Act 2 scripted/STAGED. I04's live two-agent Act 1 already passed, but it does not establish full-profile R02 acceptance.

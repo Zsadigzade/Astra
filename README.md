@@ -176,7 +176,7 @@ Live Apify data and ElevenLabs speech were verified on 2026-10-08. Keep provider
   **scripted** lines and **scripted fallback**. No API-key setup or API SDK is part of this project.
 - **Voices:** set `ELEVENLABS_API_KEY`, then run `uv run python scripts/voice_check.py` to list stock
   and generated voices. Put two distinct IDs in `VOICE_MAX` and `VOICE_VIKTOR`, then run
-  `uv run python scripts/voice_check.py --synthesize` to generate two short samples using credits.
+  `uv run python scripts/voice_check.py --synthesize` to generate two fresh short samples using credits (bypasses cached speech).
   With `TTS_MODE=elevenlabs`, provider/timeouts/storage failures fall back to text.
   `TTS_MODEL` and `TTS_TIMEOUT_SECONDS` control the model and per-line deadline.
   Matching text/voice/model clips are reused and concurrent identical requests share synthesis.
@@ -208,8 +208,8 @@ Two ElevenLabs connection failures fell back to text; replaying that deal in Edg
 available clips without overlap or browser errors. The local `.env` now selects `LLM_MODE=codex`.
 The 68 focused backend negotiation/runtime/guard/demo tests and 15 frontend tests pass, as does the build.
 
-Latest I-path verification: **390 backend tests (Python 3.11 and 3.13), 33 frontend tests, production build, browser
-scenarios and actual crash/reset recovery pass**. Live Codex, recovered Apify data and ElevenLabs
+Latest I-path verification: **527 backend tests (Python 3.13), 41 frontend tests, production build, synthetic browser
+controls/layout and a live one-run-per-act check pass**. Live Codex, recovered Apify data and ElevenLabs
 also pass together with SIMULATED payments. Hosted Masumi health, authentication and Preprod source
 checks pass; seller registration/configuration and live escrow remain unverified. See
 [the system check](memory/SYSTEM_CHECK.md) for fixes and remaining gates.

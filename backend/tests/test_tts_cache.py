@@ -45,6 +45,22 @@ def test_exact_speech_survives_restart_without_provider_request(settings):
     asyncio.run(run())
 
 
+def test_explicit_live_probe_cannot_hide_failed_provider_behind_cached_audio(settings):
+    async def run():
+        tts = TTS(settings)
+        with transport(lambda req: audio_response()):
+            cached = await tts.speak("Probe", "max")
+        assert cached
+        calls = []
+        with transport(lambda req: calls.append(req) or httpx.Response(401)):
+            assert await tts.speak("Probe", "max") == cached
+            assert not calls
+            assert await tts.speak("Probe", "max", fresh=True) is None
+            assert len(calls) == 1
+            assert await tts.speak("Probe", "max") == cached
+    asyncio.run(run())
+
+
 def test_text_voice_model_and_output_settings_are_distinct(settings):
     calls = []
 

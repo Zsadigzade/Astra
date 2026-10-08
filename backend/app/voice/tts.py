@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -68,7 +69,7 @@ class TTS:
             return False
         return True
 
-    async def speak(self, text: str, speaker: str) -> str | None:
+    async def speak(self, text: str, speaker: str, *, fresh: bool = False) -> str | None:
         """Return a buyer-relative URL like /audio/<id>.mp3, or None when TTS is off or fails."""
         voice_id = self.voices.get(speaker)
         if (self.s.tts_mode != "elevenlabs" or not self.s.elevenlabs_api_key
@@ -77,6 +78,10 @@ class TTS:
         payload = {"text": text, "model_id": getattr(self.s, "tts_model", TTS_MODEL)}
         try:
             identity = {"voice": voice_id, "output_format": OUTPUT_FORMAT, "payload": payload}
+            if fresh:
+                # Explicit readiness probes must exercise the provider, never
+                # report a previously cached success as current synthesis access.
+                identity["probe"] = uuid.uuid4().hex
             key = hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False,
                                             separators=(",", ":")).encode("utf-8")).hexdigest()
             cached = self._cached(key)

@@ -1,5 +1,7 @@
 # Completed checklist archive
 
+**31 completed tasks.** Initial 23-item snapshot below; I07–I14 acceptance appended at the end.
+
 Archived: **2026-10-09 00:58 Prague time** from the checklist at `f4a87de`.
 
 These **23 completed items** retain their original IDs and acceptance notes. This is a
@@ -58,3 +60,22 @@ Local evidence under `backend/data/` is ignored by Git; its paths are relative t
 - Apify run `ZNboU2b0EHUJgFaEQ` supplies the genuine 20-listing cache; `scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ` recovers it without another paid run (run from `backend/`).
 - Voice IDs are configured locally; `scripts/voice_check.py --synthesize` checks both voices and `scripts/llm_check.py --agent both` rejects fallback as live success.
 - V01 is a script/storyboard, R05 is layout acceptance and V06 is a repository snapshot audit. None substitutes for recorded footage, a measured two-minute rehearsal or final export review.
+
+## I07–I14 completed 2026-10-09 01:50
+
+- [x] **I07** Configurable cache age (default one day) rejects expired/future data. Explicit offline override retains timestamps and exposes STALE CACHED DATA; boundary, invalid-age and transport/UI checks pass.
+- [x] **I08** Exact-job SHA256 cache entries coexist under `<APIFY_CACHE_PATH>.entries/`, with validated legacy fallback. Atomic publication and Windows reader/writer coordination preserve complete records across concurrent writes; corrupt keyed entries fail closed. Different-count/rent/district regression coverage passes.
+- [x] **I09** `scrape_flats.py --report` prints aggregate accepted/selected/rejected/duplicate/shortfall counts, including failures, without raw provider records. GET-only recovery of the existing run inspected 22 valid listings and selected 20; no new Actor run. The 88 focused data tests passed.
+- [x] **I10** Speech cache keys exact text/voice/model/output format, validates content checksums and deduplicates concurrent synthesis. Bounded admission counts legacy files, preserves all published clips and falls back to text for new clips at capacity. Repeated cancellation drains resources; bounded disk reads prevent growth races. 46 focused TTS tests passed. One buyer process per audio directory; no automatic eviction of retained replay.
+- [x] **I11** Dialogue publishes before bounded background synthesis; audio_ready references original task/deal/message ID/timestamp. Out-of-order speech remains ordered, recovery closes interrupted audio without regeneration and reason labels distinguish interruption from provider failure. Nine async-voice tests, full simulated slow-speech settlement and live HTTP acceptance pass.
+- [x] **I12** Saved-line replay and 0.75–2x playback use one player; keyboard controls, Stop/Mute, reset/reconnect and deal changes preserve user playback intent. 41 frontend tests/build and synthetic Edge 1920x1080 controls/layout checks passed with no page errors or horizontal overflow.
+- [x] **I13 · NEW — Bound concurrent model work and repeated failures.** Implemented service-wide CLI concurrency limits, bounded queue waiting within the existing turn deadline, and a local repeated-failure cooldown with one recovery probe. Queue/cooldown rejection produces labelled scripted fallback; queued cancellation starts no child, running cancellation retains its slot through cleanup, and successful recovery restores subscription turns. Defaults: 2 turns, 5s queue, 3 failures, 15s cooldown; no quota-reset inference or API-token access. Guard/floor checks remain authoritative. Acceptance: 145 focused checks and 523 full backend tests passed, including real local child concurrency and repeated-cancellation cleanup. Evidence: [I13 runtime status](../status/i13-runtime.md). Live-profile rehearsal remains separate.
+- [x] **I14 · NEW — One data/agent/voice readiness command.** Implemented in `backend/scripts/readiness.py`; run `uv run python scripts/readiness.py` from `backend/`. Reports Codex availability/ChatGPT sign-in, exact rental-cache match/provenance (including stale override), voice configuration and writable audio storage. Default checks start no Actor runs, synthesize no speech and move no money; `--live-probe` opts into enabled subscription/voice checks. Missing prerequisites fail actionably; cached/sample/live capability and untested scope are explicit; credential values stay out of output. Acceptance: 62 focused readiness/agent/runtime tests passed, plus the actual local profile check; no live probes run. Evidence: [readiness status](../status/readiness.md). A passing report does not claim live escrow or full E2E acceptance.
+
+Integrated acceptance: **527 backend tests passed (26.81s)**. One live run per act with subscription
+Max, scripted Viktor, real cached Apify and ElevenLabs passed: 9 Codex turns, 27 speech clips,
+zero fallback, actual buyer restart with exactly one payment, final SIMULATED balances 86/14/0.
+Evidence: `backend/data/r-rehearsal-72848658/report.json`; synthetic browser controls/layout:
+`backend/data/i11-voice-ui/report.json`. All owned services stopped. Initial live attempts exposed
+an idle seller-connection failure; fresh buyer connections plus a real-HTTP regression address it.
+This does not replace a three-runs-per-act recording rehearsal, live Preprod acceptance or video export.

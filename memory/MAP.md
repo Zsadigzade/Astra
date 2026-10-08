@@ -17,8 +17,8 @@ DECISIONS and TRAPS preserve history; later entries may supersede earlier ones.
 - [status/r-rehearsal.md](status/r-rehearsal.md) — R02 live-profile repetition and R05 1920×1080 recording-layout acceptance.
 - [status/readiness.md](status/readiness.md) — completed I14 local profile checker, focused tests and limits of the laptop check.
 - [status/i13-runtime.md](status/i13-runtime.md) — completed I13 concurrency/cooldown work, settings, cancellation/recovery acceptance and reproduction commands.
-- [../plan.md](../plan.md) — remaining tasks, I13/I14 completion, I07–I12 ownership, deadlines and fallback gates.
+- [../plan.md](../plan.md) — 19 remaining tasks, release deadlines and fallback gates; completed I01–I14 are archived.
 - [../README.md](../README.md) — product overview, run instructions and honest limitations.
 - [../video/README.md](../video/README.md) — four-act script, draft captions, capture/export handoff and repository release audit.
 - [status/video-release.md](status/video-release.md) — V01–V06 preparation and remaining recording dependencies.
-- [archive/COMPLETED.md](archive/COMPLETED.md) — 23 completed checklist items with original IDs, acceptance evidence and snapshot limits.
+- [archive/COMPLETED.md](archive/COMPLETED.md) — 31 completed checklist items with original IDs, acceptance evidence and snapshot limits.

@@ -111,7 +111,7 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 
 ### voice (TTS for haggle lines) — owner: ziya (I05/I06)
 - module `backend/app/voice/tts.py`, called by buyer; returns `/audio/<id>.mp3` or None (text fallback). No port (:8002 freed).
-- `voice_check.py` lists stock/generated voice IDs; `--synthesize` uses credits to generate two configured samples. Missing credentials/fallback gives nonzero exit for synthesis.
+- `voice_check.py` lists stock/generated voice IDs; `--synthesize` uses credits to generate two fresh configured samples (bypasses TTS cache). Missing credentials/fallback gives nonzero exit for synthesis.
 - `frontend/src/components/VoicePlayback.jsx` accepts `{events, buyerUrl, dealId}`; mount once without parallel per-line players. Exact message identity resolves async audio in dialogue order; Play, saved-line Replay, speed 0.75–2x, Stop/Mute and error skipping work through one queue. Deal changes recreate a disabled queue. A 10-second inactivity watchdog skips stalled playback; backend pending speech resolves or fails within twice the per-line timeout (including queue wait).
 - Buyer publishes text before TTS, owns up to 64 pending audio tasks and two active syntheses, cancels/drains them on shutdown, and closes unresolved historical audio on restart without paid regeneration. Speech cannot delay payment work.
 - TTS validates media type before reading and limits decoded audio to 8 MiB; invalid, oversized, interrupted or timed-out responses use text fallback without publishing partial MP3s.

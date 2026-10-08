@@ -68,7 +68,7 @@ async def check(settings, client, synthesize=False):
     ok = True
     for speaker, line in [("max", "I can offer six test ada for verified listings."),
                           ("viktor", "Seven test ada, and I will deliver the listings.")]:
-        url = await tts.speak(line, speaker)
+        url = await tts.speak(line, speaker, fresh=True)
         if url:
             print(f"PASS: {speaker} sample saved to {tts.out / url.rsplit('/', 1)[-1]}")
         else:

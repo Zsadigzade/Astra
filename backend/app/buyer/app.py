@@ -40,7 +40,9 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        client = http or httpx.AsyncClient(timeout=30)
+        # A model turn may outlast the seller's HTTP keep-alive window. Fresh
+        # connections avoid racing an idle close; do not retry stateful offers.
+        client = http or httpx.AsyncClient(timeout=30, limits=httpx.Limits(max_keepalive_connections=0))
         app.state.orch = Orchestrator(
             s, ledger, bus, guard, client,
             lambda ceiling, rounds, job=None: make_negotiator(replace(s, max_rounds=rounds), ceiling, job),
