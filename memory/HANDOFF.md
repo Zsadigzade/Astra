@@ -1,8 +1,9 @@
 # Handoff — state of `main`
 
-updated: 2026-10-08 22:32 · ziya
+updated: 2026-10-08 22:35 · ziya
 
 ## Latest changes on main
+- Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.
 - `036105e`: Masumi readiness checks reject incomplete setup; node-only bootstrap and README runbook.
 - `1244aa6`: unassigned checklist, workspace cleanup, confirmed removal of agent-instruction files.
 - I path: Apify rental/cache adapter, Max fallback labels, ElevenLabs checks and ordered audio playback.
