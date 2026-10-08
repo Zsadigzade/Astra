@@ -1,14 +1,14 @@
 # Handoff — integrated main
 
-updated: 2026-10-09 00:24 · ziya · scoped hour audit in progress
+updated: 2026-10-09 00:30 · ziya · audit closed after user returned; checklist reconciled
 
 ## Current verification
-- I-path audit: 344 backend tests pass on Python 3.13 and fresh Python 3.11; fresh live Codex/cached-data/seven-clip Act 1 and browser scenarios pass. Fixes cover cancellation, cache/voice validation, bounded TTS, seller-response binding and strict delivery validation; invalid legacy tasks no longer block other recovery. A 50-minute endurance run is in progress; final results will be recorded in SYSTEM_CHECK.md.
+- Latest main through Murad's 3b10519: 364 backend tests pass on Python 3.13 and fresh Python 3.11; 32 frontend tests, production build and 11 fresh Edge scenarios pass with zero page errors. Full evidence: [SYSTEM_CHECK.md](SYSTEM_CHECK.md).
+- Timed audit stopped when the user returned: 20m55s, 21 cycles, 135 terminal outcomes, five concurrent batches, one actual funded crash/recovery and two approval/restarts; no failures, duplicate payments or pending tasks/approvals/subscribers. Final SIMULATED balances 51/49/0. The planned 50 minutes were not completed.
 - Terminal replay now follows the latest deal and suppresses stale approvals; 10 real-HTTP CLI scenarios pass. Tests default to an in-memory ledger.
-- Audited team commits through 8a24b38 plus fixes recorded in [SYSTEM_CHECK.md](SYSTEM_CHECK.md). Murad's UI update 2d0d987 also passed merged frontend/browser revalidation; its API-era scripted-mode label was corrected for subscription Codex.
-- 255 backend tests, 32 frontend tests and production build pass. Eleven fresh HTTP/Edge browser checks pass with zero page errors: honest release, con block, refund, approval/decline, controls, offline/reconnect, theme and responsive widths.
+- Murad's latest input bounds, local-origin CORS and offline payment-status changes are integrated and revalidated; his single-command launcher passed fresh-checkout acceptance.
 - Actual runner rehearsal: one staged buyer crash, one restart, seller survives, one lock, one recovery and one release at 7; SIMULATED balances 93/7/0. Reset preserves the original ledger byte-for-byte and starts empty.
-- Fresh live-provider Act 1: three Codex turns, 20 genuine cached Apify listings verified, seven new ElevenLabs clips served, SIMULATED release in 22.8s. Earlier merged-dashboard replay played five saved clips once in order without overlap.
+- Fresh live-provider Act 1: three Codex turns, 20 genuine cached Apify listings verified, seven new ElevenLabs clips served, SIMULATED release in 21.8s. Real Edge playback, replay/reset, Stop/Mute and stalled/missing clips pass.
 - Hosted Railway Masumi now passes health, authentication and Preprod source checks. Full local readiness fails on missing MASUMI_AGENT_ID and missing/invalid SELLER_VKEY; registration, wallet funding and live escrow remain unverified.
 
 ## Audit fixes
@@ -17,6 +17,7 @@ updated: 2026-10-09 00:24 · ziya · scoped hour audit in progress
 - Masumi only reports scheduled release after confirmed result submission/release state; funded errors remain recoverable. Provider error bodies are omitted from dashboard/log diagnostics.
 - Dashboard handles offline pause failures, preserves honest labels and keeps scheduled releases/funded errors in escrow totals. Budget meter uses the current task; lifetime totals are labelled.
 - Runner reads declared service ports consistently. Details/regressions are in SYSTEM_CHECK.md and TRAPS.md.
+- Scoped audit also fixed repeated Codex cancellation, cache coercion, oversized TTS, cross-deal/job replies, invalid legacy recovery and malformed delivered rents/URLs.
 
 ## What works
 - The Haggle: buyer Max (:8000, backend/app/buyer) negotiates with seller Viktor (:8001, backend/app/seller), wallet guard locks escrow, verifier checks delivery, then release/refund. Dashboard consumes SSE /events.
@@ -31,7 +32,7 @@ updated: 2026-10-09 00:24 · ziya · scoped hour audit in progress
 - Masumi adapter supports Dynamic pricing, idempotent purchase and scheduled release; checker accepts paymentSourceType/paymentType. Automated adapter checks use the fake node.
 
 ## Team and release gates
-- [plan.md](../plan.md) remains the task checklist; single-laptop success does not complete every-laptop or live-chain gates. Ziya owns I01-I06; Mais reports local node readiness, pending funding/registration; Murad's status file has no newer owner update.
+- [plan.md](../plan.md): 18/35 items complete. Remaining: every-laptop startup, three full-profile rehearsals, 1080p recording acceptance, live-chain gates, video and submission. I04 (live Viktor) remains optional; current scripted Viktor works.
 - Hosted node: Railway mellow-energy, masumi-payment-service + masumi-psql-database; base https://masumi-payment-service-production-96e0.up.railway.app/api/v1. Upstream Dockerfile fix is in Zsadigzade/masumi-payment-service ce8cfdb5 (see TRAPS).
 - No live escrow proof by 01:00 means SIMULATED video; feature freeze 04:00, video/repo 06:30, target submission 07:00, deadline 07:14 Prague time.
 - Act 4 refund remains SIMULATED. Real release is scheduled, not immediate. Seller jobs are in memory: never restart seller mid-deal.

@@ -1,19 +1,23 @@
 # Integrated system check — 2026-10-08/09
 
-## Hour audit — 2026-10-09 (in progress)
+## Scoped audit — 2026-10-09, closed when the user returned
 
 Scope: existing Ziya data, subscription-agent, voice and integration paths. Murad's
-launcher update through 0763c5b is integrated; Mais's active funding branch is retained.
-The timed endurance run remains in progress; the results below are completed checks.
+launcher and follow-up audit commits through 3b10519 are integrated and revalidated;
+Mais's active funding branch is retained. The planned 50-minute endurance run stopped
+after 20m55s when the user returned. Only completed checks are counted below.
 
 | Check | Result |
 |---|---|
-| Backend | 344 passed on Python 3.13 (23.97s) and fresh Python 3.11 (22.62s) |
+| Backend | 364 passed on Python 3.13 (28.84s) and fresh Python 3.11 (33.05s), including Murad's latest bounds/CORS changes |
 | Frontend / browser | 32 tests; production build; 11 fresh Edge dashboard scenarios pass with zero page errors |
 | Live providers | Three real subscription Codex turns, 20 genuine cached Apify flats, seven new ElevenLabs MP3s; SIMULATED release in 21.8s, no text fallbacks |
 | Voice playback | Real Edge MP3 playback: order, replay dedupe, reset identities, missing clip skip, Stop/Mute, destroy and watchdog pass; maximum one clip playing |
 | Clean checkout | No .env/cache/dependencies initially; npm start installs dependencies, starts all three services and completes a sample-data SIMULATED deal |
 | Terminal | Ten real-HTTP scenarios pass: honest, con, junk, latest-deal replay, approve, replay approved, decline, replay declined, paused and offline |
+| Endurance | 21 cycles in 1255.2s; 63 refunds, 44 blocked, 21 walkaways, seven releases; five concurrent batches and one corrupted-cache refund; zero failures |
+| Recovery during endurance | One actual crash after funding recovered with exactly one lock; two pending-approval restarts preserved consent; seller remained running |
+| Endurance cleanup | Zero pending tasks/approvals/SSE subscribers; balances 51 buyer / 49 seller / 0 escrow, conserving 100; only the audit's owned processes were stopped |
 
 Fixes: repeated Codex cancellation and process cleanup; bounded model/MP3 output;
 strict cached records and run identity; seller response/deal/round/job/price binding;
@@ -25,8 +29,11 @@ even without a shell override.
 
 Local evidence under backend/data/: hour-clean-start-2929d7ee/,
 hour-cli-125ea4c3/, hour-voice-browser-report.json, system-live-91702a89/,
-system-dashboard-41ade425/, and the ongoing hour-endurance-97549284/.
+system-dashboard-0bb1bbaa/ (latest team-commit browser check), system-dashboard-41ade425/
+(earlier check), and hour-endurance-97549284/ (stopped on return, not a 50-minute pass).
 All payment tests are SIMULATED or use the fake Masumi node. No new paid Apify run.
+Endurance deliberately exercised unavailable-Codex/text fallbacks; it does not complete
+three consecutive full-profile live-provider rehearsals. That remains R02 in plan.md.
 
 ## Earlier integrated audit
 

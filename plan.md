@@ -28,7 +28,7 @@ then V01/V02 (script and rehearsal). M02–M05 remain the separate live-payment 
 ## Existing baseline
 
 - [x] **B01** Buyer and seller HTTP services, negotiation, wallet guard and verifier exist.
-- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval, crash recovery and adversarial deliveries. Latest merged backend suite: 364 passing tests on Python 3.13; Python 3.11 recheck in progress.
+- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval, crash recovery and adversarial deliveries. Latest merged backend suite: 364 passing tests on both Python 3.11 and 3.13.
 - [x] **B03** Masumi adapter and seller payment flow implemented and tested against a fake node; readiness checker supports `--node-only`.
 - [x] **B04** Scripted negotiation works; subscription Codex replaces the API-key runtime, with explicit fallback labels and independent wallet guard.
 - [x] **B05** Full dashboard consumes SSE, starts acts 1/2/4, displays balances, guard decisions and approvals; pause/limits, themes and ordered audio work. 32 frontend tests and production build pass.
