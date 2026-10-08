@@ -2,7 +2,7 @@
 updated: 2026-10-08 23:09
 doing: I01/I02/I05/I06 complete: real data + speech/browser verified; handoff updated
 touching: Apify adapter/CLI/tests, frontend event identity/audio queue, I-path docs/memory
-blocked on: user confirms no OpenAI API key was supplied
+blocked on: payment service build; then masumi_check --node-only, fund wallets, register Viktor; user confirms no OpenAI API key was supplied
 next: rehearse cached-data/voice demo; OpenAI work waits for an API key
 done today:
 - scripts/up.py + scripts/act.py; all 4 acts verified live in SIMULATED mode
@@ -11,5 +11,8 @@ done today:
 - 22:32 I01/I02 adapters ready, I03 honest readiness check, I05 TTS hardened, I06 ordered queue integrated; 129 Python + 7 JS tests and build pass; no live provider result claimed
 - 22:35 verified all feature tips were already in main; deleted four local branches and remote feat/ziya-skeleton
 - 22:46 legacy root folders archived under backend/data/legacy-workspace/20261008-224546; dependencies moved to frontend/node_modules; build and backend imports pass
+- 22:51 generated node ADMIN_KEY/ENCRYPTION_KEY into local .env; .env.example documents node-side vars; Railway deploy pending Blockfrost key
+- 22:55 Blockfrost Preprod project astra-masumi-preprod created; key in .env, tested 200
+- 23:04 Railway project mellow-energy deployed; node URL https://masumi-payment-service-production-96e0.up.railway.app/api/v1; .env MASUMI_PAYMENT_URL updated; health pending
 - 23:09 live Apify run ZNboU2b0EHUJgFaEQ saved 20 verified rentals; GET-only recovery passed; local cached mode selected
 - 23:09 Brian/Callum speech passed; real HTTP Act 1 in Edge released SIMULATED escrow and played all 7 clips without overlap; 144 Python + 15 frontend tests/build pass

@@ -41,8 +41,13 @@ updated: 2026-10-08 23:09 · ziya
 - README links to setup, checklist and memory. Generated folders are hidden in Explorer, not deleted.
 
 ## Known broken / risky
-- Local .env last checked for payments at 22:19: PAYMENTS_MODE=simulated, Masumi URL is local; node key,
-  seller identifier/vkey and Blockfrost Preprod key are missing. Hosted node status is unconfirmed.
+- 23:04 Masumi node DEPLOYED on Railway (project `mellow-energy`, services `masumi-payment-service` +
+  `masumi-psql-database`). URL `https://masumi-payment-service-production-96e0.up.railway.app/api/v1`. Postgres online; payment service image was still
+  building at 23:04, `/health` not yet 200, `masumi_check.py --node-only` not yet run (M01 open).
+  Blockfrost Preprod project `astra-masumi-preprod`. Local .env: MASUMI_PAYMENT_URL = hosted URL,
+  MASUMI_API_KEY = Railway ADMIN_KEY, MASUMI_NODE_ENCRYPTION_KEY, BLOCKFROST_API_KEY_PREPROD; keys are
+  shared out of band, never committed. PAYMENTS_MODE=simulated; seller vkey missing; wallets unfunded.
+  UNCONFIRMED: whether Railway ENCRYPTION_KEY was replaced with the template default before deploy.
 - User confirms no OpenAI API key was supplied; I03 live check and optional I04 remain blocked.
 - Keys are now configured locally; Brian/Callum voices verified. Local APIFY_MODE=cached, TTS_MODE=elevenlabs.
   Other laptops: `scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ` rebuilds the ignored cache without

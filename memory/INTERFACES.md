@@ -16,7 +16,7 @@ Existing required fields and event names stay unchanged. Audio queue is isolated
 |---|---|---|
 | `OPENAI_API_KEY` | all agents | OpenAI key |
 | `MODEL` | all agents | model id, cheap default |
-| `MASUMI_PAYMENT_URL` | payments | hosted Masumi payment service base URL, ends in `/api/v1` |
+| `MASUMI_PAYMENT_URL` | payments | hosted Masumi payment service base URL, ends in `/api/v1`; ours (2026-10-08 23:04): `https://masumi-payment-service-production-96e0.up.railway.app/api/v1` |
 | `MASUMI_API_KEY` | payments | ADMIN_KEY of our Masumi payment node (header `token`) |
 | `PAYMENTS_MODE` | payments | `masumi` or `simulated` |
 | `APIFY_TOKEN` | seller agents | Apify API token |
