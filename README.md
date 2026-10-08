@@ -7,6 +7,7 @@ Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dus
 
 - Unassigned tasks and deadlines: [plan.md](plan.md)
 - Team memory (decisions, contracts, current state): [memory/MAP.md](memory/MAP.md)
+- Demo script, captions and recording/release handoff: [video/README.md](video/README.md)
 
 ## How it works
 
@@ -181,6 +182,21 @@ scenarios and actual crash/reset recovery pass**. Live Codex, recovered Apify da
 also pass together with SIMULATED payments. Hosted Masumi health, authentication and Preprod source
 checks pass; seller registration/configuration and live escrow remain unverified. See
 [the system check](memory/SYSTEM_CHECK.md) for fixes and remaining gates.
+
+### Repeat the final rehearsal (R02/R05)
+
+From `backend/`, run `uv run python scripts/rehearse.py`. It runs each act three
+consecutive times, then approval and decline, with subscription Max, scripted Viktor,
+cached real Apify data, ElevenLabs and **SIMULATED** payments. Configure the existing
+Codex login, voice credentials and recovered cache first; this uses live voice quota.
+Scripted model fallback or missing speech fails this strict acceptance check.
+
+For the 1920x1080 check, install frontend dependencies and Microsoft Edge, then run
+`uv run --with playwright python scripts/rehearse.py --browser`. It exercises dashboard
+buttons and approval controls, captures screenshots and checks framing. Reports, logs,
+audio and a fresh ledger stay under `backend/data/r-rehearsal-*/`. Only its own services
+are stopped; existing ledgers and services are preserved. Act 3 restarts only the buyer.
+Review screenshots before recording; changing the agent/payment profile requires another rehearsal.
 
 ## Layout
 

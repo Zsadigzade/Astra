@@ -64,7 +64,10 @@ class Orchestrator:
         # deal_id doubles as Masumi identifierFromPurchaser: hex, 14-26 chars
         task_id, deal_id = f"t-{uuid.uuid4().hex[:8]}", uuid.uuid4().hex[:20]
         self.ledger.create_deal(deal_id, task_id, task.model_dump_json(), self.s.seller_url)
-        self.bus.emit("task_created", task_id, deal_id, staged=self._staged(task), text=task.text,
+        # Persist the deliberate crash label so dashboard replay retains it after
+        # the buyer restarts with CRASH_AFTER_LOCK disabled.
+        self.bus.emit("task_created", task_id, deal_id,
+                      staged=self.s.crash_after_lock or self._staged(task), text=task.text,
                       budget=task.budget, demo_mode=task.demo_mode)
         self._spawn(self.run(task_id, deal_id, task))
         return TaskCreated(task_id=task_id, deal_id=deal_id)

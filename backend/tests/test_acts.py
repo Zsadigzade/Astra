@@ -6,7 +6,10 @@ import httpx
 import pytest
 
 from app.buyer.app import create_app as create_buyer
+from app.buyer.events import EventBus
+from app.buyer.ledger import Ledger
 from app.core.config import Settings
+from app.core.models import TaskCreate
 from app.seller.app import create_app as create_seller
 
 
@@ -45,6 +48,28 @@ async def test_act1_deal_settles_at_7_and_releases(tmp_path):
     assert next(e for e in events if e.type == "quote").data["price"] == 7
     assert (bal["buyer"], bal["seller"], bal["escrow"]) == (93, 7, 0)
     assert all(e.simulated for e in events)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("crash", [False, True])
+async def test_crash_rehearsal_label_survives_replay(tmp_path, monkeypatch, crash):
+    s = Settings(ledger_path=str(tmp_path / "buyer.db"), audio_dir=str(tmp_path / "audio"),
+                 crash_after_lock=crash)
+    buyer = create_buyer(s)
+    async with buyer.router.lifespan_context(buyer):
+        # Record the task without executing os._exit or calling external services.
+        monkeypatch.setattr(buyer.state.orch, "_spawn", lambda coro: coro.close())
+        created = await buyer.state.orch.create_task(TaskCreate())
+    replay_ledger = Ledger(s.ledger_path)
+    try:
+        replay = EventBus(replay_ledger, simulated=True)
+        event = next(e for e in replay.history if e.deal_id == created.deal_id)
+        assert event.type == "task_created"
+        assert event.staged is crash
+        assert event.data["demo_mode"] == "honest"
+    finally:
+        replay_ledger.db.close()
+        buyer.state.ledger.db.close()
 
 
 @pytest.mark.anyio
