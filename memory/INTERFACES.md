@@ -3,6 +3,9 @@
 Each component owner edits only their own section. Changing a contract someone else consumes:
 tell the team first.
 
+Ownership labels below record the original component split. They do not assign the new checklist:
+`plan.md` tasks are unassigned pending the team's next split. API contracts are unchanged by cleanup.
+
 ## Environment variables
 | Name | Used by | Meaning |
 |---|---|---|
@@ -21,7 +24,7 @@ tell the team first.
 | `APIFY_MODE` | seller | `sample` (canned, labelled) or `apify` (TODO) |
 | `TTS_MODE`, `VOICE_MAX`, `VOICE_VIKTOR` | buyer (voice/) | `off`/`elevenlabs` + ElevenLabs voice ids |
 | `CRASH_AFTER_LOCK` | buyer | `1` = STAGED Act 3, buyer exits right after escrow lock |
-| `LEDGER_PATH` | buyer | SQLite file, default `data/buyer.db` (delete to reset) |
+| `LEDGER_PATH` | buyer | SQLite file, default `data/buyer.db`; separate files for simulated/real payments. `up.py --reset` only deletes the default file; never reset unfinished payments. |
 | `MASUMI_NETWORK`, `MASUMI_AGENT_ID`, `SELLER_VKEY` | seller (masumi mode) | `Preprod`; Viktor's registry agentIdentifier; selling wallet vkey |
 | `MASUMI_POLL_SECONDS`, `MASUMI_PAY_BY_MINUTES`, `MASUMI_SUBMIT_MINUTES` | seller | chain polling + payment deadlines |
 | `SOKOSUMI_API_KEY` | nobody yet | Sokosumi marketplace key (agents + jobs, no payments); unused before 01:00 |
