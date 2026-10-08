@@ -25,6 +25,9 @@ subscription-generated Max lines; `mock` still marks scripted lines/fallback. Ac
 | `LLM_MODE` | buyer | `mock` (scripted, default) or `codex` (Max via local ChatGPT subscription; Viktor stays scripted); other modes rejected |
 | `CODEX_COMMAND`, `CODEX_MODEL` | buyer | installed Codex CLI path/name; optional model (blank uses CLI default); authenticate with `codex login` |
 | `CODEX_TIMEOUT_SECONDS` | buyer | default 30s per local CLI turn; failure produces labelled scripted fallback; no API keys |
+| `MAX_ROUNDS` / `POLL_SECONDS` | buyer | negotiation round limit (6; dashboard can lower it at runtime) / seller job status polling interval (1s) |
+| `JOB_SECONDS` / `SELLER_OPENING_ASK` / `AUDIO_DIR` | seller / seller / buyer | simulated work time (2s) / Viktor's opening price (18) / generated voice clip directory |
+| `CORS_ORIGINS` | buyer | extra browser origins (comma-separated) allowed to call the buyer; any `localhost` / `127.0.0.1` port is always allowed; never `*` |
 | `GUARD_CAP` / `GUARD_APPROVAL_OVER` | buyer | hard cap per deal (10) / approval line (8), tADA |
 | `SELLER_URL` | buyer | seller base URL, default `http://localhost:8001` |
 | `SELLER_FLOOR` | seller | Viktor's lowest price (7); `9` forces the approval path |

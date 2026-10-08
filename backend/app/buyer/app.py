@@ -53,7 +53,9 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
                 await client.aclose()
 
     app = FastAPI(title="Astra buyer (Max)", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(s.cors_origins),
+                       allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+                       allow_methods=["GET", "POST", "PUT", "OPTIONS"], allow_headers=["content-type"])
     app.mount("/audio", StaticFiles(directory=s.audio_dir), name="audio")
     app.state.bus = bus
     app.state.ledger = ledger

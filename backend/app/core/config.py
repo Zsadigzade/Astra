@@ -42,6 +42,11 @@ class Settings:
     guard_cap: float = field(default_factory=lambda: _f("GUARD_CAP", 10))
     guard_approval_over: float = field(default_factory=lambda: _f("GUARD_APPROVAL_OVER", 8))
 
+    # Browser origins allowed to call the buyer. Any localhost port is always allowed (Vite moves to 5174 when
+    # 5173 is busy); add others as a comma-separated list. Never "*": a hostile web page could approve payments.
+    cors_origins: tuple[str, ...] = field(default_factory=lambda: tuple(
+        o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()))
+
     seller_url: str = field(default_factory=lambda: os.getenv("SELLER_URL", "http://localhost:8001"))
     ledger_path: str = field(default_factory=lambda: os.getenv("LEDGER_PATH", str(BACKEND_ROOT / "data" / "buyer.db")))
     audio_dir: str = field(default_factory=lambda: os.getenv("AUDIO_DIR", str(BACKEND_ROOT / "data" / "audio")))

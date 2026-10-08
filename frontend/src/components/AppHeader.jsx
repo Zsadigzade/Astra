@@ -20,7 +20,9 @@ export default function AppHeader({ stream, sellerState, controls, view, theme, 
   const buyer = { name: "Buyer", state: stream === "live" ? "online" : stream };
   const seller = { name: "Seller", state: sellerState };
   const payments = controls
-    ? { name: "Payments", state: stream === "live" ? "online" : "unknown", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
+    ? (stream === "live"
+      ? { name: "Payments", state: "online", detail: controls.modes.simulated ? "Simulated" : "Preprod escrow" }
+      : { name: "Payments", state: "unknown" }) // last known mode would be stale while the buyer is unreachable
     : { name: "Payments", state: "unknown" };
   const paused = controls?.paused;
 

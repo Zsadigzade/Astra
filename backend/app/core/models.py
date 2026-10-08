@@ -23,10 +23,19 @@ class JobSpec(BaseModel):
     max_price_czk: int = 25_000
 
 
+class BoundedJobSpec(JobSpec):
+    """JobSpec as accepted from the network. The seller builds `count` listings in-process, so an
+    unbounded count can stall it for every deal. Adapters keep taking plain JobSpec (they re-check themselves)."""
+
+    count: int = Field(default=20, ge=1, le=100)
+    district: str = Field(default="Praha 7", min_length=1, max_length=64)
+    max_price_czk: int = Field(default=25_000, ge=1, le=1_000_000)
+
+
 class TaskCreate(BaseModel):
-    text: str = "Find me 20 flats in Prague 7 under 25,000 CZK"
-    budget: float = Field(default=20, gt=0, allow_inf_nan=False)
-    job: JobSpec = Field(default_factory=JobSpec)
+    text: str = Field(default="Find me 20 flats in Prague 7 under 25,000 CZK", max_length=500)
+    budget: float = Field(default=20, gt=0, le=1000, allow_inf_nan=False)
+    job: BoundedJobSpec = Field(default_factory=BoundedJobSpec)
     demo_mode: DemoMode = DemoMode.honest
 
 
@@ -50,7 +59,7 @@ class NegotiateRequest(BaseModel):
     action: Action  # buyer's move; "open" asks the seller for an opening price
     offer: float | None = None  # tADA
     message: str = ""
-    job: JobSpec = Field(default_factory=JobSpec)
+    job: BoundedJobSpec = Field(default_factory=BoundedJobSpec)
     demo_mode: DemoMode = DemoMode.honest
 
 

@@ -105,7 +105,7 @@ class Orchestrator:
             # reply was lost. Keep the persisted intent so restart resolves it idempotently.
             if self.ledger.get(deal_id)["status"] not in (*SETTLED, "paying"):
                 self.ledger.update(deal_id, status="error")
-            self.bus.emit("error", task_id, deal_id, message=str(e))
+            self.bus.emit("error", task_id, deal_id, message=str(e) or type(e).__name__)  # e.g. ReadTimeout has no text
 
     # ---------- haggle ----------
 
