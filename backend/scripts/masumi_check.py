@@ -75,7 +75,8 @@ async def check(s: Settings, c: httpx.AsyncClient, node_only: bool = False) -> i
                 raise CheckError("/payment-source pagination did not advance.")
             seen.add(cursor)
         matching = [src for src in sources if src.get("network") == "Preprod"
-                    and src.get("paymentSourceType") in {"Web3CardanoV1", "Web3CardanoV2"}
+                    and (src.get("paymentSourceType") or src.get("paymentType"))
+                    in {"Web3CardanoV1", "Web3CardanoV2"}
                     and src.get("smartContractAddress")]
         if not matching:
             print("FAIL: no Preprod Cardano payment source with a contract; configure one in the admin UI.")

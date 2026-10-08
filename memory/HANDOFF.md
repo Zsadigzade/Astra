@@ -1,17 +1,18 @@
 # Handoff — integrated main
 
-updated: 2026-10-08 23:32 · ziya · merge validation in progress
+updated: 2026-10-08 23:36 · ziya · integrated merge verified locally
 
 ## Latest verified changes
+- Merged-dashboard Edge check: controls GET/pause/resume pass; Codex subscription, CACHED APIFY and SIMULATED MONEY labels visible; all five saved speech clips played once in order with no overlap/errors. Replayed a completed deal from an isolated SQLite backup, without new provider calls; artifacts `backend/data/i-path-smoke-2ec924b3/` (ignored).
 - Subscription Max verified: live checker + Act 1 settled at 7, all three Max turns Codex, 20 cached flats verified, SIMULATED release. Five clips played; two TTS connection failures used text.
 - 68 focused backend tests, 15 frontend tests and build pass; timeout/cancellation tests include real Windows process-tree cleanup. Local LLM_MODE=codex; no API key or SDK.
-- Consolidation in progress: local subscription/reliability commits + remote dashboard/operator controls; remaining Masumi checker branch will be merged before deletion.
+- Integrated local subscription/reliability commits, remote dashboard/operator controls, and Mais’s Masumi checker branch. Full merged backend suite: 223 passed; frontend: 31 passed and production build passed. Safe push/branch cleanup follows verification.
 - Local legacy root folders archived under ignored `backend/data/legacy-workspace/20261008-224546`; dependencies moved to `frontend/node_modules`. Frontend build and backend imports verified.
 
 ## Reliability and operator controls
 - Ledger mode isolation and runner safety are committed in 7f2ea64 and integrated together. Both adapters bind the ledger's payment mode before recovery; reset uses the same mode inspection and preserves a timestamped backup.
 - Verified: 213 full backend tests at 23:22, then 48 ledger/runner tests after the final integration. Runner session verified **215 full backend tests in 15.07s at 23:24**, including 27 runner regressions, with `LEDGER_PATH=:memory:` and isolated temporary test files. These are offline/fake-service checks; they do not complete all-laptop rehearsals or prove live Preprod escrow.
-- Prior owner validation is recorded in reliability and runner status files; merged-code validation is recorded below when complete.
+- Merge regression fixes: /controls reports the subscription model without removed API settings; negotiation snapshots runtime rounds for both Codex instructions and execution. Reset event identities and subscription labels survive the dashboard redesign.
 
 ## What works
 - Redesigned dashboard with light/dark themes, event-derived deal state, persistent honesty labels and shared audio queue; operator controls provide GET/PUT /controls, pause and runtime spending/round limits within configured ceilings.
@@ -23,7 +24,7 @@ updated: 2026-10-08 23:32 · ziya · merge validation in progress
 - Guard: cap 10, budget 20, approval >8, never pays a deal twice. Crash recovery: funded, errored and awaiting-approval deals resume; seller start response stored (`start_json`) and reused.
 - Masumi mode (`PAYMENTS_MODE=masumi`): `backend/app/core/masumi.py` client, Dynamic pricing, idempotent lock, release = scheduled at unlockTime. Tested only against `backend/tests/fake_masumi.py`.
 - Model access is permanently subscription-only: `LLM_MODE=codex` uses local ChatGPT-authenticated CLI, with labelled scripted fallback; API SDK removed. Viktor and the STAGED Act 2 con stay scripted.
-- Read-only Masumi checker: `--node-only` for bootstrap; default also checks local seller config. Fails incomplete setup; never claims registration, funding or live escrow was verified. README has setup steps.
+- Read-only Masumi checker accepts both paymentSourceType and current paymentType source fields; `--node-only` for bootstrap; default also checks local seller config. Fails incomplete setup; never claims registration, funding or live escrow was verified. README has setup steps.
 - Repository layout is a frontend/backend monorepo: Python code under `backend/app/`, React under `frontend/`.
 - Apify source `swerve/sreality-scraper`: targets Praha 7, max 200 records, 90s timeout, requested $1.10 run charge limit; strict Praha 7/monthly-CZK checks, labelled `apify_cached` fallback with provenance.
 - ElevenLabs: bounded TTS/text fallback; voice discovery/synthesis checker; queue has Play/Stop/Mute, ordered playback, reset-safe SSE deduplication and a 10s stalled-clip watchdog; data/backend provenance shown.
@@ -33,7 +34,7 @@ updated: 2026-10-08 23:32 · ziya · merge validation in progress
 - [plan.md](../plan.md): 5 completed baseline items; I01/I02/I03/I05/I06 complete; 25 tasks remain open. Groups: D dashboard/startup, M Masumi, I data/agents/voice, R reliability, V video/release, S submission.
 - D01 (Act 1 on every laptop) remains unchecked; one-laptop/test success does not pass that gate.
 - Cutoffs: no Masumi node by 23:30 → SIMULATED video; no live escrow by 01:00 → same fallback. Feature freeze 04:00; video/repo 06:30; target submission 07:00, hard deadline 07:14 (Prague time).
-- Ziya owns I01-I06; Mais/Murad handle the other paths (exact split unspecified). Their status files still report 17:15 kickoff; no claim about their current progress is inferred.
+- Ziya owns I01-I06; Mais reports local Preprod node readiness at 23:29, with wallet funding and Viktor registration pending. Murad’s status remains the 17:15 kickoff snapshot; no newer progress is inferred.
 - README links to setup, checklist and memory. Generated folders are hidden in Explorer, not deleted.
 
 ## Known broken / risky
