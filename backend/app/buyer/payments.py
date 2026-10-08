@@ -46,6 +46,7 @@ class SimulatedPayments:
     simulated = True
 
     def __init__(self, ledger: Ledger):
+        ledger.bind_payment_mode("simulated")
         self.ledger = ledger
         ledger.db.executescript(
             """
@@ -120,6 +121,7 @@ class MasumiPayments:
     simulated = False
 
     def __init__(self, settings: Settings, ledger: Ledger, http: httpx.AsyncClient | None = None):
+        ledger.bind_payment_mode("masumi")
         self.ledger = ledger
         self.client = MasumiClient(settings.masumi_payment_url, settings.masumi_api_key,
                                    settings.masumi_network, http)
@@ -163,4 +165,6 @@ def _state(record: dict[str, Any] | None) -> dict[str, Any]:
 def make_payments(settings: Settings, ledger: Ledger, http: httpx.AsyncClient | None = None) -> Payments:
     if settings.payments_mode == "masumi":
         return MasumiPayments(settings, ledger, http)
-    return SimulatedPayments(ledger)
+    if settings.payments_mode == "simulated":
+        return SimulatedPayments(ledger)
+    raise ValueError("PAYMENTS_MODE must be simulated or masumi")

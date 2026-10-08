@@ -54,13 +54,16 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo
 ```
 
 - Backend commands below run from `backend/`.
-- One command for both servers: `uv run python scripts/up.py` (`--reset` clears `backend/data`, `--crash` = Act 3:
+- One command for both servers: `uv run python scripts/up.py` (`--reset` archives a completed simulated ledger, `--crash` = Act 3:
   buyer dies after paying and auto-restarts, seller stays up).
 - Terminal demo (no dashboard): `uv run python scripts/act.py honest|con|junk` prints the haggle and money events live.
 - Act 3 by hand: start buyer with `CRASH_AFTER_LOCK=1`, run Act 1, buyer dies; restart buyer without it,
   then `scripts/act.py --watch`.
 - Approval path: start seller with `SELLER_FLOOR=9`, deal settles at 9, dashboard shows Approve.
-- Reset: `scripts/up.py --reset`, or delete `backend/data/buyer.db` from the project root.
+- Reset: `scripts/up.py --reset` uses the configured `LEDGER_PATH` and preserves it as a timestamped
+  `.bak` beside the original before starting fresh. It refuses unfinished deals, held escrow, real or mixed
+  payment history, and SQLite sidecar files. Only simulated mode permits reset. Startup checks both ports
+  first and refuses to launch over another session. Act 3 restarts the buyer once with its crash flag cleared.
 
 **Masumi mode** (real Preprod escrow). Set in `.env`, both buyer and seller: `PAYMENTS_MODE=masumi`,
 `MASUMI_PAYMENT_URL`, `MASUMI_API_KEY`, `MASUMI_NETWORK=Preprod`, plus seller-side `MASUMI_AGENT_ID` and

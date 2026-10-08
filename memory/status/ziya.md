@@ -15,4 +15,6 @@ done today:
 - 23:04 Railway project mellow-energy deployed; node URL https://masumi-payment-service-production-96e0.up.railway.app/api/v1; .env MASUMI_PAYMENT_URL updated; health pending
 - 23:09 live Apify run ZNboU2b0EHUJgFaEQ saved 20 verified rentals; GET-only recovery passed; local cached mode selected
 - 23:09 Brian/Callum speech passed; real HTTP Act 1 in Edge released SIMULATED escrow and played all 7 clips without overlap; 144 Python + 15 frontend tests/build pass
+- 23:20 Railway build failed (seed restart loop, upstream Dockerfile bug); patched fork Zsadigzade/masumi-payment-service ce8cfdb5; Railway source switch to fork pending user (needs Railway GitHub App access)
 - 23:25 permanent no-API constraint implemented; live checker + Act 1 Codex turns passed; 68 focused backend/15 frontend tests/build pass; five clips played, two text fallbacks
+- 23:28 Railway source switched to fork, rebuild running; 23:30 encryption key confirmed not leaked

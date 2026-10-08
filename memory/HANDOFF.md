@@ -1,12 +1,17 @@
-# Handoff — state of `main`
+# Handoff — `main` and shared working tree
 
-updated: 2026-10-08 23:25 · ziya
+updated: 2026-10-08 23:26 · runner reliability (reconciled parallel session updates)
 
-## Latest changes on main
+## Latest verified changes
 - Subscription Max verified: live checker + Act 1 settled at 7, all three Max turns Codex, 20 cached flats verified, SIMULATED release. Five clips played; two TTS connection failures used text.
 - 68 focused backend tests, 15 frontend tests and build pass; timeout/cancellation tests include real Windows process-tree cleanup. Local LLM_MODE=codex; no API key or SDK.
 - Branch cleanup: only main remains locally and on origin; every removed branch tip was already merged.
 - Local legacy root folders archived under ignored `backend/data/legacy-workspace/20261008-224546`; dependencies moved to `frontend/node_modules`. Frontend build and backend imports verified.
+
+## Shared working tree (not yet committed)
+- Ledger mode isolation and runner safety are implemented together. Both adapters bind the ledger's payment mode before recovery; reset uses the same mode inspection and preserves a timestamped backup.
+- Verified: 213 full backend tests at 23:22, then 48 ledger/runner tests after the final integration. Runner session verified **215 full backend tests in 15.07s at 23:24**, including 27 runner regressions, with `LEDGER_PATH=:memory:` and isolated temporary test files. These are offline/fake-service checks; they do not complete all-laptop rehearsals or prove live Preprod escrow.
+- Parallel model/configuration/dependency and dashboard changes remain owned by their active sessions. Coordinate through [reliability status](status/reliability.md), [runner status](status/runner-reliability.md) and [Ziya's status](status/ziya.md); preserve their edits and running services.
 
 ## What works
 - Product "The Haggle": buyer Max (:8000, `backend/app/buyer/`) haggles with seller Viktor (:8001, `backend/app/seller/`), wallet guard pays into escrow, verifier checks 20 Praha 7 flats, release or refund. SSE `/events`.
@@ -29,10 +34,10 @@ updated: 2026-10-08 23:25 · ziya
 - README links to setup, checklist and memory. Generated folders are hidden in Explorer, not deleted.
 
 ## Known broken / risky
-- 23:04 Masumi node DEPLOYED on Railway (project `mellow-energy`, services `masumi-payment-service` + `masumi-psql-database`). URL `https://masumi-payment-service-production-96e0.up.railway.app/api/v1`. Postgres online; payment service image was still building at 23:04, `/health` not yet 200, `masumi_check.py --node-only` not yet run (M01 open). Blockfrost Preprod project `astra-masumi-preprod`. Local .env: MASUMI_PAYMENT_URL = hosted URL, MASUMI_API_KEY = Railway ADMIN_KEY, MASUMI_NODE_ENCRYPTION_KEY, BLOCKFROST_API_KEY_PREPROD; keys are shared out of band, never committed. PAYMENTS_MODE=simulated; seller vkey missing; wallets unfunded. UNCONFIRMED: whether Railway ENCRYPTION_KEY was replaced with the template default before deploy.
-- No OpenAI API token will be supplied; `codex login` + `scripts/llm_check.py` replace API-key setup.
+- 23:04 Masumi node DEPLOYED on Railway (project `mellow-energy`, services `masumi-payment-service` + `masumi-psql-database`). URL `https://masumi-payment-service-production-96e0.up.railway.app/api/v1`. Postgres online; payment service image was still building at 23:04. 23:20: deploy restart-loops on an upstream Dockerfile bug (see TRAPS 23:20); patched fork `Zsadigzade/masumi-payment-service` ce8cfdb5; Railway source switched to the fork and rebuilt at ~23:28. `/health` 404, `masumi_check.py --node-only` not yet run (M01 open). Blockfrost Preprod project `astra-masumi-preprod`. Local .env: MASUMI_PAYMENT_URL = hosted URL, MASUMI_API_KEY = Railway ADMIN_KEY, MASUMI_NODE_ENCRYPTION_KEY, BLOCKFROST_API_KEY_PREPROD; keys are shared out of band, never committed. PAYMENTS_MODE=simulated; seller vkey missing; wallets unfunded. Railway ENCRYPTION_KEY: ziya confirmed at 23:30 that it was not leaked.
+- No OpenAI API token will be supplied; `codex login` + `scripts/llm_check.py` replace API-key setup. Ziya's 23:25 update reports the live subscription checker and Act 1 passed; I03 is complete. Optional Viktor subscription work remains separate.
 - Keys are now configured locally; Brian/Callum voices verified. Local APIFY_MODE=cached, TTS_MODE=elevenlabs. Other laptops: `scripts/scrape_flats.py --run-id ZNboU2b0EHUJgFaEQ` rebuilds the ignored cache without another paid run. Template defaults remain SAMPLE/text; copy keys privately and select voice IDs.
 - Seller keeps jobs in memory: never restart the seller mid-deal (TRAPS.md).
-- Use separate LEDGER_PATH files for simulated and real payments; ledger does not enforce mode isolation.
+- Use separate LEDGER_PATH files for simulated and real payments. 23:22: adapters now enforce a persisted ledger mode before startup/resume; legacy history is checked and mixed/unknown payment activity rejected. Mixed or unidentifiable legacy payment history must be preserved and investigated; do not reset it to bypass the check.
 - Act 4 refund stays SIMULATED even if Acts 1 and 3 use Preprod. Real release is scheduled, not immediate.
-- From `backend/`, reset disposable simulated data only: `scripts/up.py --reset` deletes `backend/data/buyer.db`; it does not follow a custom LEDGER_PATH. Never reset a ledger with unfinished payments.
+- From `backend/`, `scripts/up.py --reset` archives the configured LEDGER_PATH to a timestamped `.bak`. It rejects unfinished deals, held escrow, Masumi/mixed history and SQLite sidecars; simulated mode only. Runner checks occupied ports before reset/startup, cleans up only its children, and clears the crash flag for one staged buyer restart. See `memory/status/runner-reliability.md` for regression results.
