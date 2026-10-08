@@ -13,13 +13,14 @@ tell the team first.
 | `PAYMENTS_MODE` | payments | `masumi` or `simulated` |
 | `APIFY_TOKEN` | seller agents | Apify API token |
 | `ELEVENLABS_API_KEY` | seller agents | ElevenLabs key |
+| `BAD_MODE` | seller agents | `1` = return junk on purpose (staged refund demo) |
 
 ## Components
 Ports and paths below are decided; payload fields are TBD by each owner.
 
 ### buyer (orchestrator + firewall + verifier) — owner: ziya
 - runs: TBD, port `8000`
-- exposes: TBD (task submit, live event feed for dashboard)
+- exposes: `GET /events` (SSE, JSON events: quote, escrow_locked, delivered, verified, released, refunded, blocked, needs_approval); `POST /approvals/{id}` (dashboard approve button); `POST /tasks` (body: task text + budget → task_id)
 - consumes: sellers via MIP-003; Masumi payment service
 
 ### seller-research (Apify) — owner: murad
@@ -31,5 +32,5 @@ Ports and paths below are decided; payload fields are TBD by each owner.
 - exposes MIP-003: same four endpoints as seller-research
 
 ### dashboard — owner: mais
-- runs: TBD
-- consumes: buyer event feed (TBD)
+- runs: Vite + React (`npm run dev`)
+- consumes: buyer `GET /events` SSE on :8000
