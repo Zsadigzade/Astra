@@ -12,7 +12,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from agents import Agent, Runner
+from agents import Agent, RunConfig, Runner
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
@@ -34,6 +34,9 @@ class Negotiator(Protocol):
 
 
 class MockMax:
+    last_backend = "mock"
+    fallback_reason = None
+
     def __init__(self, ceiling: float):
         self.ceiling = ceiling  # Max's own intent; the guard enforces the real cap separately
 
@@ -83,7 +86,7 @@ class OpenAIMax:
     (bad output, API error, timeout) falls back to MockMax for that round.
     """
 
-    def __init__(self, settings: Settings, ceiling: float):
+    def __init__(self, settings: Settings, ceiling: float, *, tracing_disabled: bool = False):
         self.settings = settings
         self.ceiling = ceiling
         self.agent = Agent(
@@ -94,16 +97,27 @@ class OpenAIMax:
         )
         self.history: list[Any] = []  # Responses-API input items: {"role", "content"}
         self._fallback = MockMax(ceiling)
+        self.last_backend: Literal["openai", "mock"] | None = None
+        self.fallback_reason: str | None = None
+        self.run_config = RunConfig(
+            tracing_disabled=tracing_disabled, trace_include_sensitive_data=False)
 
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
+        self.last_backend = None
+        self.fallback_reason = None
         self.history.append({"role": "user", "content": self._seller_turn(seller, my_last)})
         try:
             result = await asyncio.wait_for(
-                Runner.run(self.agent, list(self.history), max_turns=1), timeout=LLM_TIMEOUT_S)
+                Runner.run(self.agent, list(self.history), max_turns=1,
+                           run_config=self.run_config), timeout=LLM_TIMEOUT_S)
             move = self._to_move(result.final_output, seller, my_last)
+            self.last_backend = "openai"
         except Exception as e:  # demo must not crash: any LLM failure -> scripted Max
-            log.warning("OpenAIMax round %s failed (%s: %s); falling back to MockMax",
-                        seller.round, type(e).__name__, e)
+            self.last_backend = "mock"
+            self.fallback_reason = type(e).__name__
+            # Provider exception messages may contain request data or credentials.
+            log.warning("OpenAIMax round %s failed (%s); falling back to MockMax",
+                        seller.round, self.fallback_reason)
             move = await self._fallback.next_move(seller, my_last)
         self.history.append({"role": "assistant", "content": json.dumps(
             {"action": move.action, "price": move.price, "message": move.message})})

@@ -1,6 +1,7 @@
 // Thin stub (owner: mais). Wire-up is real; the look is yours.
 // Contract: buyer SSE GET /events, POST /tasks, POST /approvals/{deal_id} (see memory/INTERFACES.md).
 import { useEffect, useState } from "react";
+import VoicePlayback from "./VoicePlayback.jsx";
 
 const BUYER = import.meta.env.VITE_BUYER_URL ?? "http://localhost:8000";
 
@@ -51,6 +52,7 @@ export default function App() {
           <button key={mode} onClick={() => start(mode)} style={{ marginRight: 8 }}>{label}</button>
         ))}
       </p>
+      <VoicePlayback events={events} buyerUrl={BUYER} />
       {balances && <p>Max: {balances.buyer} tADA · Viktor: {balances.seller} tADA · Escrow: {balances.escrow} tADA</p>}
       {pending.map((e) => (
         <p key={e.id} style={{ background: "#fff3cd", padding: 8 }}>
@@ -63,10 +65,16 @@ export default function App() {
         {chat.map((e) => (
           <p key={e.id} style={{ textAlign: e.data.speaker === "max" ? "left" : "right" }}>
             <b>{e.data.speaker === "max" ? "Max" : "Viktor"}</b>: {e.data.text} {e.staged && <em>(staged)</em>}
-            {e.data.audio_url && <audio src={`${BUYER}${e.data.audio_url}`} controls />}
+            {e.data.backend === "mock" && <small> (scripted{e.data.fallback_reason ? " fallback" : ""})</small>}
           </p>
         ))}
       </section>
+      {events.filter((e) => e.type === "delivered" && e.data.source).map((e) => (
+        <p key={`source-${e.id}`}>
+          Data: {e.data.source === "apify_cached" ? "CACHED APIFY" : e.data.source === "apify" ? "LIVE APIFY" : "SAMPLE"}
+          {e.data.result?.fetched_at && <> · fetched {e.data.result.fetched_at}</>}
+        </p>
+      ))}
       <h2>Log</h2>
       <ul>
         {events.filter((e) => e.type !== "negotiation").map((e) => (

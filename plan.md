@@ -2,7 +2,7 @@
 
 **2026-10-08 → 10-09 · Prague time · Target submission 07:00 · Hard deadline 07:14**
 
-Tasks are unassigned so the team can split them later. Use the IDs when claiming work;
+Ziya has claimed I01–I06; Mais and Murad are taking the remaining paths. Use the IDs when claiming work;
 record active work in `memory/status/`. Check a task only after its acceptance condition
 is met. The baseline below describes existing code, not proof that live integrations work.
 
@@ -21,7 +21,7 @@ is met. The baseline below describes existing code, not proof that live integrat
 ## Existing baseline
 
 - [x] **B01** Buyer and seller HTTP services, negotiation, wallet guard and verifier exist.
-- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval and crash recovery. Last recorded suite: 58 passing tests.
+- [x] **B02** Four acts verified in SIMULATED mode; automated coverage includes approval and crash recovery. Last recorded suite: 129 passing tests.
 - [x] **B03** Masumi adapter and seller payment flow implemented and tested against a fake node; readiness checker supports `--node-only`.
 - [x] **B04** OpenAI Agents SDK mode for Max implemented with scripted fallback; live API still unverified.
 - [x] **B05** Dashboard stub consumes SSE, starts acts 1/2/4, displays balances and supports approval/decline. Production build verified.
@@ -48,12 +48,19 @@ Never reset a ledger with unfinished payments or restart the seller mid-deal.
 
 ## Data, agents and voice — by 01:00
 
+Claimed by Ziya. Implemented adapters, provenance and readiness scripts are tested offline;
+live checks below remain open until the required credentials and real results are available.
+
 - [ ] **I01** Select an Apify actor for Praha 7 rentals and implement `APIFY_MODE=apify` in `backend/app/seller/job.py`; map results to `Flat` and verify count, price, district and URLs.
 - [ ] **I02** Save a real scrape as an offline fallback and label cached delivery clearly; retain the existing sample-data label. Depends on **I01**.
 - [ ] **I03** With OpenAI access, run Max using `LLM_MODE=openai`; verify the guard still enforces cap 10, budget 20 and approval above 8, including scripted fallback on API failure.
 - [ ] **I04** Optional after the core flow works: add Viktor's LLM persona if OpenAI access is available. Viktor currently remains scripted.
 - [ ] **I05** Configure ElevenLabs voice IDs (`VOICE_MAX`, `VOICE_VIKTOR`) in `.env` and verify live `TTS_MODE=elevenlabs` output for both speakers.
-- [ ] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. Depends on **I05**.
+- [x] **I06** Queue audio playback in negotiation order in the dashboard; keep text usable when audio fails. Seven queue tests and frontend build pass; live speech/listening remains part of **I05**.
+
+Current checks: `scripts/scrape_flats.py` needs APIFY_TOKEN; `scripts/voice_check.py --synthesize`
+needs the ElevenLabs key and voice IDs. `scripts/llm_check.py` rejects scripted fallback as live success.
+I03/I04 live work is blocked: only a subscription, no OpenAI API key, was supplied.
 
 ## Integration and reliability — 01:00–02:30
 

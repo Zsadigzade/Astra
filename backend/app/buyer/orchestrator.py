@@ -103,13 +103,16 @@ class Orchestrator:
         my_last: float | None = None
         for rnd in range(self.s.max_rounds):
             resp = await self._negotiate(req)
-            await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged)
+            await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged,
+                            backend="mock")
             if resp.action == "walk":
                 return self._walked(task_id, deal_id, "seller walked away")
             if resp.action == "accept":
                 return self._agreed(task_id, deal_id, resp.price, staged)
             move = await max_.next_move(resp, my_last)
-            await self._say(task_id, deal_id, "max", move.message, move.price, move.action, staged)
+            await self._say(task_id, deal_id, "max", move.message, move.price, move.action, staged,
+                            backend=getattr(max_, "last_backend", "mock"),
+                            fallback_reason=getattr(max_, "fallback_reason", None))
             if move.action in ("accept", "walk"):
                 await self._negotiate(req.model_copy(update={"round": rnd + 1, "action": move.action,
                                                              "offer": resp.price, "message": move.message}))
@@ -231,7 +234,7 @@ class Orchestrator:
         self.ledger.update(deal_id, status="blocked")
         self.bus.emit("blocked", task_id, deal_id, staged, price=price, reason=reason)
         line = f"My wallet says no: {reason}. I'm walking away."
-        await self._say(task_id, deal_id, "max", line, price, "walk", staged)
+        await self._say(task_id, deal_id, "max", line, price, "walk", staged, backend="guard")
         req = NegotiateRequest(deal_id=deal_id, round=99, action="walk", offer=price, message=line,
                                job=task.job, demo_mode=task.demo_mode)
         try:
@@ -250,10 +253,10 @@ class Orchestrator:
         self.bus.emit("walked_away", task_id, deal_id, reason=reason)
         return None
 
-    async def _say(self, task_id, deal_id, speaker, text, price, action, staged) -> None:
+    async def _say(self, task_id, deal_id, speaker, text, price, action, staged, **provenance) -> None:
         audio = await self.tts.speak(text, speaker)
         self.bus.emit("negotiation", task_id, deal_id, staged, speaker=speaker, text=text, price=price,
-                      action=action, audio_url=audio)
+                      action=action, audio_url=audio, **provenance)
 
     async def _emit_balances(self, task_id, deal_id) -> None:
         try:
