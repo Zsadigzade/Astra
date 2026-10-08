@@ -42,12 +42,16 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 
 ## Run
 
-Dashboard only, from the project root, one command: `npm start` (installs frontend deps if needed, serves
-http://localhost:5173 and opens it). It needs the backend on :8000 to show live data; without it the page
-reports the buyer as unreachable.
+With Node.js/npm and uv installed, run `npm start` from the project root. It installs missing
+dependencies and starts the buyer (:8000), seller (:8001), and dashboard (http://localhost:5173).
+Template defaults use scripted agents, sample data, text-only speech and SIMULATED money without keys.
+Use `npm run web` for the dashboard alone or `npm run api` for the two backend services.
+Set `NO_OPEN=1` to skip opening a browser automatically.
+
+Alternatively, start the services separately:
 
 ```bash
-cp .env.example .env                                 # fill in keys; never commit .env
+cp .env.example .env                                 # optional provider keys; never commit .env
 cd backend
 uv sync
 uv run pytest
@@ -169,7 +173,7 @@ Two ElevenLabs connection failures fell back to text; replaying that deal in Edg
 available clips without overlap or browser errors. The local `.env` now selects `LLM_MODE=codex`.
 The 68 focused backend negotiation/runtime/guard/demo tests and 15 frontend tests pass, as does the build.
 
-Latest integrated verification: **255 backend tests, 32 frontend tests, production build, browser
+Latest integrated verification: **344 backend tests (Python 3.11 and 3.13), 32 frontend tests, production build, browser
 scenarios and actual crash/reset recovery pass**. Live Codex, recovered Apify data and ElevenLabs
 also pass together with SIMULATED payments. Hosted Masumi health, authentication and Preprod source
 checks pass; seller registration/configuration and live escrow remain unverified. See
@@ -201,7 +205,7 @@ What is real and what is not, as of this commit.
 | Area         | State now                                                                                                                                                                                                                           |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Money        | Default is **SIMULATED**: escrow in SQLite, every event `simulated: true`, logs say `[SIMULATED]`. Testnet tADA only, even in Masumi mode.                                                                                          |
-| Masumi mode  | Built (`backend/app/core/masumi.py`, `MasumiPayments`, seller `/start_job`), but only tested against `backend/tests/fake_masumi.py`. Not yet run against a live payment node.                                                       |
+| Masumi mode  | Payment flows tested against the fake node. Hosted node health, authentication and Preprod source checks pass; live registration, funding and escrow remain unverified. |
 | Release      | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`.                                     |
 | Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo.                                                                                            |
 | Agents       | `LLM_MODE=codex` uses Max's local ChatGPT-authenticated Codex subscription; CLI/usage/output failures use labelled scripted fallback. Offline default is `mock`. Viktor remains scripted; optional live Viktor work must use subscription access too. No OpenAI API integration. |

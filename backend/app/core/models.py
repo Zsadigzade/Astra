@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DemoMode(StrEnum):
@@ -18,9 +18,17 @@ class DemoMode(StrEnum):
 
 
 class JobSpec(BaseModel):
-    count: int = 20
-    district: str = "Praha 7"
-    max_price_czk: int = 25_000
+    count: int = Field(default=20, ge=1, le=200)
+    district: str = Field(default="Praha 7", min_length=1, max_length=100)
+    max_price_czk: int = Field(default=25_000, gt=0)
+
+    @field_validator("district")
+    @classmethod
+    def district_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("district must not be blank")
+        return value
 
 
 class BoundedJobSpec(JobSpec):
@@ -100,7 +108,7 @@ JobStatus = Literal["awaiting_payment", "running", "completed", "failed"]
 
 class Flat(BaseModel):
     title: str
-    price_czk: int
+    price_czk: int = Field(strict=True)
     district: str
     url: str
 

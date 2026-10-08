@@ -46,7 +46,9 @@ def _validate_job(job: JobSpec) -> None:
 
 
 def _url(value: object) -> tuple[str, str] | None:
-    if not isinstance(value, str):
+    # urlsplit silently strips some control characters; reject them before parsing
+    # so a cached value cannot pass here and then fail buyer-side verification.
+    if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value):
         return None
     try:
         parsed = urlsplit(value)
@@ -75,7 +77,7 @@ def map_items(items: object, job: JobSpec) -> list[Flat]:
             continue
         price = item.get("price")
         if (type(price) not in (int, float) or not 0 < price <= job.max_price_czk
-                or not float(price).is_integer()):
+                or (type(price) is float and not price.is_integer())):
             continue
         title = item.get("title")
         if not isinstance(title, str) or not title.strip():
@@ -144,6 +146,8 @@ async def scrape(job: JobSpec, settings: Settings) -> JobResult:
                 while run.get("status") in {"READY", "RUNNING", "TIMING-OUT", "ABORTING"}:
                     await asyncio.sleep(0.5)
                     run = _run_data(await client.get(f"/actor-runs/{run_id}", params={"waitForFinish": 1}))
+                    if _identifier(run.get("id")) != run_id:
+                        raise ApifyError("Apify polling returned a different run")
                 terminal = run.get("status") in {"SUCCEEDED", "FAILED", "TIMED-OUT", "ABORTED"}
                 if run.get("status") != "SUCCEEDED":
                     raise ApifyError("Apify rental run did not succeed")
@@ -247,10 +251,15 @@ def load_cache(job: JobSpec, settings: Settings) -> JobResult:
     _validate_job(job)
     try:
         payload = json.loads(Path(settings.apify_cache_path).read_text(encoding="utf-8"))
-        if (not isinstance(payload, dict) or payload.get("version") != 1
+        if (settings.apify_actor_id != ACTOR_ID
+                or not isinstance(payload, dict) or type(payload.get("version")) is not int
+                or payload["version"] != 1
                 or payload.get("job") != job.model_dump()):
             raise ValueError("wrong cache job")
-        result = JobResult.model_validate(payload["result"])
+        # Disk corruption must not turn booleans or numeric strings into valid
+        # rents/counts through Pydantic's normal request coercion.
+        JobSpec.model_validate(payload["job"], strict=True)
+        result = JobResult.model_validate(payload["result"], strict=True)
         if result.source != "apify" or result.actor_id != settings.apify_actor_id:
             raise ValueError("wrong provenance")
         _identifier(result.run_id)

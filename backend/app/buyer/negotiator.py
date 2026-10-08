@@ -11,7 +11,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
 from app.core.config import Settings
@@ -73,8 +73,10 @@ Each turn, pick exactly one action:
 class MaxMove(BaseModel):
     """Structured output the LLM must return each round."""
 
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     action: Literal["counter", "accept", "walk"]
-    price: float = Field(description="tADA")
+    price: float = Field(description="tADA", allow_inf_nan=False)
     message: str
 
 

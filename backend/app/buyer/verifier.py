@@ -6,9 +6,16 @@ from app.core.models import JobResult, JobSpec
 
 
 def _valid_url(url: str) -> bool:
+    # urlsplit strips leading C0 controls and embedded tabs/newlines. Validate
+    # the original delivery so malformed links cannot authorize a release.
+    if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        return False
     try:
         parsed = urlsplit(url)
-        return parsed.scheme in {"http", "https"} and bool(parsed.hostname) and not any(c.isspace() for c in url)
+        # Accessing .port performs validation that urlsplit itself defers.
+        port = parsed.port
+        return (parsed.scheme in {"http", "https"} and bool(parsed.hostname)
+                and (port is None or 0 < port <= 65535))
     except ValueError:
         return False
 

@@ -10,6 +10,9 @@ I-path integration notice: JobResult.source adds `apify_cached`; optional `fetch
 `dataset_id`, `run_id` describe real data provenance. Dashboard should distinguish sample/live/cached.
 Negotiation event data may additionally carry `backend` and `fallback_reason` for Max's actual mode.
 Existing required fields and event names stay unchanged. Audio queue is isolated in components/VoicePlayback.jsx.
+Rental `price_czk` is a JSON integer: booleans, strings and floating-point values are rejected
+at the seller-response boundary. Verification rejects URL control characters and invalid ports;
+malformed typed responses retain funded escrow for recovery instead of authorizing release.
 Subscription migration: `LLM_MODE=codex` replaces the removed API mode. `backend=codex` marks
 subscription-generated Max lines; `mock` still marks scripted lines/fallback. Act 2 forces scripted Max.
 
@@ -65,6 +68,8 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
   `PUT /controls` partial body {paused?, guard_cap?, guard_approval_over?, max_rounds?}; 422 on invalid. Cap may be adjusted within the env `GUARD_CAP` ceiling, approval line never above cap. Runtime only (resets on restart); emits `controls_updated`. While `paused`, `POST /tasks` returns 423; in-flight deals finish.
   Round limits are captured when negotiation starts and used by both the loop and Codex prompt. `modes.model` is the configured Codex model or `Codex default`, or `scripted` in mock mode.
 - Task budgets must be positive and finite. Guard checks reject nonfinite money or limits independently. Lost payment replies preserve `paying` intent for idempotent recovery; shutdown cancels owned tasks while retaining persisted approval/payment state.
+- Job requests require count 1–200, positive rent ceiling and a nonblank district (at most 100 characters). Recovery isolates invalid legacy tasks for manual review without changing their records/escrow or preventing other deals from resuming.
+- Seller replies must match the requested deal/round and accepted offer. Fresh/stored start acknowledgements must be successful with a nonblank job ID and agreed price; status replies must name the funded job. Failed jobs cannot supply successful results.
 - Masumi `released` with `release: scheduled` requires confirmed result submission/release state; otherwise the funded deal stays recoverable. Dashboard keeps scheduled and errored funded amounts in escrow totals, distinct from completed releases.
 - `GET /deals`, `GET /balances` (501 in masumi mode), `GET /health`, `GET /audio/<file>.mp3`
 - masumi mode event data: `escrow_locked`/`already_paid` add {on_chain_state, tx_url, next_action}; `released` adds {release: "scheduled", settles_at}
@@ -87,6 +92,7 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 - module `backend/app/voice/tts.py`, called by buyer; returns `/audio/<id>.mp3` or None (text fallback). No port (:8002 freed).
 - `voice_check.py` lists stock/generated voice IDs; `--synthesize` uses credits to generate two configured samples. Missing credentials/fallback gives nonzero exit for synthesis.
 - `frontend/src/components/VoicePlayback.jsx` accepts `{events, buyerUrl}`; mount once without parallel per-line audio players. Explicit Play, ordered clips, replay deduplication by (id, ts, deal_id), Stop/Mute and error skipping. A 10-second inactivity watchdog skips pending/stalled playback; only advancing media time renews it.
+- TTS validates media type before reading and limits decoded audio to 8 MiB; invalid, oversized, interrupted or timed-out responses use text fallback without publishing partial MP3s.
 
 ### dashboard — owner: mais
 - also uses `GET|PUT /controls` (launch form, spending limits, pause switch). Frontend state is derived from SSE in `frontend/src/lib/eventReducer.js` (unit-tested).

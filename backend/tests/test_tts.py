@@ -132,3 +132,117 @@ def test_voice_check_rejects_repeated_page_token(settings):
         }))) as client:
             return await check(settings, client)
     assert asyncio.run(run()) == 1
+
+
+class AudioStream(httpx.AsyncByteStream):
+    def __init__(self, chunks):
+        self.chunks = chunks
+        self.reads = 0
+        self.closed = False
+
+    async def __aiter__(self):
+        for chunk in self.chunks:
+            self.reads += 1
+            yield chunk
+
+    async def aclose(self):
+        self.closed = True
+
+
+@pytest.mark.parametrize("headers,chunks,expected_reads", [
+    ({"content-type": "application/json"}, [b"secret provider error"], 0),
+    ({"content-type": "audio/mpeg", "content-length": "999"}, [b"oversized"], 0),
+    ({"content-type": "audio/mpeg"}, [b"123456", b"78901", b"must not read"], 2),
+])
+def test_invalid_audio_is_bounded_and_stream_closed(settings, headers, chunks, expected_reads, caplog):
+    from pathlib import Path
+    stream = AudioStream(chunks)
+    with patch("app.voice.tts.MAX_AUDIO_BYTES", 10):
+        assert speak(settings, lambda request: httpx.Response(200, headers=headers, stream=stream)) is None
+    assert stream.closed
+    assert stream.reads == expected_reads
+    assert list(Path(settings.audio_dir).iterdir()) == []
+    assert "secret provider error" not in caplog.text
+
+
+def test_streamed_audio_accepts_case_insensitive_media_type(settings):
+    from pathlib import Path
+    stream = AudioStream([b"ID3-", b"audio"])
+    url = speak(settings, lambda request: httpx.Response(
+        200, headers={"content-type": "Audio/MPEG; charset=binary"}, stream=stream))
+    assert (Path(settings.audio_dir) / url.rsplit("/", 1)[-1]).read_bytes() == b"ID3-audio"
+    assert stream.closed
+
+
+def test_audio_limit_applies_after_http_decompression(settings):
+    import gzip
+    from pathlib import Path
+    compressed = gzip.compress(b"ID3" + b"x" * 1000)
+    stream = AudioStream([compressed])
+    with patch("app.voice.tts.MAX_AUDIO_BYTES", 100):
+        assert speak(settings, lambda request: httpx.Response(200, headers={
+            "content-type": "audio/mpeg", "content-encoding": "gzip",
+            "content-length": str(len(compressed)),
+        }, stream=stream)) is None
+    assert stream.closed
+    assert list(Path(settings.audio_dir).iterdir()) == []
+
+
+def test_partial_audio_times_out_without_publishing(settings):
+    from pathlib import Path
+
+    class SlowAudio(AudioStream):
+        async def __aiter__(self):
+            yield b"ID3-partial"
+            await asyncio.sleep(1)
+            pytest.fail("stream must be interrupted by the total timeout")
+
+    stream = SlowAudio([])
+    assert speak(replace(settings, tts_timeout_seconds=0.01), lambda request: httpx.Response(
+        200, headers={"content-type": "audio/mpeg"}, stream=stream)) is None
+    assert stream.closed
+    assert list(Path(settings.audio_dir).iterdir()) == []
+
+
+def test_cancellation_closes_stream_and_does_not_publish_audio(settings):
+    from pathlib import Path
+
+    async def run():
+        waiting = asyncio.Event()
+
+        class SlowAudio(AudioStream):
+            async def __aiter__(self):
+                yield b"ID3-partial"
+                waiting.set()
+                await asyncio.Event().wait()
+
+        stream = SlowAudio([])
+        client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(
+            200, headers={"content-type": "audio/mpeg"}, stream=stream)))
+        with patch("app.voice.tts.httpx.AsyncClient", return_value=client):
+            task = asyncio.create_task(TTS(settings).speak("A line", "max"))
+            await asyncio.wait_for(waiting.wait(), timeout=1)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        assert stream.closed
+        assert client.is_closed
+
+    asyncio.run(run())
+    assert list(Path(settings.audio_dir).iterdir()) == []
+
+
+@pytest.mark.parametrize("data", [None, [], {},
+    {"voices": None, "has_more": False},
+    {"voices": [None], "has_more": False},
+    {"voices": [{"voice_id": "x", "name": [], "category": "premade"}], "has_more": False},
+    {"voices": [], "has_more": "false"},
+    {"voices": [], "has_more": True, "next_page_token": {}},
+])
+def test_malformed_voice_discovery_fails_without_traceback(settings, capsys, data):
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json=data))) as client:
+            return await check(settings, client)
+    assert asyncio.run(run()) == 1
+    assert "FAIL: voice discovery failed" in capsys.readouterr().out

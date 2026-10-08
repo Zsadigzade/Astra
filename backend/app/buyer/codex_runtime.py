@@ -82,29 +82,45 @@ async def _terminate(process: asyncio.subprocess.Process) -> None:
     """Stop the owned CLI tree, including npm's native child, before temp cleanup."""
     if process.returncode is not None:
         return
-    if os.name == "nt":
-        taskkill = str(Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32" / "taskkill.exe")
-        killer = await asyncio.create_subprocess_exec(
-            taskkill, "/PID", str(process.pid), "/T", "/F",
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
+    try:
+        if os.name == "nt":
+            taskkill = str(Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32" / "taskkill.exe")
+            try:
+                killer = await asyncio.create_subprocess_exec(
+                    taskkill, "/PID", str(process.pid), "/T", "/F",
+                    stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+            except OSError:
+                # Still reap the direct child if the Windows tree utility is unavailable.
+                return
+            try:
+                await asyncio.wait_for(killer.wait(), timeout=5)
+            except TimeoutError:
+                killer.kill()
+                await killer.wait()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+    finally:
+        if process.returncode is None:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+        await process.wait()
+
+
+async def _cleanup(spawn: asyncio.Task | None, process: asyncio.subprocess.Process | None) -> None:
+    if process is None and spawn is not None:
         try:
-            await asyncio.wait_for(killer.wait(), timeout=5)
-        except TimeoutError:
-            killer.kill()
-            await killer.wait()
-    else:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-    if process.returncode is None:
-        try:
-            process.kill()
-        except ProcessLookupError:
-            pass
-    await process.wait()
+            process = await spawn
+        except (Exception, asyncio.CancelledError):
+            return
+    if process is not None:
+        await _terminate(process)
 
 
 async def run_codex(prompt: str, schema: dict[str, Any], settings: Settings) -> dict[str, Any]:
@@ -132,18 +148,26 @@ async def run_codex(prompt: str, schema: dict[str, Any], settings: Settings) -> 
                 await process.communicate(prompt.encode("utf-8"))
                 if process.returncode != 0:
                     raise CodexRuntimeError("Codex did not complete; check codex login and subscription availability.")
-                if not output_path.is_file() or output_path.stat().st_size > 64_000:
+                if not output_path.is_file():
                     raise CodexRuntimeError("Codex returned no usable structured move.")
-                result = json.loads(output_path.read_text(encoding="utf-8"))
+                # Bound the read itself, including if the file grows after exit.
+                with output_path.open("rb") as output:
+                    payload = output.read(64_001)
+                if len(payload) > 64_000:
+                    raise CodexRuntimeError("Codex returned no usable structured move.")
+                result = json.loads(payload.decode("utf-8"))
                 if not isinstance(result, dict):
                     raise CodexRuntimeError("Codex returned no usable structured move.")
                 return result
         except BaseException:
-            if process is None and spawn is not None:
+            # Shield alone is insufficient: repeated cancellation interrupts its
+            # caller while cleanup continues in the background. Wait until the
+            # owned process is reaped before deleting its cwd or propagating.
+            cleanup = asyncio.create_task(_cleanup(spawn, process))
+            while not cleanup.done():
                 try:
-                    process = await asyncio.shield(spawn)
-                except (Exception, asyncio.CancelledError):
-                    pass
-            if process is not None:
-                await asyncio.shield(_terminate(process))
+                    await asyncio.shield(cleanup)
+                except asyncio.CancelledError:
+                    continue
+            cleanup.result()
             raise

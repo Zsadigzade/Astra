@@ -1,4 +1,34 @@
-# Integrated system check — 2026-10-08
+# Integrated system check — 2026-10-08/09
+
+## Hour audit — 2026-10-09 (in progress)
+
+Scope: existing Ziya data, subscription-agent, voice and integration paths. Murad's
+launcher update through 0763c5b is integrated; Mais's active funding branch is retained.
+The timed endurance run remains in progress; the results below are completed checks.
+
+| Check | Result |
+|---|---|
+| Backend | 344 passed on Python 3.13 (23.97s) and fresh Python 3.11 (22.62s) |
+| Frontend / browser | 32 tests; production build; 11 fresh Edge dashboard scenarios pass with zero page errors |
+| Live providers | Three real subscription Codex turns, 20 genuine cached Apify flats, seven new ElevenLabs MP3s; SIMULATED release in 21.8s, no text fallbacks |
+| Voice playback | Real Edge MP3 playback: order, replay dedupe, reset identities, missing clip skip, Stop/Mute, destroy and watchdog pass; maximum one clip playing |
+| Clean checkout | No .env/cache/dependencies initially; npm start installs dependencies, starts all three services and completes a sample-data SIMULATED deal |
+| Terminal | Ten real-HTTP scenarios pass: honest, con, junk, latest-deal replay, approve, replay approved, decline, replay declined, paused and offline |
+
+Fixes: repeated Codex cancellation and process cleanup; bounded model/MP3 output;
+strict cached records and run identity; seller response/deal/round/job/price binding;
+failed jobs cannot release with stale results; invalid legacy tasks preserve their
+rows and cannot stop valid recovery; terminal replay ignores old deals and stale
+approvals. Strict integer rents prevent seller-response coercion; malformed URL ports
+and control characters fail verification. Tests now default to LEDGER_PATH=:memory:
+even without a shell override.
+
+Local evidence under backend/data/: hour-clean-start-2929d7ee/,
+hour-cli-125ea4c3/, hour-voice-browser-report.json, system-live-91702a89/,
+system-dashboard-41ade425/, and the ongoing hour-endurance-97549284/.
+All payment tests are SIMULATED or use the fake Masumi node. No new paid Apify run.
+
+## Earlier integrated audit
 
 Audited main at 8a24b38, including Murad's dashboard/operator controls, Mais's Masumi schema fix,
 and Ziya's subscription, data, voice, ledger and runner changes. Murad's UI update 2d0d987 arrived
