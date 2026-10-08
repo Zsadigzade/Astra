@@ -147,6 +147,8 @@ class MasumiPayments:
 
     async def release(self, deal_id: str) -> dict[str, Any]:
         purchase = await self.client.resolve_purchase(self._ref(deal_id))
+        if not purchase or purchase.get("onChainState") not in {"ResultSubmitted", "WithdrawAuthorized", "Withdrawn"}:
+            raise MasumiError("Masumi result submission/release is not confirmed; escrow remains pending")
         return {**_state(purchase), "release": "scheduled", "settles_at": (purchase or {}).get("unlockTime")}
 
     async def refund(self, deal_id: str) -> dict[str, Any]:

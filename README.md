@@ -169,6 +169,11 @@ Two ElevenLabs connection failures fell back to text; replaying that deal in Edg
 available clips without overlap or browser errors. The local `.env` now selects `LLM_MODE=codex`.
 The 68 focused backend negotiation/runtime/guard/demo tests and 15 frontend tests pass, as does the build.
 
+Latest integrated verification: **255 backend tests, 32 frontend tests, production build, browser
+scenarios and actual crash/reset recovery pass**. Live Codex, recovered Apify data and ElevenLabs
+also pass together with SIMULATED payments. Hosted Masumi health passes, but authenticated access
+currently returns 401. See [the system check](memory/SYSTEM_CHECK.md) for fixes and remaining gates.
+
 ## Layout
 
 ```

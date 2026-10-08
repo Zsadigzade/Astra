@@ -72,6 +72,22 @@ test("a scheduled Masumi release is reported as scheduled, not settled", () => {
     ev("released", { price: 7, release: "scheduled", settles_at: "2026-10-09T05:00Z" })]);
   assert.equal(v.guard.status, "release_scheduled");
   assert.match(v.guard.message, /not settled|has not settled/);
+  assert.equal(v.usage.released, 0);
+  assert.equal(v.usage.locked, 7);
+  assert.equal(v.usage.scheduled, 7);
+  assert.equal(v.stages.settle, "wait");
+  assert.equal(v.terminal.title, "Release scheduled");
+});
+
+test("failed funded deals keep escrow counted until release or refund", () => {
+  const events = [ev("escrow_locked", { price: 7 }), ev("error", { message: "Seller unreachable" })];
+  const failed = usageOf(events);
+  assert.equal(failed.locked, 7);
+  assert.equal(failed.released, 0);
+  assert.equal(failed.refunded, 0);
+  const recovered = usageOf([...events, ev("already_paid", { price: 7 }), ev("released", { price: 7 })]);
+  assert.equal(recovered.locked, 0);
+  assert.equal(recovered.released, 7);
 });
 
 test("negotiation provenance separates subscription Codex, scripted and fallback lines", () => {

@@ -44,10 +44,13 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
             s, ledger, bus, guard, client,
             lambda ceiling, rounds: make_negotiator(replace(s, max_rounds=rounds), ceiling),
             tts, controls)
-        await app.state.orch.resume_unfinished()
-        yield
-        if http is None:
-            await client.aclose()
+        try:
+            await app.state.orch.resume_unfinished()
+            yield
+        finally:
+            await app.state.orch.shutdown()
+            if http is None:
+                await client.aclose()
 
     app = FastAPI(title="Astra buyer (Max)", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

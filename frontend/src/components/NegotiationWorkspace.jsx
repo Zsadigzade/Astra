@@ -41,7 +41,7 @@ export default function NegotiationWorkspace({ view, events, controls }) {
   }, [view.chat.length]);
 
   const scenario = SCENARIOS[view.scenario];
-  const [tone, status] = STATUS[view.outcome];
+  const [tone, status] = view.guard.status === "release_scheduled" ? ["info", "Release scheduled"] : STATUS[view.outcome];
   const src = view.delivery?.source && SOURCE_LABEL[view.delivery.source];
 
   return (

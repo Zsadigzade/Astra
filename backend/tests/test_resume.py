@@ -111,6 +111,29 @@ async def test_crash_after_lock_reuses_stored_start(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_lost_lock_reply_keeps_intent_and_restart_pays_only_once(tmp_path, monkeypatch):
+    s = settings(tmp_path)
+    seed(s, "d1", "agreed", price=7)
+    real_lock = SimulatedPayments.lock
+
+    async def lost_reply(self, *args, **kwargs):
+        await real_lock(self, *args, **kwargs)
+        raise httpx.ReadTimeout("payment accepted, response lost")
+
+    seller = FakeSeller()
+    with monkeypatch.context() as patch:
+        patch.setattr(SimulatedPayments, "lock", lost_reply)
+        failed, balance = await restart(s, seller, {"error"})
+    assert balance["escrow"] == 7
+    assert failed.state.ledger.get("d1")["status"] == "paying"
+    assert [d["deal_id"] for d in failed.state.ledger.unfinished()] == ["d1"]
+    buyer, balance = await restart(s, seller, {"released"})
+    assert buyer.state.ledger.get("d1")["status"] == "released"
+    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (93, 7, 0)
+    assert seller.paths().count("/start_job") == 1
+
+
+@pytest.mark.anyio
 async def test_start_is_saved_before_pay(tmp_path, monkeypatch):
     s = settings(tmp_path)
     seed(s, "d1", "agreed", price=7)
@@ -153,6 +176,25 @@ async def test_agreed_deal_waiting_for_approval_survives_restart(tmp_path):
     types = [e.type for e in buyer.state.bus.history]
     assert types.index("needs_approval") < types.index("approved") < types.index("released")
     assert bal["seller"] == 7
+
+
+@pytest.mark.anyio
+async def test_shutdown_cancels_pending_approval_and_preserves_recovery(tmp_path):
+    s = settings(tmp_path, guard_approval_over=6)
+    seed(s, "d1", "agreed", price=7)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(FakeSeller())) as http:
+        buyer = create_buyer(s, http=http)
+        async with buyer.router.lifespan_context(buyer):
+            for _ in range(100):
+                if buyer.state.orch.approvals:
+                    break
+                await asyncio.sleep(0.01)
+            assert "d1" in buyer.state.orch.approvals
+            pending = tuple(buyer.state.orch.tasks)
+        assert pending and all(task.done() for task in pending)
+        assert not buyer.state.orch.approvals
+        assert buyer.state.ledger.get("d1")["status"] == "agreed"
+        assert [d["deal_id"] for d in buyer.state.ledger.unfinished()] == ["d1"]
 
 
 def test_only_open_or_funded_deals_are_resumed(tmp_path):
@@ -228,5 +270,8 @@ async def test_seller_retries_submit_result_and_keeps_completed(tmp_path, monkey
     assert n["calls"] == calls
     assert purchase["onChainState"] == final_state
     assert job["status"] == "completed"  # a failed submit never un-delivers the work
+    if final_state == "FundsLocked":
+        assert "released" not in {event.type for event in buyer.state.bus.history}
+        assert buyer.state.ledger.unfinished(), "unconfirmed settlement must remain recoverable"
     await masumi_http.aclose()
     await seller_http.aclose()

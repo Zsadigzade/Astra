@@ -120,8 +120,10 @@ def main(argv: list[str] | None = None) -> int:
             if not wait_healthy(port, procs[name]):
                 print(f"{name} did not answer /health on :{port}; see its log above")
                 return 1
-        health = httpx.get("http://127.0.0.1:8000/health", timeout=2, trust_env=False).json()
-        print(f"\nUP  buyer :8000  seller :8001  payments={health['payments_mode']}  llm={health['llm_mode']}"
+        buyer_port = SERVICES["buyer"][1]
+        seller_port = SERVICES["seller"][1]
+        health = httpx.get(f"http://127.0.0.1:{buyer_port}/health", timeout=2, trust_env=False).json()
+        print(f"\nUP  buyer :{buyer_port}  seller :{seller_port}  payments={health['payments_mode']}  llm={health['llm_mode']}"
               f"  tts={health['tts_mode']}{'  CRASH_AFTER_LOCK=1 (STAGED)' if staged_crash else ''}")
         print("next: uv run python scripts/act.py honest   (or open the dashboard)\n")
         while procs["seller"].poll() is None:
@@ -137,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
                     print("seller stopped during recovery; cannot resume its in-memory job.")
                     return 1
                 procs["buyer"] = start("buyer", {**os.environ, "CRASH_AFTER_LOCK": "0"})
-                if not wait_healthy(8000, procs["buyer"]):
+                if not wait_healthy(buyer_port, procs["buyer"]):
                     print("buyer restart failed; ledger preserved for recovery.")
                     return 1
                 print("buyer back. It resumes open deals itself; watch: uv run python scripts/act.py --watch\n")

@@ -190,6 +190,7 @@ def test_partial_launch_failure_cleans_up_only_owned_child(monkeypatch):
 @pytest.mark.parametrize("staged,restart_healthy", [(False, True), (True, True), (True, False)])
 def test_recovery_is_bounded_and_clears_dotenv_crash_flag(monkeypatch, capsys, staged, restart_healthy):
     monkeypatch.setenv("CRASH_AFTER_LOCK", "1" if staged else "0")
+    monkeypatch.setattr(up, "SERVICES", {"seller": ("unused", 18001), "buyer": ("unused", 18000)})
     monkeypatch.setattr(up, "check_ports", lambda: None)
     spawned = []
 
@@ -204,12 +205,23 @@ def test_recovery_is_bounded_and_clears_dotenv_crash_flag(monkeypatch, capsys, s
 
     monkeypatch.setattr(up, "start", launch)
     monkeypatch.setattr(up.time, "sleep", sleep)
-    monkeypatch.setattr(up, "wait_healthy", lambda *a: len(spawned) < 3 or restart_healthy)
-    monkeypatch.setattr(up.httpx, "get", lambda *a, **kw: httpx.Response(200, json={
-        "payments_mode": "simulated", "llm_mode": "mock", "tts_mode": "off"}))
+    checked_ports = []
+
+    def healthy(port, process):
+        checked_ports.append(port)
+        return len(spawned) < 3 or restart_healthy
+
+    def health(url, **kwargs):
+        assert url == "http://127.0.0.1:18000/health"
+        return httpx.Response(200, json={
+            "payments_mode": "simulated", "llm_mode": "mock", "tts_mode": "off"})
+
+    monkeypatch.setattr(up, "wait_healthy", healthy)
+    monkeypatch.setattr(up.httpx, "get", health)
     assert up.main([]) == 1
     assert [name for name, _, _ in spawned] == (["seller", "buyer", "buyer"] if staged else ["seller", "buyer"])
     assert spawned[0][2].terminated  # own seller is cleaned up when the runner exits
+    assert checked_ports == ([18001, 18000, 18000] if staged else [18001, 18000])
     if staged:
         assert spawned[1][1]["CRASH_AFTER_LOCK"] == "1"
         assert spawned[2][1]["CRASH_AFTER_LOCK"] == "0"

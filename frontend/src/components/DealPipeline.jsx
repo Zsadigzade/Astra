@@ -22,7 +22,7 @@ export default function DealPipeline({ stages }) {
             </span>
             <span className="pstep-text">
               <span className="pstep-name">{name}</span>
-              <span className="pstep-state">{s.text}</span>
+              <span className="pstep-state">{st === "wait" && key === "settle" ? "Awaiting settlement" : s.text}</span>
             </span>
           </li>
         );

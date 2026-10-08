@@ -1,20 +1,17 @@
 # ziya — status
-updated: 2026-10-08 23:36
-doing: conflict resolution, verified merges, main push and branch cleanup complete
-touching: merge integration, backend controls, dashboard event/voice integration, team memory, Git
-blocked on: nothing
-next: continue the plan from verified main; live Preprod escrow remains a separate gate
+updated: 2026-10-08 23:53
+doing: integrated system audit complete; fixes and regression checks verified
+touching: backend guard/recovery/verifier, Masumi errors, runner, dashboard controls/accounting, tests, shared memory
+blocked on: hosted Masumi authenticated access returns 401; user checking ADMIN_KEY against MASUMI_API_KEY
+next: rerun Masumi readiness after credentials are corrected; funding/registration/live escrow remain separate gates
 done today:
-- All four demo acts verified in SIMULATED mode; real Preprod escrow remains unverified.
-- Workspace organized as backend/frontend; legacy generated data archived locally.
-- Genuine Apify cache contains 20 valid rentals; GET-only recovery works.
-- Live ElevenLabs Brian/Callum verified; ordered playback, text fallback and stalled-clip recovery implemented.
-- Subscription Codex replaces API SDK permanently; live Max checker and Act 1 passed at 7 tADA.
-- Ledger mode isolation and safe runner/reset changes integrated from parallel reliability sessions.
-- Railway upstream Dockerfile patched in fork; hosted readiness/funding/registration remain separate work.
-- Resolved dashboard/memory conflicts, preserving both decision histories and current contracts.
-- Fixed controls model reporting and snapshotted Codex round budget; preserved reset identities and labels.
-- Merged Mais’s current Masumi payment-source schema compatibility fix.
-- Validation: 223 backend tests, 31 frontend tests and production build pass; no configured secrets found in outgoing local blobs/tracked files.
-- Merged-dashboard Edge replay passes labels, controls, five ordered clips and zero errors; no new provider calls.
-- Pushed ab5fa62/781b3f2 without force on main; verified feature ancestry before deleting it. Only main remains locally/remotely.
+- Audited merged work from Ziya, Murad and Mais; no newer remote commits found on final fetch.
+- Fixed lost-payment-response recovery, invalid money inputs, delivery verification and unconfirmed Masumi release reporting.
+- Fixed buyer shutdown cleanup, provider error-body exposure and runner port consistency.
+- Fixed offline pause errors, escrow/scheduled-release totals, task budget display and control wording.
+- Final checks: 255 backend tests, 32 frontend tests and production build pass.
+- Browser: all three UI acts, approve/decline, controls, offline/reconnect, theme and responsive widths pass; zero errors.
+- Real runner: one staged crash/restart, one payment, successful recovery; safe reset preserves archive bytes.
+- Fresh live-provider Act 1: three Codex turns, 20 cached genuine Apify listings, seven new voice clips, SIMULATED release at 7.
+- Apify GET-only recovery and ElevenLabs discovery/two samples pass; no new paid scrape.
+- Details and local evidence paths: memory/SYSTEM_CHECK.md. Existing ledgers, .env and unrelated services preserved.

@@ -12,7 +12,7 @@ function Range({ id, label, value, min, max, step, unit = "", onChange, hint }) 
   );
 }
 
-// Run options for the next task plus runtime guard limits (tighten-only; the server enforces the ceiling).
+// Run options for the next task plus runtime guard limits bounded by the server ceiling.
 export default function AgentLimits({ controls, options, onOptions, onChanged }) {
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -28,7 +28,7 @@ export default function AgentLimits({ controls, options, onOptions, onChanged })
     try {
       await api.updateControls({ guard_cap: draft.cap, guard_approval_over: draft.approval, max_rounds: draft.rounds });
       await onChanged();
-      setMsg({ tone: "success", text: "Limits applied to new deals." });
+      setMsg({ tone: "success", text: "Limits applied. Unpaid deals use the updated guard limits; round limits apply to new negotiations." });
     } catch (e) {
       setMsg({ tone: "danger", text: e.message });
     } finally { setSaving(false); }
@@ -57,7 +57,7 @@ export default function AgentLimits({ controls, options, onOptions, onChanged })
         <>
           <Range id="lim-cap" label="Hard spending cap" unit=" tADA" min={0.5} max={ceiling} step={0.5} value={draft.cap}
             onChange={(cap) => setDraft((d) => ({ ...d, cap, approval: Math.min(d.approval, cap) }))}
-            hint={`Above this, payment is blocked. The server ceiling is ${ceiling} tADA; the dashboard can only tighten it.`} />
+            hint={`Above this, payment is blocked. You can adjust the cap up to the server ceiling of ${ceiling} tADA.`} />
           <Range id="lim-approval" label="Automatic approval up to" unit=" tADA" min={0.5} max={draft.cap} step={0.5}
             value={Math.min(draft.approval, draft.cap)} onChange={(approval) => setDraft((d) => ({ ...d, approval }))}
             hint="Above this a human must approve. No answer in 5 minutes declines." />
