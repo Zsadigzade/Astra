@@ -1,7 +1,7 @@
 # ziya — status
-updated: 2026-10-08 22:35
-doing: branch consolidation complete; only main remains locally and on origin
-touching: git branch refs, memory/status/ziya.md, memory/DECISIONS.md, memory/HANDOFF.md
+updated: 2026-10-08 22:44
+doing: aligning local workspace with tracked frontend/backend layout; ETA 10 minutes
+touching: ignored legacy folders, .vscode/settings.json if needed, memory/status/ziya.md, memory/TRAPS.md, memory/HANDOFF.md
 blocked on: APIFY_TOKEN, ElevenLabs key + voice IDs; user confirms no OpenAI API key was supplied
 next: scrape_flats.py -> genuine cache -> live/cached demo; voice_check.py -> select voices -> --synthesize/listen
 done today:
