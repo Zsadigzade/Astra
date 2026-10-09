@@ -44,6 +44,37 @@ def test_agent_configured_with_budget_and_structured_output():
 
 
 @pytest.mark.anyio
+async def test_full_general_request_survives_in_prompt_and_fallback(monkeypatch):
+    from app.core.models import BoundedJobSpec
+
+    prompt = "Compare repairable laptops for travel. " * 4 + "Must support Linux and weigh under 1.3 kg."
+    job = BoundedJobSpec(kind="general", prompt=prompt)
+    calls = fake_runner(monkeypatch, [TimeoutError()])
+    agent = CodexMax(Settings(llm_mode="codex"), 10, job)
+    result = await agent.next_move(seller(), None)
+    context = json.loads(calls[0]["prompt"].split("Full job (JSON):\n")[1].split("\n\nConversation")[0])
+    assert context == {"kind": "general", "prompt": prompt}
+    assert "laptops" in result.message
+    assert "scrape" not in result.message and "Praha" not in calls[0]["prompt"]
+    mock = make_negotiator(Settings(llm_mode="mock"), 10, job)
+    assert (await mock.next_move(seller(), None)).message == result.message
+
+
+@pytest.mark.anyio
+async def test_scripted_buyer_acknowledges_concession_and_keeps_rental_constraint():
+    from app.core.models import JobSpec
+
+    agent = MockMax(10, JobSpec(count=3, district="Praha 2", max_price_czk=19_000))
+    first = await agent.next_move(seller(18), None)
+    second = await agent.next_move(seller(12, rnd=1), first.price)
+    third = await agent.next_move(seller(12, rnd=2), second.price)
+    assert "3 matches in Praha 2" in first.message
+    assert "closer" in second.message and "19,000 CZK" in second.message
+    assert "closer" not in third.message
+    assert [first.price, second.price, third.price] == [5, 6, 7]
+
+
+@pytest.mark.anyio
 async def test_structured_output_maps_to_move(monkeypatch):
     calls = fake_runner(monkeypatch, [MaxMove(action="counter", price=6, message="Six. Take it.")])
     move = await make_max().next_move(seller(), None)

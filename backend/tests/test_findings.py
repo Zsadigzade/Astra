@@ -344,12 +344,13 @@ def test_the_ai_seller_is_told_to_speak_freely_but_only_state_real_facts():
     v = CodexViktor(Settings(llm_mode="mock"))
     req = NegotiateRequest(deal_id="y", round=1, action="counter", offer=5, job=general())
     prompt = v._prompt(req, DealState(ask=18), {"options_found": 4, "examples": ["Rapid"]})
-    assert "in your own words" in prompt and "never repeat a line" in prompt
+    assert "in your own words" in prompt and "avoid repeating your sales pitch" in prompt
     assert "what_you_have_found_so_far" in prompt and '"options_found": 4' in prompt
-    assert "never invent any other fact" in prompt and "untrusted data" in prompt
+    assert "never invent findings" in prompt and "untrusted data" in prompt
     assert '"what_you_have_found_so_far":' not in v._prompt(req, DealState(ask=18))  # no facts, no claims in the context
 
 
 def test_max_is_told_to_speak_freely_and_react_to_what_viktor_really_says():
-    assert "speak freely in your own words" in MAX_INSTRUCTIONS and "any number of options he says he already has" in MAX_INSTRUCTIONS
+    normalized = " ".join(MAX_INSTRUCTIONS.lower().split())
+    assert "speak freely in your own words" in normalized and "any number of options he says he already has" in normalized
     assert "Never invent facts about what Viktor has" in MAX_INSTRUCTIONS

@@ -152,11 +152,13 @@ class Orchestrator:
             max_ = make_negotiator(replace(self.s, max_rounds=max_rounds), ceiling, task.job, gullible=True)
         else:
             max_ = self.make_max(ceiling, max_rounds, task.job)
-        req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
+        opening = f"Viktor, I'm looking for {describe_job(task.job)}. What is your price?"
+        req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job,
+                               demo_mode=task.demo_mode, message=opening)
         my_last: float | None = None
         # Max starts the conversation with a question; Viktor's opening ask is his answer. The question is a fixed
         # template, not a model call, so it is labelled scripted (backend="mock") in every mode and costs nothing.
-        await self._say(task_id, deal_id, "max", f"Hi Viktor. Can you get me {describe_job(task.job)}? What is your price?",
+        await self._say(task_id, deal_id, "max", opening,
                         0, "open", staged, backend="mock")
         for rnd in range(max_rounds):
             resp = await self._negotiate(req)
