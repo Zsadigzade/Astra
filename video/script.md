@@ -29,7 +29,23 @@ Approval and decline remain in the uncut master and backup takes. They are not p
 >
 > For teams building purchasing agents, our principle is simple: let agents negotiate. Keep spending authority in code.
 
-This is a speaking draft, not a measured human performance. Rehearse once with a timer; drop the provider sentence if needed to finish inside 60 seconds. Use one strong screen from the con or the final video; do not attempt four live runs in a one-minute pitch.
+This is a speaking draft, not a measured human performance. Rehearse once with the
+[offline timer and slide](presenter.html). Target 55 seconds. If time is tight, shorten
+the feature explanation; keep the simulated-escrow disclosure. Do not attempt four
+live runs or play the full 89-second video inside the one-minute pitch.
+
+Short fallback for a speaker who needs more breathing room:
+
+> Giving an agent a wallet should not mean trusting every decision it makes.
+>
+> Astra lets agents negotiate while code controls spending. Max hires Viktor for Prague
+> rental data. In our staged con, the model agrees to an overpriced deal. The guard blocks it.
+>
+> We also recorded buyer crash recovery without double payment, and a refund for bad
+> delivery. Models, data and voices are live. Agent escrow is simulated; live Preprod
+> remains unverified.
+>
+> For teams building purchasing agents: let agents negotiate. Keep spending authority in code.
 
 ## Jury questions
 

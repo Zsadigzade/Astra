@@ -3,7 +3,7 @@
 Two trading agents haggle out loud over a job, one of them plays a con artist, and the wallet guard enforces the spending rules:
 **never trust the AI with the wallet, trust the code around it.**
 
-Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dusk Till Dawn", Agentic Economy track.
+Team ASTRA (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dusk Till Dawn", Agentic Economy track.
 
 - Unassigned tasks and deadlines: [plan.md](plan.md)
 - Team memory (decisions, contracts, current state): [memory/MAP.md](memory/MAP.md)
@@ -34,9 +34,10 @@ delivery. Pass = release to Viktor. Fail = refund to Max.
   `GUARD_CAP` (10 tADA) or over the task budget (20), whatever the negotiator agreed to. Act 2 proves it.
 - **The AI never holds the payment adapter.** Only `WalletGuard` has a `Payments` object
   (`backend/app/buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
-- **Never pays a deal twice.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
+- **Demonstrated recovery without a second payment.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
   writes `status="paying"` before locking, and both payment adapters are idempotent per `deal_id`.
-  A crash at any point resumes without a second payment (Act 3).
+  Recorded Act 3 kills the buyer after the simulated escrow lock, preserves the seller,
+  and resumes with one lock and one release. Live Masumi crash recovery remains unverified.
 - **Humans approve the expensive ones.** Prices over `GUARD_APPROVAL_OVER` (8) pause until someone clicks
   Approve on the dashboard. No answer in 5 minutes = declined.
 

@@ -1,6 +1,14 @@
-# Recording release ? 9 October 2026
+# Recording release - 9 October 2026
 
 The current submission profile is **codex/codex/live Apify/ElevenLabs/SIMULATED escrow**, STRICT_LIVE enabled. Recorded application revision: `1d9173c7325482bc204bfc145376963d96bb6cdc` (the merged baseline plus the approval-path prompt fix).
+
+**05:25 presentation update:** the friend owns ongoing UI/UX work, expected around
+05:50. Keep the recorded MP4 unchanged while checking the handoff. Remaining P02
+Pause/Resume/audio/replay/safe-reset controls passed in an isolated session without
+new provider calls; report `backend/data/r-rehearsal-e56af9a2/report.json`. Stage slide,
+printable one-page cues and rehearsal timer are prepared in `video/presenter.html`
+and `backend/data/presentation/`. Human audio review, chosen speaker/timed pitch,
+new UI revision acceptance, YouTube link and final submission remain open.
 
 - **579 backend tests**, **63 frontend tests**, and production build pass. The backend suite was repeated after the prompt fix: 579 passed in 36.22 seconds.
 - Fresh recorded acceptance `backend/data/r-rehearsal-4f36a7e8/report.json`: **passed: true**, all four acts plus approve/decline, zero browser page errors and provider fallbacks. 18 Max / 24 Viktor live turns, 49 served speech clips; one intentional crash-interrupted clip is unavailable. This is one run per case, not a three-repeat claim.

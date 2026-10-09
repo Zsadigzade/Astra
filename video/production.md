@@ -55,7 +55,44 @@ One pass can start **four** paid scrapes (normal, recovery, junk and approved de
 
 ## Submission handoff
 
+### Presenter materials and remaining operator checks
+
+Open [presenter.html](presenter.html) locally for the stage slide, 129-word speaking
+draft and a start/pause/reset rehearsal timer. Stage view hides notes; Escape restores
+them. The timer warns at 60 seconds. Offline exports are in `backend/data/presentation/`:
+`stage-slide.pdf`, `stage-slide-1920x1080.png`, `pitch-cues.pdf` and `pitch-cues.png`.
+Both PDFs have one page. Edge controls and 1920x1080 slide fit were verified; the
+rendered slide and cues were visually inspected. The intended timings are cues,
+not a measured human performance. Choose a speaker and rehearse once with sound.
+
+P02's remaining software controls passed on private ports using a copy of the
+completed recording ledger and original saved speech, with new model/voice/data calls
+disabled: Pause rejects new tasks with HTTP 423; Resume restores launch; real browser
+Audio elements play, stop, mute, unmute, replay and change speed. Balances stayed
+77 / 23 / 0. Safe reset archived only the stopped copy, preserving identical bytes.
+The source recording ledger and the friend's active services were untouched; all
+owned check services stopped. Evidence: `backend/data/r-rehearsal-e56af9a2/report.json`.
+This is an operator-controls check, not another live-provider acceptance or a human
+listening check. The first harness attempt left a SQLite copy connection open; that
+local harness was corrected before the passing run. No application fix was needed.
+
+The user expects the friend's UI handoff around 05:50. Preserve the current MP4 and
+recorded revision while checking that diff. Re-record only if useful changes pass
+affected checks and time permits; existing footage remains valid evidence of its
+recorded revision. Stage presenter is still undecided.
+
+Portable handoff: `backend/data/presentation/Astra-presentation-kit.zip` contains the
+MP4/SRT, slide PDF/PNG, cue PDF/PNG, offline presenter HTML, script, upload text and
+public evidence. Extract it before opening the HTML. The MP4 hash is unchanged;
+explicitly selected files were checked against seven configured secret values with
+zero matches. This small kit complements the larger raw/source backup.
+
 [HQ draft](https://hq.agents007.ai/submit) is saved with the project name, pitch, problem/value, working scenario, honest limitations, stack and public repository. No final submission has been sent. User will upload the final MP4 to YouTube as **Unlisted** and provide the link.
+
+At 05:26 the user explicitly selected **Best ElevenLabs Use**. The checkbox is now
+enabled in the saved draft and remains enabled after reload; the existing public
+showcase preference was preserved. HQ still disables Submit until the video URL is
+provided. Opting in is not a completed submission.
 
 The repository is `https://github.com/Zsadigzade/Astra`. The live-demo field stays blank: local Codex sign-in and a local dashboard access token are not a public hosting setup. Never expose the local development server as a public demo.
 
@@ -67,6 +104,6 @@ The current HQ topic requires an executed transaction and allows a paid API as c
 
 Six separate silent takes are saved under `backend/data/video/takes/`, named after the six cases in the table. `takes-manifest.json` records their deal IDs and SHA-256 hashes. Original speech remains in the capture audio directory. The curated backup is `backend/data/release-backup-1d9173c.zip`; its manifest is beside the final video. It excludes `.env`, authentication stores, HQ sessions, private configuration and service logs. This is a second local copy, not an off-device backup.
 
-The full final MP4 played through in Edge: 89.021333 seconds, 2,669 decoded video frames, zero dropped frames, no stalls or page/media errors, and decoded audio. FFprobe confirms 1920?1080, constant 30/1 fps, H.264/yuv420p and AAC stereo/48 kHz. Measured speech is -16.32 LUFS integrated with -1.38 dBTP true peak. Representative frames for every chapter were visually checked for readable outcomes, labels, captions and private information. Browser playback does not replace the uploader's human listening check.
+The full final MP4 played through in Edge: 89.021333 seconds, 2,669 decoded video frames, zero dropped frames, no stalls or page/media errors, and decoded audio. FFprobe confirms 1920 x 1080, constant 30/1 fps, H.264/yuv420p and AAC stereo/48 kHz. Measured speech is -16.32 LUFS integrated with -1.38 dBTP true peak. Representative frames for every chapter were visually checked for readable outcomes, labels, captions and private information. Browser playback does not replace the uploader's human listening check.
 
 Final MP4 SHA-256: `dce23394eceef8db3f01b046d97665c7bad7912276c2898e42ad8246d46810e6` (8,648,242 bytes). Read-only source hashes confirm all 91 application/dependency files match the recorded snapshot; `revision-resolution.json` explains the capture harness's base-revision label.

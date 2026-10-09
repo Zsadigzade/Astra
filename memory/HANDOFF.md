@@ -1,4 +1,12 @@
-# Current submission handoff ? 9 October 2026
+# Current submission handoff - 9 October 2026
+
+- **05:28:** friend owns UI/UX, expected around 05:50; preserve the accepted MP4 while
+  checking that handoff. No UI edits in this presentation pass. Remaining operator
+  controls passed in isolated services without provider calls; copied ledger reset
+  preserved bytes. Presenter HTML/timer and offline PDF/PNG/ZIP are ready; see [production](../video/production.md).
+- User explicitly opted into **Best ElevenLabs Use**; saved HQ checkbox reload verified.
+  All prepared fields persist. Submit remains disabled without the YouTube URL.
+  Speaker choice, human listening/timed pitch, final UI acceptance and submission remain open.
 
 - Recording code `1d9173c`; full live-provider capture passes all four acts plus approve/decline with SIMULATED escrow. 579 backend / 63 frontend tests and build pass. Nonsecret results: [video/evidence.json](../video/evidence.json).
 - HQ now requires **90 seconds**, not two minutes; **Unlisted YouTube** is mandatory. The approximately 89-second export is `backend/data/video/the-haggle-final.mp4`. User will upload and send the link; HQ project draft is saved, not submitted.
