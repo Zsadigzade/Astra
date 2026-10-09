@@ -27,12 +27,26 @@ class Settings:
     codex_queue_timeout_seconds: float = field(default_factory=lambda: _f("CODEX_QUEUE_TIMEOUT_SECONDS", 5))
     codex_failure_threshold: int = field(default_factory=lambda: int(os.getenv("CODEX_FAILURE_THRESHOLD", 3)))
     codex_cooldown_seconds: float = field(default_factory=lambda: _f("CODEX_COOLDOWN_SECONDS", 15))
+    # Free-text requests (anything that is not a Prague rental): Viktor has Codex write the answer.
+    # "auto" = on when Max or Viktor already runs on Codex; "codex" = on; "off" = refuse such requests.
+    answer_mode: str = field(default_factory=lambda: os.getenv("ANSWER_MODE", "auto"))
+    # Let the answer writer use Codex's live web search (needs current info: prices, listings, news).
+    answer_search: bool = field(default_factory=lambda: os.getenv("ANSWER_SEARCH", "on").strip().lower() not in {"off", "0", "false", "no"})
+    answer_timeout_seconds: float = field(default_factory=lambda: _f("ANSWER_TIMEOUT_SECONDS", 120))
+    # Viktor starts looking while he haggles (so he can say what he already found) and reuses it as the delivery.
+    answer_scout: bool = field(default_factory=lambda: os.getenv("ANSWER_SCOUT", "on").strip().lower() not in {"off", "0", "false", "no"})
+    # Read each finding's page for its preview photo (og:image).
+    answer_previews: bool = field(default_factory=lambda: os.getenv("ANSWER_PREVIEWS", "on").strip().lower() not in {"off", "0", "false", "no"})
 
     def __post_init__(self):
         if self.llm_mode not in {"mock", "codex"}:
             raise ValueError("LLM_MODE must be codex (ChatGPT subscription) or mock (scripted)")
         if self.seller_llm_mode not in {"mock", "codex"}:
             raise ValueError("SELLER_LLM_MODE must be codex (ChatGPT subscription) or mock (scripted)")
+        if self.answer_mode not in {"auto", "codex", "off"}:
+            raise ValueError("ANSWER_MODE must be auto, codex or off")
+        if not (0 < self.answer_timeout_seconds < float("inf")):
+            raise ValueError("ANSWER_TIMEOUT_SECONDS must be finite and positive")
 
     # Payments: "simulated" = local SQLite escrow, labelled SIMULATED everywhere; "masumi" = Preprod
     payments_mode: str = field(default_factory=lambda: os.getenv("PAYMENTS_MODE", "simulated"))
@@ -83,6 +97,12 @@ class Settings:
         "APIFY_CACHE_PATH", str(BACKEND_ROOT / "data" / "flats-apify.json")))
     apify_cache_max_age_seconds: float = field(default_factory=lambda: _f("APIFY_CACHE_MAX_AGE_SECONDS", 86400))
     apify_allow_stale_cache: bool = field(default_factory=lambda: os.getenv("APIFY_ALLOW_STALE_CACHE", "0") == "1")
+
+    @property
+    def answers_enabled(self) -> bool:
+        if self.answer_mode == "auto":
+            return "codex" in (self.llm_mode, self.seller_llm_mode)
+        return self.answer_mode == "codex"
 
     @property
     def simulated(self) -> bool:

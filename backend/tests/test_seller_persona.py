@@ -104,10 +104,11 @@ async def test_low_or_wrong_buyer_acceptance_cannot_reach_fallback(monkeypatch, 
         with pytest.raises(NegotiationConflict):
             await agent.respond_async(request("accept", offer, 1))
         assert agent.deals["seller-test"].agreed is None
+    assert len(calls) == (1 if kind == "codex" else 0)  # rejected acceptances never reach the model
     accepted = await agent.respond_async(request("accept", 18, 1))
-    assert accepted.action == "accept" and accepted.backend == "mock"
+    assert accepted.action == "accept" and accepted.backend == "mock"  # the model had no usable closing line
     assert accepted.price == agent.deals["seller-test"].agreed == 18
-    assert len(calls) == (1 if kind == "codex" else 0)
+    assert len(calls) == (2 if kind == "codex" else 0)  # a valid acceptance only asks for the closing line
 
 
 @pytest.mark.anyio

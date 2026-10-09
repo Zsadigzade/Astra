@@ -15,11 +15,14 @@ DEFAULT_MAX_RENT = 25_000
 EXAMPLES = [
     "Find me 20 flats in Praha 7 under 25,000 CZK",
     "10 apartments in Prague 2, max 30k",
-    "5 cheap flats in Praha 5 up to 18000 CZK",
+    "Explain in two sentences why escrow protects buyers",
 ]
 
 _RENTAL_WORDS = re.compile(
     r"\b(flats?|apartments?|apts?|rentals?|rent|listings?|byt[yů]?|bytu|housing|place to live|\d\+(?:kk|1))\b", re.I)
+# With general answers on, bare "rent" / "listings" are ambiguous ("rent a car", "5 listings of used cars"), so a request
+# only counts as a flat search when it names housing.
+_HOUSING = re.compile(r"\b(flats?|apartments?|apts?|rentals?|byt[yů]?|bytu|housing|place to live|\d\+(?:kk|1))\b", re.I)
 _OTHER_PLACES = re.compile(
     r"\b(brno|ostrava|plze[nň]|pilsen|olomouc|liberec|hradec|pardubice|vienna|wien|berlin|munich|london|paris|"
     r"bratislava|warsaw|budapest|amsterdam|madrid|rome|new york|barcelona)\b", re.I)
@@ -40,7 +43,7 @@ class ParsedRequest:
     notes: list[str] = field(default_factory=list)  # defaults we filled in, shown to the person
 
     def public(self) -> dict:
-        return {"ok": self.ok, "summary": self.summary, "job": self.job.model_dump() if self.job else None,
+        return {"ok": self.ok, "kind": self.job.kind if self.job else None, "summary": self.summary, "job": self.job.model_dump() if self.job else None,
                 "notes": self.notes, "examples": EXAMPLES}
 
 
@@ -52,18 +55,32 @@ def _money(raw: str, k: str | None) -> int | None:
     return value * 1000 if k else value
 
 
-def parse_request(text: str) -> ParsedRequest:
+def _general(t: str) -> ParsedRequest:
+    one_line = " ".join(t.split())
+    clip = one_line if len(one_line) <= 90 else one_line[:89].rstrip() + "…"
+    return ParsedRequest(True, f'Ask Viktor: "{clip}"', BoundedJobSpec(kind="general", prompt=t),
+                         ["Not a flat search: an AI seller writes the answer, using web search when needed. Checked by rules, not for facts."])
+
+
+def parse_request(text: str, general: bool = False) -> ParsedRequest:
+    """`general`: whether an AI seller is available for requests that are not Prague rentals."""
     t = (text or "").strip()
     if not t:
         return ParsedRequest(False, "Type what you want Max to buy, for example: " + EXAMPLES[0])
     if len(t) > 500:
         return ParsedRequest(False, "That request is too long. Keep it under 500 characters.")
+    if general and not _HOUSING.search(t):
+        return _general(t)
     if _OTHER_PLACES.search(t):
+        if general:
+            return _general(t)
         return ParsedRequest(False, "Viktor only has Prague rental listings, so other cities cannot be bought. "
                                     "Try: " + EXAMPLES[0])
     if not _RENTAL_WORDS.search(t):
-        return ParsedRequest(False, "Viktor sells one thing: Prague rental listings. "
-                                    "Ask for flats or apartments, for example: " + EXAMPLES[1])
+        if general:
+            return _general(t)
+        return ParsedRequest(False, "Viktor sells Prague rental listings. Ask for flats or apartments, for example: "
+                                    + EXAMPLES[1] + ". To ask anything else, turn on Codex answers (LLM_MODE=codex).")
 
     notes: list[str] = []
     m = _COUNT.search(t)

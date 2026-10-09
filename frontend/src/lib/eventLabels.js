@@ -6,6 +6,7 @@ export const SOURCE_LABEL = {
   sample: { label: "SAMPLE DATA", tone: "warning", hint: "Canned listings, not scraped" },
   apify_cached: { label: "CACHED APIFY", tone: "warning", hint: "Saved real scrape, not fetched live for this deal" },
   apify: { label: "LIVE APIFY", tone: "success", hint: "Scraped live for this deal" },
+  codex: { label: "AI ANSWER", tone: "info", hint: "Written by an AI seller, with live web search when the request needs it. Rule-checked, not fact-checked." },
 };
 
 export const PROVENANCE = {

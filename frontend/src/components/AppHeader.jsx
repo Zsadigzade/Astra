@@ -4,14 +4,16 @@ import StatusBadge from "./StatusBadge.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 
 function BrandMark() {
-  // Two chevrons closing on one point: buyer and seller meeting at a price.
+  // Two speech bubbles that overlap: the buyer (blue) and the seller (violet) meeting at one agreed spot (white).
   return (
-    <svg className="brand-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="#000" />
-      <rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="rgba(255,255,255,.16)" />
-      <path d="M8.5 10.5L14 16l-5.5 5.5" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M23.5 10.5L18 16l5.5 5.5" fill="none" stroke="#a78bfa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="16" r="1.5" fill="#fff" />
+    <svg className="brand-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+      <rect width="32" height="32" rx="9" fill="#000" />
+      <rect x=".5" y=".5" width="31" height="31" rx="8.5" fill="none" stroke="rgba(255,255,255,.14)" />
+      <rect x="4" y="4.5" width="16" height="12.5" rx="4" fill="#38bdf8" />
+      <path d="M8 16.5 V21.5 L13.5 16.5 Z" fill="#38bdf8" />
+      <rect x="12" y="12" width="16" height="12.5" rx="4" fill="#a78bfa" />
+      <path d="M24 24 V28.5 L18.5 24 Z" fill="#a78bfa" />
+      <rect x="12" y="12" width="8" height="5" rx="1.6" fill="#fff" />
     </svg>
   );
 }

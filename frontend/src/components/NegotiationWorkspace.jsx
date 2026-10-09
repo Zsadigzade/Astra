@@ -15,7 +15,7 @@ import WalletGuardCard from "./WalletGuardCard.jsx";
 // `paced` is the chat as it is being revealed (shared with the rail); `live` says the reveal animation is on.
 export default function NegotiationWorkspace({ view, events, controls, selected, onSelect, trackEyes = false, paced, live }) {
   const [tab, setTab] = useState("results");
-  const flats = view.delivery?.result?.flats?.length ?? 0;
+  const flats = view.delivery?.result?.kind === "general" ? (view.delivery.result.answer ? 1 : 0) : view.delivery?.result?.flats?.length ?? 0;
   const tabs = [
     { id: "results", label: "Results", count: flats },
     { id: "wallet", label: "Wallet" },

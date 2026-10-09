@@ -160,7 +160,7 @@ export function dealsOf(events) {
     return {
       dealId: id, ts: created?.ts ?? d[0].ts, text: created?.data.text ?? null, scenario: created?.data.demo_mode ?? null,
       staged: d.some((e) => e.staged), outcome: outcomeOf(d), price: last(d, "quote")?.data.price ?? null,
-      items: delivered?.data.items ?? null, source: delivered?.data.source ?? null,
+      items: delivered?.data.items ?? null, source: delivered?.data.source ?? null, kind: delivered?.data.result?.kind ?? "rental",
     };
   }).reverse();
 }

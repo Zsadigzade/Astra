@@ -256,6 +256,18 @@ The dashboard shows what Max understood before anything runs (defaults it filled
 cannot fill, such as other cities or things that are not rentals. Viktor sells one thing: Prague rental listings (Praha 1 to 22,
 1 to 100 flats). **Mode** picks normal behaviour or a staged demo act.
 
+**Any other request** (a question, a summary, a draft) works when Codex is available (`LLM_MODE=codex`, `SELLER_LLM_MODE=codex`
+or `ANSWER_MODE=codex`; `ANSWER_MODE=off` disables it). Viktor then sells a written answer instead of listings. It still goes through
+the same negotiation, wallet guard, escrow, delivery and verification, and the result is labelled **AI ANSWER**. Verification is by
+rules (present, sensible length, not a placeholder, https sources), so it is not a fact-check. With `ANSWER_SEARCH=on` (default)
+the writer may search the web for current facts and lists its sources in the panel; with `off` it answers from its own knowledge.
+Search only applies to answers (Max and Viktor's negotiation lines never search), runs in the read-only sandbox and counts against
+your ChatGPT subscription limits; it takes longer (`ANSWER_TIMEOUT_SECONDS`, default 120). Concrete finds (listings, products, articles) come back as clickable cards with a preview photo when the page allows reading it.
+Viktor starts the search while he haggles (`ANSWER_SCOUT`), so he can mention what he really found, and that same search is the
+delivery. Many shops return 403 to automated page reads, so some cards show a plain tile instead of a photo (`ANSWER_PREVIEWS=off`
+turns photo lookups off). With answers off, a non-rental
+request is refused with a hint.
+
 Max and Viktor appear as two floating ghosts. The one whose turn it is shows a thinking animation, then speaks. In scripted mode the
 backend answers instantly, so live lines are revealed with a short thinking pause. That pause is cosmetic pacing: it is never
 applied to history, past deals or reduced-motion users, and the guard, pipeline and result still update in real time.

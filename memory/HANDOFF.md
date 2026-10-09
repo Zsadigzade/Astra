@@ -1,6 +1,15 @@
+
+
 # Handoff — integrated main
 
 updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
+
+## Page fill, flat chat, new logo (2026-10-09, samir/claude; uncommitted)
+- Layout is full-bleed (no 1600px cap, rails 260/320, 290/370 on very wide screens). Nothing floats in the middle: the stage is a full-width tinted band with Max at the left edge, Viktor at the right and the price coin + offer ladder between them. The left rail spreads its cards through the height (Request, Recent, Mode, Usage, options); on short screens the examples/recent rows compact so no rail needs a scrollbar at 1366x768.
+- Before a request the page shows the same band plus "How a deal works" and "Try one"; the right rail shows Wallet policy, Setup (what powers Max/Viktor/voice/money) and Balances.
+- Chat rows are flat (avatar, name, round, time, text, price line, no boxes) with a typing row for the agent about to speak. New "Recent" card lists the last five requests and reopens them.
+- Ghost size/position: 140px (164px on very large screens, 124/108px on shorter ones), up from 96px, and moved in toward the price coin and offer ladder instead of the band edges. Drawing unchanged.
+- Logo: two interlocking speech bubbles (buyer blue, seller violet) sharing one white agreed spot; same mark as the favicon. The ghost drawings are untouched.
 
 ## Conversation order, board and right-rail chat (2026-10-09, samir/claude; uncommitted)
 - Max opens every deal with a question ("Hi Viktor. Can you get me ...? What is your price?"), then Viktor answers with his ask (`orchestrator.haggle`, template line, backend `mock`, voiced like any other line).

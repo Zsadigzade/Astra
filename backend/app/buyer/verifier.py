@@ -1,5 +1,6 @@
 """Checks a delivery against the job spec using deterministic rules."""
 
+import re
 from urllib.parse import urlsplit
 
 from app.core.models import JobResult, JobSpec
@@ -28,7 +29,34 @@ def _district(value: str) -> str:
     return normalized
 
 
+# The writer saying it could not do the job (e.g. web search was unavailable) is not a delivered answer.
+_REFUSAL = re.compile(
+    r"web (search|access|browsing) (is |was |were )?(unavailable|not available|disabled|failed)"
+    r"|(unavailable|not available|disabled) in this (session|environment)"
+    r"|(couldn.t|could not|can.t|cannot|unable to) (access|use|run|reach) (the )?(web|internet|web search|live)"
+    r"|(couldn.t|could not|can.t|cannot|unable to) (verify|find|provide) (the )?(current|live|latest|newest)", re.IGNORECASE)
+_PLACEHOLDER = re.compile(r"lorem ipsum|\basdf|\btodo\b|\bplaceholder\b|^\W*(n/?a|none|null|tbd)\W*$", re.IGNORECASE)
+
+
+def verify_answer(result: JobResult | None) -> tuple[bool, dict[str, bool]]:
+    """Rule checks for a general answer. They catch missing, empty, absurdly long or placeholder text.
+    They do not prove the answer is correct: that is why the UI labels it an AI answer, not verified data."""
+    text = (result.answer or "").strip() if result else ""
+    checks = {
+        "has_result": result is not None and result.kind == "general",
+        "has_answer": sum(c.isalnum() for c in text) >= 2,
+        "reasonable_length": 0 < len(text) <= 4000,
+        "not_a_placeholder": bool(text) and not _PLACEHOLDER.search(text),
+        "not_a_refusal": not _REFUSAL.search(text),
+        "sources_valid": result is None or all(isinstance(u, str) and u.lower().startswith("https://")
+                                               for u in [*result.sources, *(i.url for i in result.items)]),
+    }
+    return all(checks.values()), checks
+
+
 def verify(result: JobResult | None, job: JobSpec) -> tuple[bool, dict[str, bool]]:
+    if getattr(job, "kind", "rental") == "general":
+        return verify_answer(result)
     flats = result.flats if result else []
     urls = [f.url for f in flats]
     checks = {

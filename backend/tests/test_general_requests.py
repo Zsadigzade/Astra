@@ -33,7 +33,8 @@ async def test_parse_endpoint_previews_without_creating_anything(tmp_path):
     async with buyer.router.lifespan_context(buyer):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=buyer), base_url="http://buyer") as c:
             ok = (await c.post("/requests/parse", json={"text": "10 apartments in Prague 2, max 30k"})).json()
-            assert ok["ok"] and ok["job"] == {"count": 10, "district": "Praha 2", "max_price_czk": 30_000}
+            assert ok["ok"] and ok["kind"] == "rental"
+            assert {k: ok["job"][k] for k in ("count", "district", "max_price_czk")} == {"count": 10, "district": "Praha 2", "max_price_czk": 30_000}
             no = (await c.post("/requests/parse", json={"text": "buy me a car"})).json()
             assert not no["ok"] and no["job"] is None and no["examples"]
             assert (await c.post("/requests/parse", json={"text": "x" * 601})).status_code == 422

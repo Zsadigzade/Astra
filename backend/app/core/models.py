@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 
 class DemoMode(StrEnum):
@@ -33,6 +33,9 @@ class JobSpec(BaseModel):
 
 def describe_job(job: JobSpec) -> str:
     """The request in one line, used in agent prompts and dialogue so they follow the real job."""
+    if getattr(job, "kind", "rental") == "general":
+        text = " ".join((getattr(job, "prompt", None) or "").split())
+        return f'an answer to: "{text[:120]}{"…" if len(text) > 120 else ""}"'
     return f"{job.count} flat{'s' if job.count != 1 else ''} in {job.district} under {job.max_price_czk:,} CZK per month"
 
 
@@ -43,6 +46,15 @@ class BoundedJobSpec(JobSpec):
     count: int = Field(default=20, ge=1, le=100)
     district: str = Field(default="Praha 7", min_length=1, max_length=64)
     max_price_czk: int = Field(default=25_000, ge=1, le=1_000_000)
+    # "general": the buyer wants an answer to `prompt` instead of rental listings (count/district/rent are then unused).
+    kind: Literal["rental", "general"] = "rental"
+    prompt: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _general_needs_a_prompt(self):
+        if self.kind == "general" and not (self.prompt and self.prompt.strip()):
+            raise ValueError("a general request needs a prompt")
+        return self
 
 
 class TaskCreate(BaseModel):
@@ -124,9 +136,22 @@ class Flat(BaseModel):
     url: str
 
 
+class Finding(BaseModel):
+    """One concrete thing the writer found on the web (a listing, product, article, place)."""
+
+    title: str = Field(min_length=1, max_length=160)
+    url: str = Field(max_length=500)
+    detail: str = Field(default="", max_length=240)  # price / key facts
+    image: str | None = Field(default=None, max_length=500)  # preview photo, https only
+
+
 class JobResult(BaseModel):
-    flats: list[Flat]
-    source: Literal["sample", "apify", "apify_cached"]  # provenance must be labelled in UI
+    flats: list[Flat] = Field(default_factory=list)
+    source: Literal["sample", "apify", "apify_cached", "codex"]  # provenance must be labelled in UI
+    kind: Literal["rental", "general"] = "rental"
+    items: list[Finding] = Field(default_factory=list)  # kind == "general": structured findings, shown as cards
+    sources: list[str] = Field(default_factory=list)  # kind == "general": pages the writer says it used
+    answer: str | None = None  # kind == "general": the delivered text, written by the model, not live data
     fetched_at: str | None = None
     actor_id: str | None = None
     dataset_id: str | None = None

@@ -10,7 +10,9 @@ import EmptyDealState from "./components/EmptyDealState.jsx";
 import ChatFeed from "./components/ChatFeed.jsx";
 import NegotiationWorkspace from "./components/NegotiationWorkspace.jsx";
 import RequestComposer from "./components/RequestComposer.jsx";
+import RecentRequests from "./components/RecentRequests.jsx";
 import ScenarioSelector from "./components/ScenarioSelector.jsx";
+import SetupCard from "./components/SetupCard.jsx";
 import UsageSummary from "./components/UsageSummary.jsx";
 import WalletGuardCard from "./components/WalletGuardCard.jsx";
 import useControls from "./hooks/useControls.js";
@@ -20,7 +22,7 @@ import usePacedChat from "./hooks/usePacedChat.js";
 import useRequestParse from "./hooks/useRequestParse.js";
 import useServiceHealth from "./hooks/useServiceHealth.js";
 import useTheme from "./hooks/useTheme.js";
-import { EXAMPLES, SCENARIOS } from "./lib/formatters.js";
+import { SCENARIOS } from "./lib/formatters.js";
 
 export default function App() {
   const { theme, toggle } = useTheme();
@@ -40,7 +42,7 @@ export default function App() {
 
   const [scenario, setScenario] = useState("honest");
   const [options, setOptions] = useState({ budget: 20 });
-  const [requestText, setRequestText] = useState(EXAMPLES[0]);
+  const [requestText, setRequestText] = useState("");
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);
   const [pauseBusy, setPauseBusy] = useState(false);
@@ -109,8 +111,9 @@ export default function App() {
 
       <main className="layout">
           <aside className="rail rail-left" aria-label="Scenarios and usage">
-            <RequestComposer text={requestText} onText={setRequestText} parse={parse} onRun={run}
-              launching={launching} disabledReason={disabledReason} />
+            {view.dealId && <RequestComposer text={requestText} onText={setRequestText} parse={parse} onRun={run}
+              launching={launching} disabledReason={disabledReason} />}
+            <RecentRequests deals={view.deals} currentId={view.dealId} onOpen={selectDeal} />
             <ScenarioSelector selected={scenario} onSelect={setScenario} />
             <UsageSummary view={view} budget={view.task?.budget ?? options.budget} />
             <AgentLimits controls={controls} options={options} onOptions={setOptions} onChanged={refresh} />
@@ -120,12 +123,13 @@ export default function App() {
             {view.dealId
               ? <NegotiationWorkspace view={view} events={events} controls={controls} selected={selectedDeal} onSelect={selectDeal} trackEyes={armed}
                   paced={paced} live={live} />
-              : <EmptyDealState tracking={armed} scenario={scenario} summary={parse.parsed?.ok ? parse.parsed.summary : null} onRun={run} launching={launching} disabledReason={disabledReason || (!parse.parsed?.ok ? "Fix the request first." : null)} />}
+              : <EmptyDealState tracking={armed} scenario={scenario} text={requestText} onText={setRequestText} parse={parse} onRun={run} launching={launching} disabledReason={disabledReason} />}
           </div>
 
-          <aside className="rail rail-right" aria-label="Deal safety">
-            <ChatFeed view={view} paced={paced} />
-            <WalletGuardCard view={view} controls={controls} only="balances" />
+          <aside className={`rail rail-right ${view.dealId ? "" : "is-spread"}`} aria-label="Deal safety">
+            {view.dealId
+              ? <><ChatFeed view={view} paced={paced} /><WalletGuardCard view={view} controls={controls} only="balances" /></>
+              : <><WalletGuardCard view={view} controls={controls} only="policy" /><SetupCard controls={controls} /><WalletGuardCard view={view} controls={controls} only="balances" /></>}
             <DealDetails view={view} />
           </aside>
       </main>

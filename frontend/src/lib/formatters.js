@@ -24,7 +24,7 @@ export const SCENARIOS = {
 export const EXAMPLES = [
   "Find me 20 flats in Praha 7 under 25,000 CZK",
   "10 apartments in Prague 2, max 30k",
-  "5 cheap flats in Praha 5 up to 18000 CZK",
+  "Explain in two sentences why escrow protects buyers",
 ];
 
 export const SCENARIO_LIST = [SCENARIOS.honest, SCENARIOS.con, SCENARIOS.recovery, SCENARIOS.junk];

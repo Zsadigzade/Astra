@@ -103,6 +103,13 @@ def main() -> int:
     else:
         add("Viktor (LLM)", WARN, "SELLER_LLM_MODE=mock: Viktor is scripted", "set SELLER_LLM_MODE=codex to let Viktor negotiate with the same Codex login")
 
+    if s.answers_enabled:
+        has = shutil.which(s.codex_command) is not None
+        add("Any request", OK if has else FAIL, "ANSWER_MODE: non-rental requests are answered by Viktor through Codex" + ("" if has else f" (CLI '{s.codex_command}' not found)"),
+            "" if has else "install and sign in to the Codex CLI")
+    else:
+        add("Any request", WARN, "answers off: only Prague rentals can be requested", "set LLM_MODE=codex (or ANSWER_MODE=codex) to answer any request")
+
     # --- data
     cache_ok = False
     cache_stale = False

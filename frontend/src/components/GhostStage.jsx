@@ -1,5 +1,6 @@
 import { tada } from "../lib/formatters.js";
 import Ghost from "./Ghost.jsx";
+import OfferLadder from "./OfferLadder.jsx";
 
 const WHO = { max: { name: "Max", role: "buyer" }, viktor: { name: "Viktor", role: "seller" } };
 const clip = (t, n = 130) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
@@ -40,9 +41,12 @@ export default function GhostStage({ chat, thinking, speaking, caughtUp, agreed,
   return (
     <div className="stage" role="group" aria-label="Max and Viktor">
       <Side who="max" thinking={thinking} speaking={speaking} offer={lastOf("max")} prov={provenance(chat, "max", modes)} track={trackEyes} />
-      <div className={`coin ${settled ? "is-agreed" : ""}`} aria-label={onTable != null ? `Price on the table: ${tada(onTable, 1)}` : "No price yet"}>
-        <span className="coin-face num">{onTable != null ? onTable.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "–"}</span>
-        <span className="coin-label">{settled ? "agreed" : "tADA"}</span>
+      <div className="stage-mid">
+        <div className={`coin ${settled ? "is-agreed" : ""}`} aria-label={onTable != null ? `Price on the table: ${tada(onTable, 1)}` : "No price yet"}>
+          <span className="coin-face num">{onTable != null ? onTable.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "–"}</span>
+          <span className="coin-label">{settled ? "agreed" : "tADA"}</span>
+        </div>
+        <OfferLadder chat={chat} agreed={agreed} caughtUp={caughtUp} />
       </div>
       <Side who="viktor" thinking={thinking} speaking={speaking} offer={lastOf("viktor")} prov={provenance(chat, "viktor", modes)} track={trackEyes} />
     </div>
