@@ -364,7 +364,7 @@ def main():
         load_cache(JobSpec(), settings)
     else:
         require(settings.apify_token, "Configure APIFY_TOKEN first")
-        print(f"Live data: up to {2 * args.repeats + 1} paid scrapes, each requesting a $1.10 cap.", flush=True)
+        print(f"Live data: up to {3 * args.repeats + 1} paid scrapes, each requesting a $1.10 cap.", flush=True)
     Rehearsal(args.browser, seller_mode=args.seller_mode, data_mode=args.data_mode, repeats=args.repeats).run()
 
 

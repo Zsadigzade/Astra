@@ -1,10 +1,15 @@
-# The Haggle video and release preparation
+﻿# The Haggle video and release package
 
-The two-minute demo follows one successful deal, a blocked con, buyer crash recovery and a refund. The narration and required evidence work with any dashboard layout. The baseline uses SIMULATED money and labels each deliberately triggered failure.
+The current HQ requires a **90-second demo video** and a separate **60-second stage pitch**. The final edit is approximately 89 seconds and shows the real dashboard: a successful deal, a blocked con, actual buyer crash recovery and a refund.
 
-- [Script and evidence storyboard](script.md): a 1:55 edit with five seconds of spare time.
-- [Draft narration captions](narration-draft.srt): timing targets for the script; retime against the recorded voiceover.
-- [Recording and export handoff](production.md): capture requirements, rehearsal record and final export checks.
-- [Release audit](release-audit.md): secret-scan scope and repository access evidence.
+- [Final script, pitch and jury questions](script.md)
+- [Final narration and dialogue captions](narration-final.srt)
+- [Export, take index, operator runbook and submission handoff](production.md)
+- [Nonsecret recording and provider-charge evidence](evidence.json)
+- [Release audit](release-audit.md)
 
-V01 is the written script/storyboard. V02–V04 still require actual rehearsals, recordings and an exported video. Layout, crops, cursor movements and final audio choices remain open until the dashboard and demo profile are settled. No footage or final voiceover is included here.
+Upload file on the recording laptop: `backend/data/video/the-haggle-final.mp4`. Original footage, speech and the complete acceptance report remain under `backend/data/r-rehearsal-4f36a7e8/`. These media/runtime artifacts are intentionally git-ignored. The user uploads the MP4 as **Unlisted on YouTube** and supplies its link for the HQ form.
+
+Models, rental data and voices are live; Max's opening and guard notices are code-generated. Agent escrow is visibly **SIMULATED** and failure cases are **STAGED**. Apify provider charges are real billed API usage, separate from the simulated escrow. Live Masumi escrow remains unverified.
+
+The earlier `narration-draft.srt` describes a historical cached/scripted profile and must not be used for this export.

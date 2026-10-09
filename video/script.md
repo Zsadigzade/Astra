@@ -1,34 +1,43 @@
-# The Haggle two minute demo script
+﻿# The Haggle: 90-second jury demo and 60-second pitch
 
-Target edit: **1:55**, including the closing hold; maximum **2:00**. This is an edited demonstration, not a claim that all four runs complete in two minutes. Use the evidence from each actual take; preserve its event order and label shortened waits.
+The signed-in [HQ submission form](https://hq.agents007.ai/submit) and 04:17 organizer announcement require **at most 90 seconds**, an **unlisted YouTube link**, and a separate **60-second stage pitch**. These supersede the older two-minute public website and plan. Submission closes 9 October 2026 at **07:14 Europe/Prague / Europe/Budapest**; our target is 07:00. HQ lists presentations at 09:30. Checked 04:48 on the recording laptop.
 
-The baseline is SIMULATED payments, subscription Max, scripted Viktor, CACHED APIFY data and ElevenLabs speech with text fallback. If the final agent configuration changes, update the take's labels and closing disclosure from its recorded provenance. Exact dialogue and the negotiated price can vary; the narration deliberately avoids promising a seven-unit deal.
+The selected recording uses two Codex subscription agents, LIVE APIFY and ElevenLabs. Max's opening greeting is scripted. Agent-to-agent escrow is **SIMULATED**; acts 2–4 are **STAGED**. Apify reports actual provider usage charges, separately from that escrow. This is an edited recording of real runs: waits and some dialogue are omitted. It is not a claim that four full scenarios execute in 90 seconds.
 
-## Narration and evidence storyboard
+## Final edit
 
-| Time | Voiceover | Evidence the viewer must see |
+| Time | Picture and sound | Evidence |
 | --- | --- | --- |
-| 00:00–00:10 | “The Haggle lets one agent hire another. Max negotiates; a separate wallet guard controls payment. Here are four tests, using simulated money.” | Product name, Max as buyer, Viktor as seller, persistent SIMULATED label. Establish negotiation → guard → escrow → verification without prescribing a dashboard layout. |
-| 00:10–00:35 | “First, the deal. Max hires Viktor to find twenty Prague Seven flats within the rent limit. They negotiate a price. The guard checks the cap and budget before locking escrow. Delivery passes the checks, so payment is released.” | Act 1: brief with 20 flats, Praha 7, rent at most 25,000 CZK/month and task budget 20 tADA; actual quote within cap 10; `escrow_locked` → `delivered` → `verified` with `ok: true` → `released`. Show CACHED APIFY or the actual source label. |
-| 00:35–00:57 | “Now the con. In this staged exchange, scripted Max accepts a fake manager approval for twenty-five. The guard still blocks it: the cap is ten. No escrow is funded. Prices above eight, within the limits, require human approval.” | Act 2: STAGED and scripted labels; accepted quote 25; blocked reason against cap 10; no lock event and no balance change for this deal. Show the approval threshold as a rule, without implying this blocked quote can be approved. |
-| 00:57–01:21 | “Next, a staged crash, after escrow locks. We restart only the buyer; the seller stays running. The buyer finds the same deal already paid and continues. One deal, one payment, even across the restart.” | Act 3: STAGED throughout, including an editorial label after restart; lock, actual buyer process exit/restart, matching deal ID and escrow reference on `already_paid`, then completion. One lock and one debit for that deal in the ledger. A reconnect indicator alone does not prove a process crash. |
-| 01:21–01:39 | “Finally, staged junk delivery. It fails the rule-based checks, so the simulated escrow is refunded. The seller earns nothing from this deal. These checks cover listing fields, not whether a listing is genuine.” | Act 4: STAGED + SIMULATED; `delivered` → `verified` with `ok: false` and failed checks → `refunded`. Show the escrow returning and no seller credit for this deal; compare against this take's starting balances. |
-| 01:39–01:53 | “This run uses cached listings and a scripted seller. The failures are staged; live Preprod escrow remains unverified. The principle: agents negotiate, while code enforces spending rules.” | Keep baseline disclosures readable: SIMULATED payments; CACHED APIFY; subscription Max with labelled fallback; scripted Viktor; staged acts 2–4. Repository link or project identity can share the closing card. |
-| 01:53–01:55 | No narration. | Hold the closing card. Keep the remaining five seconds available for natural pauses. |
+| 0:00–0:08.5 | Introduce Max, Viktor and the guard over the real dashboard. | Agents negotiate; code controls payment. SIMULATED ESCROW stays visible. |
+| 0:08.5–0:25 | Negotiation, escrow, then completed listings; narrated. | 20 Praha 7 flats below 25,000 CZK/month, price 7, LIVE APIFY, successful checks and release. |
+| 0:25–0:48 | Staged con with the original recorded Viktor and Max audio, then Max's guard notice. | Manager-approved 25; gullible Max agrees; cap 10 blocks payment before funding. |
+| 0:48–1:03 | Staged buyer crash, recovery and recorded process evidence; narrated. | Buyer 4584 exits with code 1, restarts as 24024; seller 28884 survives. One lock, one already_paid, one release for the same deal. |
+| 1:03–1:15 | Staged junk delivery and refund; narrated. | Real scrape reduced to three listings without links. Verification fails, escrow returns, no simulated seller credit. |
+| 1:15–1:29 | Provider charge evidence and limitations over the recorded dashboard. | Act 1 Apify usage USD 0.110573; simulated agent escrow; Preprod unverified; greeting scripted; listing authenticity unverified. |
 
-The closing line describes the verified baseline. Replace “a scripted seller” only after the final take proves subscription Viktor; retain any fallback labels. Replace “cached listings” with “sample listings” if sample data was used. The narration must match the evidence, even if that means keeping the simpler profile.
+Approval and decline remain in the uncut master and backup takes. They are not part of the four-act final edit. Captions derive from narration alignment; original con dialogue uses phrase timings. Export locations and review evidence are in [production.md](production.md).
 
-## Labels and claims to retain through every edit
+## 60-second stage pitch
 
-- Keep SIMULATED visible during all baseline payment outcomes. tADA represents testnet units; simulated balances are not chain transactions or mainnet funds.
-- Keep STAGED visible in acts 2, 3 and 4. Act 2 uses deliberately gullible scripted Max; it is not evidence of a successful attack on a live model.
-- Show CACHED APIFY, SAMPLE, scripted agents and scripted fallback wherever they apply. A cached real scrape is not a fresh scrape.
-- Compress waits with a visible “Wait shortened” transition. Preserve the accepted quote, guard decision and terminal outcome. Do not combine different deal IDs into one apparent run.
-- For crash proof, preserve the buyer exit/restart and the original deal/escrow identity. Do not restart the seller mid-deal. Event replay is not a second payment.
-- The verifier checks count, rent, district and valid unique URLs. It does not authenticate properties or verify present availability. Recovery shown here covers the buyer; seller jobs remain in memory.
+> Agents are getting better at saying yes. That makes giving them a wallet dangerous.
+>
+> Astra: The Haggle lets agents negotiate while code controls spending. Max hires Viktor to find Prague rentals. They bargain aloud, deliver live listings and settle through a separate wallet guard.
+>
+> The useful part is what happens when things go wrong. A seller claims a manager approved an overpriced deal. The model agrees; the guard refuses. Kill the buyer after funding and it recovers without paying twice. Deliver junk and escrow returns.
+>
+> We recorded all four cases. Models, data and voices are live. Apify reports real paid API usage; agent escrow is clearly simulated, with live Preprod still unverified.
+>
+> For teams building purchasing agents, our principle is simple: let agents negotiate. Keep spending authority in code.
 
-If M04/M05 later establish live Preprod evidence, revise the narration and labels for those specific takes. Describe a Masumi release as **scheduled**, with its actual settlement time and transaction link; do not call it settled. Act 4 remains SIMULATED and needs its own payment profile and ledger. This alternative does not require any dashboard design decision now.
+This is a speaking draft, not a measured human performance. Rehearse once with a timer; drop the provider sentence if needed to finish inside 60 seconds. Use one strong screen from the con or the final video; do not attempt four live runs in a one-minute pitch.
 
-## Evidence sources
+## Jury questions
 
-The [recorded system check](../memory/SYSTEM_CHECK.md) establishes the tested baseline. The [wallet guard](../backend/app/buyer/guard.py), [verifier](../backend/app/buyer/verifier.py), [orchestrator](../backend/app/buyer/orchestrator.py) and [runner](../backend/scripts/up.py) define the behavior described above. The [README limitations](../README.md#honest-limitations) remain part of the release handoff.
+- **What actually costs money?** Apify records paid API usage for the scrape. Displayed tADA escrow is simulated. Its refund does not refund Apify or voice usage.
+- **Is the con an attack benchmark?** No. A deliberately gullible buyer role demonstrates the independent guard, not general model resistance.
+- **What does verification prove?** Count, rent, district and valid unique URLs. It does not prove property authenticity or current availability.
+- **What survives a crash?** The demonstrated buyer restarts with the existing escrow reference and pays once. Seller state persists in SQLite, but the captured recovery keeps the seller running. Live Masumi recovery remains unverified.
+- **Can judges run it?** `npm start` supports a no-key sample profile. Live mode needs local Codex sign-in and provider credentials. There is no public hosted app.
+- **How does discovery work?** One configured seller endpoint, not an open marketplace or general purchasing agent.
+
+The signed-in [Agentic Economy brief](https://hq.agents007.ai/topics) requires an executed transaction and permits paid APIs as counterparties. Present the recorded provider charge as that evidence; never describe it as an executed Masumi transfer or payment to Viktor.

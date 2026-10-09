@@ -1,3 +1,12 @@
+# Current submission handoff ? 9 October 2026
+
+- Recording code `1d9173c`; full live-provider capture passes all four acts plus approve/decline with SIMULATED escrow. 579 backend / 63 frontend tests and build pass. Nonsecret results: [video/evidence.json](../video/evidence.json).
+- HQ now requires **90 seconds**, not two minutes; **Unlisted YouTube** is mandatory. The approximately 89-second export is `backend/data/video/the-haggle-final.mp4`. User will upload and send the link; HQ project draft is saved, not submitted.
+- **60-second stage pitch**, presentations **09:30**, target submit **07:00**, close **07:14**, Prague/Budapest. [Pitch and jury answers](../video/script.md), [operator runbook and take index](../video/production.md).
+- Apify reports real paid provider usage (Act 1 USD 0.110573). Keep this distinct from SIMULATED agent escrow; no actual Masumi transfer, settlement or provider refund is claimed.
+- Current local services are healthy with live providers and authenticated buyer access. No public hosting is required for the HQ form or prepared here. Do not expose the dev dashboard/token.
+- Earlier handoffs below are historical, including references to cached data, scripted con, in-memory seller jobs, old test counts and a two-minute edit.
+
 # Handoff — integrated main
 
 ## Merge integration (2026-10-09 04:27 +02:00)

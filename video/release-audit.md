@@ -1,3 +1,32 @@
+# Submission release audit ? 9 October 2026
+
+Recorded application revision: **`1d9173c7325482bc204bfc145376963d96bb6cdc`**. The release documentation and informational scrape-count correction accompany this report. Application behavior in the recording matches 91 application/dependency file hashes; the capture harness's base label is resolved by its saved source patch and `revision-resolution.json`.
+
+## Source and access checks
+
+- Gitleaks 8.30.1 with full redaction: Git changes across all locally reachable refs, complete reachable blob/commit contents, and the publishable working-source snapshot. At the 05:08 scan: **69 commits, 765 blobs, 210 source files**. The Git change scan reported 48 commits with scannable changes; the full-object pass covers all 69 reachable commits.
+- Findings: 2 in Git changes, 11 in complete historical objects, 1 in the working snapshot. Every source line was individually reviewed: all are nonsecret Apify run references already documented in the repository. No suppressions were added and scanner exit 1 was investigated, not called a zero-finding result.
+- Seven nonempty locally configured secret values were checked privately against source and history: **zero matches**. Generated overlay/caption text and recording/evidence JSON also had zero matches across 26 files. Credentials were never copied into the media package.
+- Unauthenticated GitHub API access returned **200**, `private: false`, `visibility: public`. Final remote-commit publication evidence is retained locally as `backend/data/release-audit/publication-verification.json` after publishing; this report does not infer publication from a local commit.
+- Repository refs included main and the existing `feat-mais-masumi-payments` branch; no inaccessible/deleted host-side refs are claimed as scanned. Scanner logs and copied historical content remain ignored under `backend/data/release-audit/`.
+
+## Recorded behavior and media
+
+- Full backend suite after the approval prompt fix: **579 passed (36.22 s)**. Frontend: **63 passed**, production build passed. No application source changed after the recording; only documentation and the rehearsal's paid-scrape-count notice changed.
+- `backend/data/r-rehearsal-4f36a7e8/report.json`: **passed: true**, four acts plus approval/decline. 18 live Max / 24 live Viktor turns, 49 served speech clips, no provider fallbacks or page errors. One intentionally crash-interrupted clip is unavailable. Simulated balances conserve 100 and finish at 77/23/0.
+- Final MP4: **89.021333 s**, 8,648,242 bytes, 1920?1080, H.264/yuv420p, constant 30/1 fps, AAC stereo/48 kHz, fast start and burned captions. Full Edge playback reached the end with decoded audio, 2,669 video frames, **zero dropped frames, stalls, media errors or page errors**.
+- Measured audio: **-16.32 LUFS integrated**, **-1.38 dBTP** true peak. Frames from every chapter were inspected for legibility, SIMULATED/STAGED disclosure, outcomes, captions and private information. The capture contains only the app viewport, without browser chrome, account pages or private desktop windows. This is sampled visual review plus full automated playback; the uploader's human listening check remains required.
+- MP4 SHA-256: `dce23394eceef8db3f01b046d97665c7bad7912276c2898e42ad8246d46810e6`. [Public nonsecret evidence](evidence.json) records deal IDs, event counts, code revision and provider charges.
+- Six separate raw silent takes, the uncut master, original speech and nonsecret evidence are retained. The curated local backup excludes configuration, credentials, authentication stores, HQ sessions and service logs. It is not an off-device backup.
+
+## Remaining external acceptance
+
+The signed-in HQ requires a **90-second Unlisted YouTube video** and a **60-second pitch**; these supersede older public two-minute instructions. The project draft is saved. User will upload the MP4 and provide its link. Final submission, signed-out video playback and submission confirmation are not yet complete.
+
+Apify metadata records actual paid API usage, including USD 0.110573 for Act 1. This is distinct from **SIMULATED agent escrow**. Live Masumi funding, registration, escrow and on-chain settlement are unverified. No public application deployment or real payment to Viktor is claimed.
+
+## Historical audits (superseded snapshots)
+
 # The Haggle repository release audit
 
 Checked **2026-10-09 00:41 +02:00**, against HEAD `318d841e8ee35eeffdad85e82b82b8bee42edf90` and all locally reachable refs. **No credential findings remain after review. The repository is public.** This result covers the scanned snapshot; rerun for the final release revision because implementation work is continuing.

@@ -1,3 +1,21 @@
+# Recording release ? 9 October 2026
+
+The current submission profile is **codex/codex/live Apify/ElevenLabs/SIMULATED escrow**, STRICT_LIVE enabled. Recorded application revision: `1d9173c7325482bc204bfc145376963d96bb6cdc` (the merged baseline plus the approval-path prompt fix).
+
+- **579 backend tests**, **63 frontend tests**, and production build pass. The backend suite was repeated after the prompt fix: 579 passed in 36.22 seconds.
+- Fresh recorded acceptance `backend/data/r-rehearsal-4f36a7e8/report.json`: **passed: true**, all four acts plus approve/decline, zero browser page errors and provider fallbacks. 18 Max / 24 Viktor live turns, 49 served speech clips; one intentional crash-interrupted clip is unavailable. This is one run per case, not a three-repeat claim.
+- Actual buyer crash: PID 4584 exits with code 1, resumes as 24024; seller 28884 stays running. Same deal, one lock, one `already_paid`, one release. Final simulated balances 77 / 23 / 0.
+- Real Apify billing metadata is preserved: four successful runs report roughly USD 0.11 each. Act 1: USD 0.110573, 22 charged results. These are provider charges, not agent escrow or a Masumi transfer. Simulated refunds do not refund provider charges.
+- Recording laptop services are healthy on 8000/8001/5173, live modes selected, guard 10/8, balances 93 / 7 / 0. Dashboard returns 200; unauthenticated buyer balances return 401. Existing active laptop services remain running; capture's private services were stopped.
+- Export: `backend/data/video/the-haggle-final.mp4`, approximately **89 seconds**, 1080p H.264/yuv420p, constant 30 fps, AAC stereo, normalized speech and burned captions. Uncut master and original speech are retained separately.
+- Authenticated HQ instructions supersede the public site: **90-second video**, **Unlisted YouTube**, **60-second pitch**, presentations 09:30, submit before 07:14; target 07:00. Project draft is saved. User is uploading the video; final submission is pending the link.
+
+[Operator/take/submission handoff](../../video/production.md), [pitch](../../video/script.md), [nonsecret evidence](../../video/evidence.json), [final audit](../../video/release-audit.md).
+
+No public application hosting or live Masumi escrow is claimed. The local model runtime requires ChatGPT sign-in, and dashboard tokens remain local. The no-key sample startup path stays supported. Only the informational rehearsal scrape-count notice changed after recording: one pass can start four scrapes, not three, because staged junk also uses real data.
+
+## Historical 02:40 release check (superseded)
+
 # Local release check — 2026-10-09
 
 > **Superseded 03:11** by the STRICT_LIVE profile: live con/junk, all-live Viktor lines, auth, rate limit
