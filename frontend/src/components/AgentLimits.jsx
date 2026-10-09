@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import Icon from "./Icons.jsx";
 
-function Range({ id, label, value, min, max, step, unit = "", onChange, hint }) {
+function Range({ id, label, value, min, max, step, prefix = "", unit = "", onChange, hint }) {
   return (
     <div className="field">
-      <label htmlFor={id}><span>{label}</span><output htmlFor={id} className="num">{value}{unit}</output></label>
+      <label htmlFor={id}><span>{label}</span><output htmlFor={id} className="num">{prefix}{value}{unit}</output></label>
       <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
       {hint && <small>{hint}</small>}
     </div>
@@ -42,17 +42,17 @@ export default function AgentLimits({ controls, options, onOptions, onChanged })
       <summary><span className="card-title">Run options and limits</span><Icon name="chevron" size={14} className="chev" /></summary>
 
       <div className="grid2 single">
-        <div className="field"><label htmlFor="opt-budget">Task budget (tADA)</label>
+        <div className="field"><label htmlFor="opt-budget">Task budget (USD)</label>
           <input id="opt-budget" type="number" min="1" step="1" value={options.budget}
             onChange={(e) => set({ budget: Math.max(1, Number(e.target.value) || 1) })} /></div>
       </div>
 
       {!controls || !draft ? <p className="hint">Guard limits load once the buyer is online.</p> : (
         <>
-          <Range id="lim-cap" label="Hard spending cap" unit=" tADA" min={0.5} max={ceiling} step={0.5} value={draft.cap}
+          <Range id="lim-cap" label="Hard spending cap" prefix="$" min={5} max={ceiling} step={5} value={draft.cap}
             onChange={(cap) => setDraft((d) => ({ ...d, cap, approval: Math.min(d.approval, cap) }))}
-            hint={`Above this, payment is blocked. You can adjust the cap up to the server ceiling of ${ceiling} tADA.`} />
-          <Range id="lim-approval" label="Automatic approval up to" unit=" tADA" min={0.5} max={draft.cap} step={0.5}
+            hint={`Above this, payment is blocked. You can adjust the cap up to the server ceiling of $${ceiling}.`} />
+          <Range id="lim-approval" label="Automatic approval up to" prefix="$" min={5} max={draft.cap} step={5}
             value={Math.min(draft.approval, draft.cap)} onChange={(approval) => setDraft((d) => ({ ...d, approval }))}
             hint="Above this a human must approve. No answer in 5 minutes declines." />
           <Range id="lim-rounds" label="Max negotiation rounds" min={1} max={controls.max_rounds_ceiling} step={1} value={draft.rounds}

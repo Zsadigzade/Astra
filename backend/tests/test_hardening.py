@@ -203,7 +203,7 @@ def test_sliding_window_frees_slots_as_hits_age_out():
 
 # ---------- durable seller ----------
 
-async def agree(c: httpx.AsyncClient, deal_id: str = DEAL, price: float = 7) -> None:
+async def agree(c: httpx.AsyncClient, deal_id: str = DEAL, price: float = 70) -> None:
     job = {"count": 3, "district": "Praha 7", "max_price_czk": 25000}
     base = {"deal_id": deal_id, "job": job, "demo_mode": "honest", "message": "hi"}
     assert (await c.post("/negotiate", json={**base, "round": 0, "action": "open"})).json()["action"] == "counter"
@@ -211,7 +211,7 @@ async def agree(c: httpx.AsyncClient, deal_id: str = DEAL, price: float = 7) -> 
     assert r.json()["action"] == "accept" and r.json()["price"] == price
 
 
-def start_body(deal_id: str = DEAL, price: float = 7) -> dict:
+def start_body(deal_id: str = DEAL, price: float = 70) -> dict:
     return {"identifier_from_purchaser": deal_id, "input_data": {
         "deal_id": deal_id, "agreed_price": price, "demo_mode": "honest",
         "job": {"count": 3, "district": "Praha 7", "max_price_czk": 25000}}}
@@ -236,9 +236,9 @@ async def test_agreement_survives_seller_restart(tmp_path):
 
     second = create_seller(s)
     async with second.router.lifespan_context(second), client(second) as c:
-        assert (await c.post("/start_job", json=start_body(price=8))).status_code == 409  # still exact
+        assert (await c.post("/start_job", json=start_body(price=80))).status_code == 409  # still exact
         started = (await c.post("/start_job", json=start_body())).json()
-        assert started["status"] == "success" and started["price"] == 7
+        assert started["status"] == "success" and started["price"] == 70
         done = await wait_status(c, started["job_id"], "completed")
         assert len(done["result"]["flats"]) == 3
     second.state.store.close()
@@ -269,6 +269,7 @@ async def test_running_job_is_respawned_after_restart(tmp_path, monkeypatch):
     second.state.store.close()
 
 
+@pytest.mark.skip(reason="Masumi payments dormant since 2026-10-09; SIMULATED only")
 @pytest.mark.anyio
 async def test_awaiting_masumi_payment_is_watched_again_after_restart(tmp_path):
     path = str(tmp_path / "seller.db")
@@ -303,7 +304,7 @@ async def test_awaiting_masumi_payment_is_watched_again_after_restart(tmp_path):
 def test_store_round_trips_and_completed_jobs_are_not_respawned(tmp_path):
     store = SellerStore(str(tmp_path / "seller.db"))
     job = BoundedJobSpec(count=2)
-    resp = StartJobResponse(status="success", job_id="j-done", price=7)
+    resp = StartJobResponse(status="success", job_id="j-done", price=70)
     store.put_start("p1", resp, job, DemoMode.junk)
     store.put_status(StatusResponse(job_id="j-done", status="failed"))
     (record,) = store.starts()
@@ -336,7 +337,7 @@ async def test_strict_live_seller_failure_is_503_and_errors_the_buyer_deal(tmp_p
     errors = [e for e in events if e.type == "error"]
     assert errors and "STRICT_LIVE" in errors[0].data["message"]
     assert {"escrow_locked", "released"}.isdisjoint({e.type for e in events})
-    assert balances["buyer"] == 100
+    assert balances["buyer"] == 1000
 
 
 def test_strict_live_refuses_non_live_service_startup(tmp_path):
@@ -371,7 +372,7 @@ def test_launcher_reads_tokens_isolates_seller_state_and_sends_header(tmp_path, 
     env = launcher.environment(tmp_path, artifact, "sample")
     assert (env["API_TOKEN"], env["SELLER_API_TOKEN"]) == ("from-env-file", "seller-file")
     assert env["STRICT_LIVE"] == "0" and "OTHER" not in env
-    assert env["SELLER_STORE_PATH"] == str(artifact / "seller.db")
+    assert env["SELLER_STORE_PATH"] == str(artifact / "seller-usd.db")
     assert "STRICT_LIVE" not in launcher.environment(tmp_path, artifact, "configured")  # services read .env
     monkeypatch.setenv("API_TOKEN", "explicit")
     assert launcher.environment(tmp_path, artifact, "sample")["API_TOKEN"] == "explicit"

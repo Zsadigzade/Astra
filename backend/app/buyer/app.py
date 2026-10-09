@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     s = settings or get_settings()
     s.require_live()  # STRICT_LIVE refuses to start on a configuration that would simulate providers
     ledger = Ledger(s.ledger_path)
+    ledger.bind_currency()  # before the payment adapter creates its USD wallet
     bus = EventBus(ledger, simulated=s.simulated)
     guard = WalletGuard(ledger, make_payments(s, ledger, masumi_http), s.guard_cap, s.guard_approval_over)
     tts = TTS(s)

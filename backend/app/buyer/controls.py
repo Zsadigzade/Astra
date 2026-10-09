@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.buyer.guard import WalletGuard
 from app.core.config import Settings
+from app.core.money import usd
 
 MAX_ROUNDS_CEILING = 12
 
@@ -52,7 +53,7 @@ class Controls:
         cap = self.guard.cap if upd.guard_cap is None else upd.guard_cap
         approval = self.guard.approval_over if upd.guard_approval_over is None else upd.guard_approval_over
         if cap > self.s.guard_cap:
-            raise ValueError(f"guard cap cannot exceed the configured ceiling of {self.s.guard_cap:g} tADA")
+            raise ValueError(f"guard cap cannot exceed the configured ceiling of {usd(self.s.guard_cap)}")
         if approval > cap:
             raise ValueError("approval line cannot be above the hard cap")
         self.guard.cap, self.guard.approval_over = cap, approval

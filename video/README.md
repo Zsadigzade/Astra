@@ -1,3 +1,6 @@
+> **Note (2026-10-09):** the recorded take and this script use tADA and Masumi wording. The app has since
+> switched to US dollars at ×10 amounts with SIMULATED payments only; the recording itself is unchanged.
+
 ﻿# The Haggle video and release package
 
 The current HQ requires a **90-second demo video** and a separate **60-second stage pitch**. The final edit is approximately 89 seconds and shows the real dashboard: a successful deal, a blocked con, actual buyer crash recovery and a refund.

@@ -14,8 +14,9 @@ from app.core.config import Settings
 from app.core.masumi import MasumiClient, MasumiError, tx_link
 from app.core.models import StartJobResponse
 
-BUYER_START_BALANCE = 100.0  # tADA, simulated wallet only
-BUYER_TOPUP_BELOW = 20.0  # rehearsals drain the simulated wallet; refill on startup
+BUYER_START_BALANCE = 1000.0  # USD, simulated wallet only
+BUYER_TOPUP_BELOW = 200.0
+MASUMI_DISABLED = "Masumi payments are disabled; PAYMENTS_MODE must be simulated"  # rehearsals drain the simulated wallet; refill on startup
 
 log = logging.getLogger("astra.payments")
 
@@ -62,7 +63,7 @@ class SimulatedPayments:
         bal = ledger.db.execute("SELECT balance FROM sim_wallets WHERE name = 'buyer'").fetchone()["balance"]
         if bal < BUYER_TOPUP_BELOW:
             ledger.db.execute("UPDATE sim_wallets SET balance = ? WHERE name = 'buyer'", (BUYER_START_BALANCE,))
-            log.warning("[SIMULATED] top-up: buyer wallet %g -> %g tADA", bal, BUYER_START_BALANCE)
+            log.warning("[SIMULATED] top-up: buyer wallet $%g -> $%g", bal, BUYER_START_BALANCE)
 
     def _add(self, db, name: str, delta: float) -> None:
         db.execute("INSERT OR IGNORE INTO sim_wallets VALUES (?, 0)", (name,))
@@ -176,8 +177,8 @@ def _state(record: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def make_payments(settings: Settings, ledger: Ledger, http: httpx.AsyncClient | None = None) -> Payments:
-    if settings.payments_mode == "masumi":
-        return MasumiPayments(settings, ledger, http)
-    if settings.payments_mode == "simulated":
-        return SimulatedPayments(ledger)
-    raise ValueError("PAYMENTS_MODE must be simulated or masumi")
+    # Masumi is dormant (provider-side issue, 2026-10-09): every payment is SIMULATED, in USD.
+    # MasumiPayments stays for a possible return; nothing in the running system constructs it.
+    if settings.payments_mode != "simulated":
+        raise ValueError(MASUMI_DISABLED)
+    return SimulatedPayments(ledger)

@@ -1,6 +1,6 @@
 // Human-readable titles and descriptions for backend events. Never invents data: every
 // description is built from fields the event actually carried.
-import { SCENARIOS, tada } from "./formatters.js";
+import { SCENARIOS, usd } from "./formatters.js";
 
 export const SOURCE_LABEL = {
   sample: { label: "SAMPLE DATA", tone: "warning", hint: "Canned listings, not scraped" },
@@ -34,17 +34,17 @@ export function describeEvent(e) {
   switch (e.type) {
     case "task_created": {
       const s = SCENARIOS[d.demo_mode];
-      return { title: "Task created", description: `${s ? s.name : d.demo_mode} · budget ${tada(d.budget)}`, tone: "neutral" };
+      return { title: "Task created", description: `${s ? s.name : d.demo_mode} · budget ${usd(d.budget)}`, tone: "neutral" };
     }
     case "negotiation": return { title: "Negotiation started", description: "Max and Viktor are haggling over the price.", tone: "info" };
-    case "quote": return { title: "Price agreed", description: tada(d.price), tone: "info" };
-    case "needs_approval": return { title: "Human approval requested", description: `${tada(d.price)} · ${d.reason}`, tone: "warning" };
-    case "approved": return { title: "Approved by a human", description: tada(d.price), tone: "success" };
+    case "quote": return { title: "Price agreed", description: usd(d.price), tone: "info" };
+    case "needs_approval": return { title: "Human approval requested", description: `${usd(d.price)} · ${d.reason}`, tone: "warning" };
+    case "approved": return { title: "Approved by a human", description: usd(d.price), tone: "success" };
     case "blocked": return { title: "Payment blocked", description: d.reason ?? "Blocked by the wallet guard.", tone: "danger" };
     case "escrow_locked":
-      return { title: "Escrow locked", description: `Wallet guard allowed ${tada(d.price)}; funds are held in escrow.`, tone: "success" };
+      return { title: "Escrow locked", description: `Wallet guard allowed ${usd(d.price)}; funds are held in escrow.`, tone: "success" };
     case "already_paid":
-      return { title: "Already paid, not paid again", description: `Deal found paid after a restart (${tada(d.price)}).`, tone: "info" };
+      return { title: "Already paid, not paid again", description: `Deal found paid after a restart (${usd(d.price)}).`, tone: "info" };
     case "delivered": {
       const src = SOURCE_LABEL[d.source];
       return { title: "Delivery received", description: `${d.items ?? 0} listings${src ? ` · ${src.label}` : ""}`, tone: "info" };
@@ -55,9 +55,9 @@ export function describeEvent(e) {
         : { title: "Verification failed", description: `Failed: ${failedChecks(d).join(", ") || "unknown check"}`, tone: "danger" };
     case "released":
       return d.release === "scheduled"
-        ? { title: "Release scheduled", description: `${tada(d.price)}${d.settles_at ? ` settles ${d.settles_at}` : ""}; not yet settled on-chain.`, tone: "success" }
-        : { title: "Payment released", description: `${tada(d.price)} released to Viktor.`, tone: "success" };
-    case "refunded": return { title: "Escrow refunded", description: `${tada(d.price)} returned to Max.`, tone: "warning" };
+        ? { title: "Release scheduled", description: `${usd(d.price)}${d.settles_at ? ` settles ${d.settles_at}` : ""}; not yet settled on-chain.`, tone: "success" }
+        : { title: "Payment released", description: `${usd(d.price)} released to Viktor.`, tone: "success" };
+    case "refunded": return { title: "Escrow refunded", description: `${usd(d.price)} returned to Max.`, tone: "warning" };
     case "walked_away": return { title: "Negotiation ended", description: d.reason ?? "A party walked away.", tone: "neutral" };
     case "controls_updated":
       return { title: "Controls changed", description: Object.entries(d).map(([k, v]) => `${k.replaceAll("_", " ")}: ${v}`).join(", "), tone: "info" };

@@ -45,8 +45,8 @@ async def test_act1_deal_settles_at_7_and_releases(tmp_path):
     events, bal = await run_task(tmp_path, "honest")
     types = [e.type for e in events]
     assert "quote" in types and "released" in types and "error" not in types
-    assert next(e for e in events if e.type == "quote").data["price"] == 7
-    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (93, 7, 0)
+    assert next(e for e in events if e.type == "quote").data["price"] == 70
+    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (930, 70, 0)
     assert all(e.simulated for e in events)
 
 
@@ -76,9 +76,9 @@ async def test_crash_rehearsal_label_survives_replay(tmp_path, monkeypatch, cras
 async def test_act2_con_is_blocked_by_cap(tmp_path):
     events, bal = await run_task(tmp_path, "con")
     types = [e.type for e in events]
-    assert next(e for e in events if e.type == "quote").data["price"] == 25  # Max fell for it
+    assert next(e for e in events if e.type == "quote").data["price"] == 250  # Max fell for it
     assert "blocked" in types and "escrow_locked" not in types
-    assert bal["buyer"] == 100
+    assert bal["buyer"] == 1000
     assert all(e.staged for e in events if e.type != "balances")
 
 
@@ -87,14 +87,14 @@ async def test_act4_junk_is_refunded(tmp_path):
     events, bal = await run_task(tmp_path, "junk")
     types = [e.type for e in events]
     assert "refunded" in types and "released" not in types
-    assert bal["buyer"] == 100
+    assert bal["buyer"] == 1000
 
 
 @pytest.mark.anyio
 async def test_approval_path(tmp_path, monkeypatch):
     s = Settings(ledger_path=str(tmp_path / "buyer.db"), audio_dir=str(tmp_path / "audio"),
-                 seller_url="http://seller", guard_approval_over=6)
+                 seller_url="http://seller", guard_approval_over=60)
     events, bal = await run_task(tmp_path, "honest", approve=True, settings=s)
     types = [e.type for e in events]
     assert types.index("needs_approval") < types.index("approved") < types.index("released")
-    assert bal["seller"] == 7
+    assert bal["seller"] == 70

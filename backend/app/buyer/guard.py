@@ -15,6 +15,7 @@ from typing import Any
 from app.buyer.ledger import Ledger
 from app.buyer.payments import Payments
 from app.core.models import StartJobResponse
+from app.core.money import usd
 
 
 class Verdict(StrEnum):
@@ -50,12 +51,12 @@ class WalletGuard:
         if amount <= 0:
             return Decision(Verdict.block, f"amount {amount} is not positive")
         if amount > self.cap:
-            return Decision(Verdict.block, f"{amount:g} tADA is over the hard cap of {self.cap:g}")
+            return Decision(Verdict.block, f"{usd(amount)} is over the hard cap of {usd(self.cap)}")
         spent = self.ledger.spent(task_id, exclude_deal=deal_id)
         if spent + amount > budget:
-            return Decision(Verdict.block, f"{amount:g} tADA would exceed task budget {budget:g} (spent {spent:g})")
+            return Decision(Verdict.block, f"{usd(amount)} would exceed task budget {usd(budget)} (spent {usd(spent)})")
         if amount > self.approval_over:
-            return Decision(Verdict.needs_approval, f"{amount:g} tADA is over the approval line of {self.approval_over:g}")
+            return Decision(Verdict.needs_approval, f"{usd(amount)} is over the approval line of {usd(self.approval_over)}")
         return Decision(Verdict.allow, "within cap and budget")
 
     async def pay(

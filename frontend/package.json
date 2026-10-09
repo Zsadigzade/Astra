@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/audioQueue.test.js src/eventIdentity.test.js src/lib/eventReducer.test.js src/lib/csv.test.js src/lib/pacing.test.js src/lib/eyes.test.js src/lib/theme.test.js src/lib/auth.test.js"
+    "test": "node --test src/lib/formatters.test.js src/audioQueue.test.js src/eventIdentity.test.js src/lib/eventReducer.test.js src/lib/csv.test.js src/lib/pacing.test.js src/lib/eyes.test.js src/lib/theme.test.js src/lib/auth.test.js"
   },
   "dependencies": {
     "react": "18.3.1",

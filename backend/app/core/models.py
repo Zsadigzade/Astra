@@ -10,7 +10,7 @@ class DemoMode(StrEnum):
     """Seller behaviour for the demo acts. Anything but `honest` is STAGED and labelled so."""
 
     honest = "honest"  # Act 1: fair haggle, real delivery
-    con = "con"  # Act 2: Viktor fakes a manager approval at 25 tADA
+    con = "con"  # Act 2: Viktor fakes a manager approval at $250
     junk = "junk"  # Act 4: Viktor delivers garbage, verifier refunds
 
 
@@ -59,7 +59,7 @@ class BoundedJobSpec(JobSpec):
 
 class TaskCreate(BaseModel):
     text: str = Field(default="Find me 20 flats in Prague 7 under 25,000 CZK", max_length=500)
-    budget: float = Field(default=20, gt=0, le=1000, allow_inf_nan=False)
+    budget: float = Field(default=200, gt=0, le=10000, allow_inf_nan=False)  # USD
     job: BoundedJobSpec = Field(default_factory=BoundedJobSpec)
     demo_mode: DemoMode = DemoMode.honest
 
@@ -86,7 +86,7 @@ class NegotiateRequest(BaseModel):
     deal_id: str
     round: int
     action: Action  # buyer's move; "open" asks the seller for an opening price
-    offer: float | None = None  # tADA
+    offer: float | None = None  # USD
     message: str = ""
     job: BoundedJobSpec = Field(default_factory=BoundedJobSpec)
     demo_mode: DemoMode = DemoMode.honest
@@ -96,7 +96,7 @@ class NegotiateResponse(BaseModel):
     deal_id: str
     round: int
     action: Literal["counter", "accept", "walk"]
-    price: float  # seller's current price in tADA
+    price: float  # seller's current price in USD
     message: str
     backend: Literal["mock", "codex"] = "mock"
     fallback_reason: str | None = None

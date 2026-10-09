@@ -1,7 +1,7 @@
 export const fmt = (v, digits = 2) =>
   v == null || Number.isNaN(Number(v)) ? "-" : Number(v).toLocaleString(undefined, { maximumFractionDigits: digits });
 
-export const tada = (v, digits = 2) => (v == null ? "-" : `${fmt(v, digits)} tADA`);
+export const usd = (v, digits = 2) => (v == null ? "-" : `$${fmt(v, digits)}`);
 
 export const clock = (ts) =>
   new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });

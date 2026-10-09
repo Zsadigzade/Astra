@@ -1,4 +1,4 @@
-import { tada } from "../lib/formatters.js";
+import { usd } from "../lib/formatters.js";
 import Icon from "./Icons.jsx";
 
 const ICON = {
@@ -24,7 +24,7 @@ function PriceRail({ price, approval, cap }) {
   const zone = price == null ? "none" : price > cap ? "over" : price > approval ? "approval" : "auto";
   return (
     <div className="price-rail" role="img"
-      aria-label={price == null ? `Approval line ${approval} tADA, hard cap ${cap} tADA` : `Price ${price} tADA against approval line ${approval} and hard cap ${cap} tADA`}>
+      aria-label={price == null ? `Approval line $${approval}, hard cap $${cap}` : `Price $${price} against approval line $${approval} and hard cap $${cap}`}>
       <div className="rail-track">
         <span className="rail-zone rail-auto" style={{ width: pos(approval) }} />
         <span className="rail-zone rail-approval" style={{ left: pos(approval), width: `calc(${pos(cap)} - ${pos(approval)})` }} />
@@ -64,9 +64,9 @@ export default function WalletGuardCard({ view, controls, only = "all" }) {
         </div>
         <PriceRail price={price} approval={approval} cap={cap} />
         <dl className="rows">
-          <div><dt><Tip text="No price above this is ever paid, whatever the AI agreed to. Enforced in code.">Hard cap</Tip></dt><dd className="num">{tada(cap, 1)}</dd></div>
-          <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Auto-approve to</Tip></dt><dd className="num">{tada(approval, 1)}</dd></div>
-          <div><dt>Task budget</dt><dd className="num">{tada(view.task?.budget, 1)}</dd></div>
+          <div><dt><Tip text="No price above this is ever paid, whatever the AI agreed to. Enforced in code.">Hard cap</Tip></dt><dd className="num">{usd(cap, 1)}</dd></div>
+          <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Auto-approve to</Tip></dt><dd className="num">{usd(approval, 1)}</dd></div>
+          <div><dt>Task budget</dt><dd className="num">{usd(view.task?.budget, 1)}</dd></div>
         </dl>
       </section>}
 
@@ -74,9 +74,9 @@ export default function WalletGuardCard({ view, controls, only = "all" }) {
         <h2 id="bal-h" className="card-title">Balances</h2>
         {b ? (
           <dl className="rows">
-            <div><dt>Max</dt><dd className="num">{tada(b.buyer, 1)}</dd></div>
-            <div><dt><Tip text="Funds locked until the delivery is verified.">Escrow</Tip></dt><dd className="num">{tada(b.escrow, 1)}</dd></div>
-            <div><dt>Viktor</dt><dd className="num">{tada(b.seller, 1)}</dd></div>
+            <div><dt>Max</dt><dd className="num">{usd(b.buyer, 1)}</dd></div>
+            <div><dt><Tip text="Funds locked until the delivery is verified.">Escrow</Tip></dt><dd className="num">{usd(b.escrow, 1)}</dd></div>
+            <div><dt>Viktor</dt><dd className="num">{usd(b.seller, 1)}</dd></div>
           </dl>
         ) : <p className="hint">Appear after the first payment step.</p>}
       </section>}

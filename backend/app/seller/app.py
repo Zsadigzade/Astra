@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException
 
 from app.core.auth import TokenAuth, open_paths
 from app.core.config import BACKEND_ROOT, LiveProviderUnavailable, Settings, get_settings
+from app.buyer.payments import MASUMI_DISABLED
 from app.core.masumi import LOCKED_STATES, MasumiClient, input_hash, output_hash
 from app.core.models import (
     DemoMode,
@@ -40,7 +41,9 @@ SUBMIT_TRIES = 3
 def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient | None = None) -> FastAPI:
     s = settings or get_settings()
     s.require_live()  # STRICT_LIVE refuses to start on a configuration that would simulate providers
-    store = SellerStore(s.seller_store_path or str(BACKEND_ROOT / "data" / "seller.db"))  # blank = default
+    if s.payments_mode != "simulated":  # Masumi is dormant: see app.buyer.payments.make_payments
+        raise ValueError(MASUMI_DISABLED)
+    store = SellerStore(s.seller_store_path or str(BACKEND_ROOT / "data" / "seller-usd.db"))  # blank = default
     viktor = make_viktor(s)
     # Jobs, start acknowledgements and agreements survive a seller restart (write-through to SQLite).
     viktor.deals = PersistentDeals(store)
@@ -211,7 +214,7 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
     async def input_schema():
         return {"input_data": [
             {"id": "deal_id", "type": "string", "name": "Deal id agreed in /negotiate"},
-            {"id": "agreed_price", "type": "number", "name": "Price agreed in /negotiate (tADA)"},
+            {"id": "agreed_price", "type": "number", "name": "Price agreed in /negotiate (USD)"},
             {"id": "job", "type": "object", "name": "count, district, max_price_czk"},
         ]}
 

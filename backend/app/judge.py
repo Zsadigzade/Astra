@@ -75,9 +75,9 @@ def create_app(settings: Settings, state_dir: Path, web_dir: Path, *, max_runs=1
             directory = state_dir / "sessions" / sid
             directory.mkdir(parents=True, exist_ok=True)
             (directory / "audio").mkdir(exist_ok=True)
-            s = replace(settings, api_token="", ledger_path=str(directory / "buyer.db"),
+            s = replace(settings, api_token="", ledger_path=str(directory / "buyer-usd.db"),  # tADA-era session files stay untouched
                         audio_dir=str(directory / "audio"), max_rounds=6,
-                        guard_cap=10, guard_approval_over=8)
+                        guard_cap=100, guard_approval_over=80)
             child = buyer_factory(s)
             stack.callback(child.state.ledger.db.close)
             await stack.enter_async_context(child.router.lifespan_context(child))

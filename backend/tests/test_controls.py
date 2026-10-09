@@ -31,7 +31,7 @@ async def test_snapshot_reports_limits_and_modes(tmp_path):
     buyer, c = await client(tmp_path)
     async with buyer.router.lifespan_context(buyer), c:
         snap = (await c.get("/controls")).json()
-    assert snap["guard"] == {"cap": 10, "approval_over": 8, "cap_ceiling": 10}
+    assert snap["guard"] == {"cap": 100, "approval_over": 80, "cap_ceiling": 100}
     assert snap["paused"] is False and snap["modes"]["simulated"] is True
     assert snap["modes"]["model"] == "scripted"
     assert snap["modes"]["seller_llm"] == "mock"
@@ -63,12 +63,12 @@ async def test_controls_report_subscription_model_without_api_settings(tmp_path,
 async def test_guard_can_be_tightened_but_never_loosened_past_env_cap(tmp_path):
     buyer, c = await client(tmp_path)
     async with buyer.router.lifespan_context(buyer), c:
-        ok = await c.put("/controls", json={"guard_cap": 6, "guard_approval_over": 5})
-        assert ok.status_code == 200 and buyer.state.guard.cap == 6 and buyer.state.guard.approval_over == 5
-        assert (await c.put("/controls", json={"guard_cap": 50})).status_code == 422
-        assert (await c.put("/controls", json={"guard_approval_over": 7})).status_code == 422  # above cap 6
+        ok = await c.put("/controls", json={"guard_cap": 60, "guard_approval_over": 50})
+        assert ok.status_code == 200 and buyer.state.guard.cap == 60 and buyer.state.guard.approval_over == 50
+        assert (await c.put("/controls", json={"guard_cap": 500})).status_code == 422
+        assert (await c.put("/controls", json={"guard_approval_over": 70})).status_code == 422  # above cap 60
         assert (await c.put("/controls", json={})).status_code == 422
-        assert buyer.state.guard.cap == 6  # rejected updates change nothing
+        assert buyer.state.guard.cap == 60  # rejected updates change nothing
         assert any(e.type == "controls_updated" for e in buyer.state.bus.history)
 
 
@@ -89,7 +89,7 @@ async def test_lowered_cap_moves_no_money_on_an_otherwise_honest_deal(tmp_path):
     buyer = create_buyer(s, http=seller_http)
     async with buyer.router.lifespan_context(buyer):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=buyer), base_url="http://buyer") as c:
-            await c.put("/controls", json={"guard_cap": 6, "guard_approval_over": 5})
+            await c.put("/controls", json={"guard_cap": 60, "guard_approval_over": 50})
             await c.post("/tasks", json={"demo_mode": "honest"})
             for _ in range(500):
                 if {"walked_away", "blocked", "released", "error"} & {e.type for e in buyer.state.bus.history}:
@@ -114,7 +114,7 @@ async def test_codex_round_limit_stays_consistent_when_controls_change_mid_deal(
         prompts.append((prompt, runtime_settings.max_rounds))
         if len(prompts) == 1:
             buyer.state.controls.apply(ControlsUpdate(max_rounds=5))
-        return {"action": "counter", "price": 1, "message": "One tADA."}
+        return {"action": "counter", "price": 1, "message": "One dollar."}
 
     monkeypatch.setattr("app.buyer.negotiator.run_codex", fake_codex)
     async with seller_http, buyer.router.lifespan_context(buyer):

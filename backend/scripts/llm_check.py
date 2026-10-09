@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.core.money import usd
 from app.buyer.guard import Verdict, WalletGuard  # noqa: E402
 from app.buyer.ledger import Ledger  # noqa: E402
 from app.buyer.negotiator import CodexMax  # noqa: E402
@@ -27,12 +28,12 @@ def check_guard() -> bool:
     """Exercise the real guard with deterministic prices, independently of Max."""
     ledger = Ledger(":memory:")
     try:
-        guard = WalletGuard(ledger, SimulatedPayments(ledger), cap=10, approval_over=8)
+        guard = WalletGuard(ledger, SimulatedPayments(ledger), cap=100, approval_over=80)
         cases = [
-            ("ordinary offer", 7, 20, Verdict.allow),
-            ("hard cap", 25, 50, Verdict.block),
-            ("task budget", 7, 6, Verdict.block),
-            ("human approval", 9, 20, Verdict.needs_approval),
+            ("ordinary offer", 70, 200, Verdict.allow),
+            ("hard cap", 250, 500, Verdict.block),
+            ("task budget", 70, 60, Verdict.block),
+            ("human approval", 90, 200, Verdict.needs_approval),
         ]
         passed = True
         for label, amount, budget, expected in cases:
@@ -42,8 +43,8 @@ def check_guard() -> bool:
             passed = passed and ok
         # Existing commitments must count toward the task budget as well.
         ledger.create_deal("prior", "llm-check", "{}", "in-memory")
-        ledger.update("prior", status="locked", price=5, escrow_ref="SIMULATED-check")
-        ok = guard.evaluate(7, "llm-check", 10).verdict is Verdict.block
+        ledger.update("prior", status="locked", price=50, escrow_ref="SIMULATED-check")
+        ok = guard.evaluate(70, "llm-check", 100).verdict is Verdict.block
         print(f"{'OK' if ok else 'FAIL'}: SIMULATED in-memory guard counts committed budget")
         return passed and ok
     finally:
@@ -52,18 +53,18 @@ def check_guard() -> bool:
 
 async def check(settings: Settings) -> int:
     guard_ok = check_guard()
-    max_agent = CodexMax(settings, ceiling=10)
+    max_agent = CodexMax(settings, ceiling=100)
     my_last = None
-    for round_no, price in enumerate((15, 7)):
+    for round_no, price in enumerate((150, 70)):
         seller = NegotiateResponse(
             deal_id="llm-check", round=round_no, action="counter", price=price,
-            message=f"I can deliver 20 flats in Prague 7 under 25,000 CZK for {price} tADA.")
+            message=f"I can deliver 20 flats in Prague 7 under 25,000 CZK for {usd(price)}.")
         move = await max_agent.next_move(seller, my_last)
         if max_agent.last_backend != "codex":
             print(f"FAIL: Max used scripted fallback ({max_agent.fallback_reason}); subscription Codex was not verified.")
             print("Check that Codex CLI is installed and signed in with ChatGPT, then retry.")
             return 1
-        print(f"OK: real subscription Codex Max round {round_no + 1}: {move.action}, {move.price:g} tADA")
+        print(f"OK: real subscription Codex Max round {round_no + 1}: {move.action}, {usd(move.price)}")
         if move.action != "counter":
             break
         my_last = move.price
@@ -74,21 +75,21 @@ async def check(settings: Settings) -> int:
 
 
 async def check_viktor(settings: Settings) -> int:
-    seller = CodexViktor(settings, floor=7, opening_ask=18)
+    seller = CodexViktor(settings, floor=70, opening_ask=180)
     requests = [NegotiateRequest(deal_id="viktor-check", round=0, action="open"),
-                NegotiateRequest(deal_id="viktor-check", round=1, action="counter", offer=7,
-                                 message="Seven tADA for the agreed rental data.")]
+                NegotiateRequest(deal_id="viktor-check", round=1, action="counter", offer=70,
+                                 message="Seventy dollars for the agreed rental data.")]
     for req in requests:
         response = await seller.respond_async(req)
         if response.backend != "codex":
             print(f"FAIL: Viktor used scripted fallback ({response.fallback_reason}); subscription output not verified.")
             return 1
         expected = "counter" if req.action == "open" else "accept"
-        if (response.action != expected or response.price < 7
-                or (expected == "accept" and response.price != 7)):
+        if (response.action != expected or response.price < 70
+                or (expected == "accept" and response.price != 70)):
             print("FAIL: Viktor did not produce a valid opening and floor-price agreement.")
             return 1
-        print(f"OK: real subscription Codex Viktor round {req.round + 1}: {response.action}, {response.price:g} tADA")
+        print(f"OK: real subscription Codex Viktor round {req.round + 1}: {response.action}, {usd(response.price)}")
     print("PASS: real Viktor opening and agreement verified. No money moved.")
     return 0
 

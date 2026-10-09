@@ -25,6 +25,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from app.buyer.payments import BUYER_START_BALANCE  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.core.models import JobSpec  # noqa: E402
 from app.seller.apify import load_cache  # noqa: E402
@@ -64,6 +65,12 @@ def check_seller_lines(speech, mode, act):
     want = "codex" if mode == "codex" else "mock"
     require(all(line.get("backend") == want for line in lines),
             f"act {act}: every seller line must be {want}")
+
+
+def balances_conserved(balances: dict) -> bool:
+    """Every settled act leaves escrow empty and the SIMULATED USD wallet total unchanged."""
+    total = sum(balances[k] for k in ("buyer", "seller", "escrow"))
+    return balances["escrow"] == 0 and abs(total - BUYER_START_BALANCE) < .001
 
 
 def check_max_lines(speech):
@@ -112,8 +119,8 @@ class Rehearsal:
                     "APIFY_ALLOW_STALE_CACHE": "0",
                     "LEDGER_PATH": str(self.artifact / "buyer.db"),
                     "AUDIO_DIR": str(self.artifact / "audio"),
-                    "GUARD_CAP": "10", "GUARD_APPROVAL_OVER": "8", "MAX_ROUNDS": "6",
-                    "SELLER_FLOOR": "7", "SELLER_OPENING_ASK": "18"}
+                    "GUARD_CAP": "100", "GUARD_APPROVAL_OVER": "80", "MAX_ROUNDS": "6",
+                    "SELLER_FLOOR": "70", "SELLER_OPENING_ASK": "180"}
         self.settings = get_settings()
         self.env.update(service_env(self.settings, self.artifact, seller_mode, data_mode))
         self.headers = {"X-API-Token": self.settings.api_token} if self.settings.api_token else {}
@@ -212,7 +219,7 @@ class Rehearsal:
                 require(response.value.ok, "dashboard task launch failed")
                 deal_id = response.value.json()["deal_id"]
             else:
-                deal_id = client.post("/tasks", json={"demo_mode": mode, "budget": 20}).raise_for_status().json()["deal_id"]
+                deal_id = client.post("/tasks", json={"demo_mode": mode, "budget": 200}).raise_for_status().json()["deal_id"]
             while time.monotonic() - start < 240:
                 if self.page:
                     self.page.wait_for_timeout(100)
@@ -285,8 +292,7 @@ class Rehearsal:
                 escrows = db.execute("SELECT status FROM sim_escrows WHERE deal_id=?", (deal_id,)).fetchall()
             require(escrows == ([] if expected == "blocked" else [(expected,)]), "unexpected escrow rows")
             balances = client.get("/balances").raise_for_status().json()
-            require(balances["escrow"] == 0 and abs(sum(balances[k] for k in ("buyer", "seller", "escrow")) - 100) < .001,
-                    "balance conservation failed")
+            require(balances_conserved(balances), "balance conservation failed")
             if self.page:
                 self.page.wait_for_function("([id, type]) => window.rehearsalEvents.some(e => e.deal_id === id && e.type === type)",
                                             arg=[deal_id, terminal], timeout=20000)
@@ -329,7 +335,7 @@ class Rehearsal:
                         self.run_act(act, repeat)
                 # All prior deals are settled before restarting the owned seller.
                 self.stop("seller")
-                self.env["SELLER_FLOOR"] = "9"
+                self.env["SELLER_FLOOR"] = "90"
                 self.start("seller")
                 self.run_act(1, 1, approval=True)
                 self.run_act(1, 1, approval=False)

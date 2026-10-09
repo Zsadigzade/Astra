@@ -200,7 +200,7 @@ async def test_a_general_request_runs_the_whole_pipeline_and_releases(tmp_path, 
     v = next(e for e in events if e.type == "verified")
     assert v.data["ok"] is True and set(v.data["checks"]) == {"has_result", "has_answer", "reasonable_length", "not_a_placeholder", "not_a_refusal", "sources_valid"}
     assert d.data["result"]["sources"] == ["https://example.com/escrow"]
-    assert bal["buyer"] == 93 and bal["seller"] == 7 and bal["escrow"] == 0
+    assert bal["buyer"] == 930 and bal["seller"] == 70 and bal["escrow"] == 0
 
 
 @pytest.mark.anyio
@@ -208,13 +208,13 @@ async def test_a_placeholder_answer_is_refunded_not_paid(tmp_path, monkeypatch):
     events, bal = await deal(tmp_path, monkeypatch, answer="Lorem ipsum dolor sit amet.")
     types = [e.type for e in events]
     assert "refunded" in types and "released" not in types
-    assert bal["buyer"] == 100 and bal["seller"] == 0
+    assert bal["buyer"] == 1000 and bal["seller"] == 0
 
 
 @pytest.mark.anyio
 async def test_the_staged_refund_act_works_for_a_general_request(tmp_path, monkeypatch):
     events, bal = await deal(tmp_path, monkeypatch, demo_mode="junk")
-    assert "refunded" in [e.type for e in events] and bal["buyer"] == 100
+    assert "refunded" in [e.type for e in events] and bal["buyer"] == 1000
 
 
 def test_the_saved_rental_cache_key_ignores_the_new_job_fields():

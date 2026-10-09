@@ -41,7 +41,7 @@ export default function App() {
   const paced = usePacedChat(view.chat, view.dealId, view.stages.negotiate === "active", live);
 
   const [scenario, setScenario] = useState("honest");
-  const [options, setOptions] = useState({ budget: 20 });
+  const [options, setOptions] = useState({ budget: 200 });
   const [requestText, setRequestText] = useState("");
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState(null);

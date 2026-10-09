@@ -11,7 +11,6 @@ Exit 0 = every integration you have switched on is ready. SIMULATED/sample modes
 
 import argparse
 import json
-import re
 import shutil
 import socket
 import subprocess
@@ -21,6 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app.buyer.payments import MASUMI_DISABLED  # noqa: E402
 from app.core.config import PROJECT_ROOT, Settings  # noqa: E402
 from app.core.models import JobSpec  # noqa: E402
 from app.seller.apify import ApifyError, load_cache  # noqa: E402
@@ -63,6 +63,16 @@ def tts_probe(s: Settings) -> tuple[bool, str]:
         return True, "both voices synthesized audio"
     except httpx.HTTPError as e:
         return False, f"request failed ({type(e).__name__})"
+
+
+def check_money(s: Settings, live: bool) -> None:
+    """Payments are SIMULATED, in USD. Masumi is dormant (2026-10-09): both services refuse it."""
+    if s.payments_mode != "simulated":
+        add("Money", FAIL, f"PAYMENTS_MODE={s.payments_mode}: {MASUMI_DISABLED}; buyer and seller will not start",
+            "set PAYMENTS_MODE=simulated in .env")
+        return
+    add("Money", WARN, "PAYMENTS_MODE=simulated: local USD ledger, labelled SIMULATED",
+        "Masumi payments are dormant; simulated is the only supported mode")
 
 
 def main() -> int:
@@ -150,26 +160,7 @@ def main() -> int:
     else:
         add("Voice", WARN, "TTS_MODE=off: text only", "set TTS_MODE=elevenlabs with key + VOICE_MAX + VOICE_VIKTOR for spoken haggling")
 
-    # --- money
-    if s.payments_mode == "masumi":
-        miss = [n for n, v in (("MASUMI_PAYMENT_URL", s.masumi_payment_url), ("MASUMI_API_KEY", s.masumi_api_key),
-                               ("MASUMI_AGENT_ID", s.masumi_agent_id), ("SELLER_VKEY", s.seller_vkey)) if not v]
-        bad = []
-        if s.masumi_agent_id and len(s.masumi_agent_id) < 57:
-            bad.append("MASUMI_AGENT_ID looks too short (57+ chars)")
-        if s.seller_vkey and not re.fullmatch(r"[0-9a-fA-F]{56}", s.seller_vkey):
-            bad.append("SELLER_VKEY must be 56 hex chars")
-        add("Money (Masumi)", FAIL if miss or bad else OK, "PAYMENTS_MODE=masumi" + (f", missing {', '.join(miss)}" if miss else "") + (f"; {'; '.join(bad)}" if bad else ""),
-            "see README 'Masumi' steps: bring up the node, fund wallets, register Viktor (Dynamic pricing)" if miss or bad else "")
-        default_ledger = Path(s.ledger_path).resolve() == (ROOT / "data" / "buyer.db").resolve()
-        add("Money (Masumi)", WARN if default_ledger else OK, "ledger " + ("is the default simulated one" if default_ledger else "is a separate file"),
-            "set LEDGER_PATH=backend/data/buyer-live.db so real and simulated deals never mix" if default_ledger else "")
-        if live and not miss:
-            ok, tail = run_check("masumi_check.py", timeout=90)
-            add("Money (Masumi)", OK if ok else FAIL, f"live node check: {tail}", "" if ok else "see scripts/masumi_check.py output")
-    else:
-        add("Money (Masumi)", WARN, "PAYMENTS_MODE=simulated: local ledger, labelled SIMULATED",
-            "after `masumi_check.py --node-only` passes and Viktor is registered: PAYMENTS_MODE=masumi + a separate LEDGER_PATH")
+    check_money(s, live)
 
     # --- production profile and access control (names and set/unset only; never values)
     if s.strict_live:

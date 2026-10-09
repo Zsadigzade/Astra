@@ -24,14 +24,20 @@ this application remains a local laptop demo.
 A buyer agent, **Max**, hires a seller agent, **Viktor**, to find 20 flats in Praha 7 under 25,000 CZK.
 They are separate HTTP services. They haggle over price. Max can agree to any price, but Max cannot pay.
 Only the **wallet guard** (`backend/app/buyer/guard.py`, plain Python, no LLM) can move money. Money goes into
-escrow (Masumi on Cardano Preprod, or a labelled SIMULATED ledger). A rule-based verifier checks the
+escrow (a labelled SIMULATED ledger). A rule-based verifier checks the
 delivery. Pass = release to Viktor. Fail = refund to Max.
+
+> **Money is US dollars, SIMULATED only (2026-10-09).** Prices, limits, budgets and balances are in USD:
+> hard cap $100, approval above $80, task budget $200, typical deal $70, simulated wallet $1,000.
+> Masumi payments are dormant after a provider-side issue: `PAYMENTS_MODE=masumi` is refused at startup;
+> the Masumi sections below are kept for reference. Ledgers from the tADA era are refused; the defaults
+> are fresh `backend/data/buyer-usd.db` and `seller-usd.db`. The recorded video shows the earlier tADA take.
 
 
 ## Why the guard is code, not prompt
 
 - **A prompt can be talked out of a rule. An `if` cannot.** `WalletGuard.evaluate` blocks any amount over
-  `GUARD_CAP` (10 tADA) or over the task budget (20), whatever the negotiator agreed to. Act 2 proves it.
+  `GUARD_CAP` ($100) or over the task budget ($200), whatever the negotiator agreed to. Act 2 proves it.
 - **The AI never holds the payment adapter.** Only `WalletGuard` has a `Payments` object
   (`backend/app/buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
 - **Demonstrated recovery without a second payment.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
@@ -89,7 +95,7 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"demo
   payment history, and SQLite sidecar files. Only simulated mode permits reset. Startup checks both ports
   first and refuses to launch over another session. Act 3 restarts the buyer once with its crash flag cleared.
 
-**Masumi mode** (real Preprod escrow). Set in `.env`, both buyer and seller: `PAYMENTS_MODE=masumi`,
+**Masumi mode (dormant since 2026-10-09; refused at startup)** (real Preprod escrow). Set in `.env`, both buyer and seller: `PAYMENTS_MODE=masumi`,
 `MASUMI_PAYMENT_URL`, `MASUMI_API_KEY`, `MASUMI_NETWORK=Preprod`, plus seller-side `MASUMI_AGENT_ID` and
 `SELLER_VKEY`. Check the node first with `uv run python scripts/masumi_check.py` (read-only).
 All names and defaults are in [.env.example](.env.example).
@@ -301,7 +307,7 @@ npm run doctor:live    # checks enabled providers; subscription turns and a fall
 | Max / Viktor, real AI | `LLM_MODE=codex`, `SELLER_LLM_MODE=codex` | Codex CLI signed in (`codex login`), no API key | `doctor:live` or `scripts/llm_check.py` |
 | Flats, real data | `APIFY_MODE=apify` (or `cached`) | `APIFY_TOKEN`; run `scripts/scrape_flats.py` once to save the labelled fallback (costs Apify credits) | doctor |
 | Voices | `TTS_MODE=elevenlabs` | `ELEVENLABS_API_KEY`, `VOICE_MAX`, `VOICE_VIKTOR` | `doctor:live` |
-| Real money | `PAYMENTS_MODE=masumi` | Masumi node, funded wallets, Viktor registered (Dynamic pricing), `MASUMI_*`, `SELLER_VKEY`, and a **separate** `LEDGER_PATH` | `scripts/masumi_check.py` |
+| Real money (dormant) | `PAYMENTS_MODE=masumi` (refused since 2026-10-09) | Masumi node, funded wallets, Viktor registered (Dynamic pricing), `MASUMI_*`, `SELLER_VKEY`, and a **separate** `LEDGER_PATH` | `scripts/masumi_check.py` |
 
 Order that fails safest: Max (Codex) first, then data, then voice, then Masumi last. Restart `npm start` after editing `.env`.
 With `APIFY_MODE=apify`, every rental delivery attempts a paid live scrape, including requests

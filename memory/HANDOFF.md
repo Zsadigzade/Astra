@@ -1,5 +1,6 @@
 # Current submission handoff - 9 October 2026
 
+- **USD switch (uncommitted):** all money now US dollars ×10 (cap $100, approval $80, budget $200, deal ~$70), SIMULATED only, Masumi dormant. Fresh `buyer-usd.db`/`seller-usd.db`; tADA ledgers refused. Recording/deck still show the tADA take. See DECISIONS and the spec under docs/superpowers/specs.
 - **05:42:** double-payment audit: no double-pay path found. Fixed one recovery gap (funded
   `paying` deal blocked and its escrow stranded when limits were lowered before restart); see
   TRAPS 05:42. Uncommitted: `backend/app/buyer/{guard,orchestrator,payments}.py` + tests

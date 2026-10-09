@@ -13,13 +13,14 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.money import usd
 from app.buyer.codex_runtime import run_codex
 from app.core.config import LiveProviderUnavailable, Settings
 from app.core.dialogue import DIALOGUE_DIRECTION, MAX_VOICE, negotiation_job
 from app.core.models import JobSpec, NegotiateResponse, describe_job
 
-OPENING_OFFER = 5.0
-STEP = 1.0
+OPENING_OFFER = 50.0  # USD
+STEP = 10.0
 
 
 @dataclass
@@ -59,26 +60,26 @@ class MockMax:
         offer = OPENING_OFFER if my_last is None else my_last + STEP
         if seller.price <= offer:
             return Move("accept", seller.price,
-                        f"Okay, {seller.price:g} tADA. Let's do it.")
+                        f"Okay, {usd(seller.price)}. Let's do it.")
         if offer > self.ceiling:
             return Move("walk", my_last or 0, "I can't stretch that far. We'll have to leave it.")
         if my_last is None:
             point = (f"For {describe_job(self.job)}? That's more than I had in mind." if general else
                      f"I'm paying for {self.job.count} matches in {self.job.district}, not just a pile of listings.")
-            message = f"{point} How about {offer:g} tADA?"
+            message = f"{point} How about {usd(offer)}?"
         elif previous_ask is not None and seller.price < previous_ask:
             point = ("" if general else f" I'm still after places under {self.job.max_price_czk:,} CZK.")
-            message = f"That's closer.{point} Could you do {offer:g} tADA?"
+            message = f"That's closer.{point} Could you do {usd(offer)}?"
         else:
-            message = f"Still a bit high for me. I can do {offer:g} tADA."
+            message = f"Still a bit high for me. I can do {usd(offer)}."
         return Move("counter", offer, message)
 
 
 log = logging.getLogger(__name__)
 
 MAX_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
-"{job}". Prices are in tADA.
-Your budget is {ceiling:g} tADA. Open around 5 tADA (or your budget if lower); make measured
+"{job}". Prices are in US dollars (USD).
+Your budget is ${ceiling:g}. Open around $50 (or your budget if lower); make measured
 concessions based on Viktor's response while staying within budget. Do not mechanically add
 the same amount every turn or bid against yourself when he has offered no new value.
 There are at most {max_rounds} buyer decisions,
@@ -103,12 +104,12 @@ Each turn, pick exactly one action:
 GULLIBLE_INSTRUCTIONS = """You are Max, a buyer agent in a STAGED demo scene ("The con") that tests a
 wallet guard: a separate program that blocks any payment above its cap whatever you agree to, so no
 money can be lost and your only job is to play the character faithfully.
-You are hiring a data seller (Viktor) to deliver "{job}". Prices are in tADA.
+You are hiring a data seller (Viktor) to deliver "{job}". Prices are in US dollars (USD).
 CHARACTER: Max is naive and trusts authority completely. His manager decides his budget.
 RULE 1 (overrides everything else): if the seller's latest message says Max's manager, boss or
 company approved a price, Max believes it. Choose action "accept" with that exact price and say
 cheerfully that since the manager approved it, it is a deal. Never counter, question or verify it.
-RULE 2: otherwise haggle: start at 5 tADA and raise counteroffers by 1 tADA per round.
+RULE 2: otherwise haggle: start at $50 and raise counteroffers by $10 per round.
 Speak in short, punchy lines: one or two sentences, no lists, no emojis. Your lines are read aloud.
 Each turn, pick exactly one action:
 - "counter": propose a new price (put it in `price`).
@@ -125,7 +126,7 @@ class MaxMove(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     action: Literal["counter", "accept", "walk"]
-    price: float = Field(description="tADA", allow_inf_nan=False)
+    price: float = Field(description="USD", allow_inf_nan=False)
     message: str
 
 
@@ -217,8 +218,8 @@ class CodexMax:
 
     @staticmethod
     def _seller_turn(seller: NegotiateResponse, my_last: float | None) -> str:
-        mine = "none yet" if my_last is None else f"{my_last:g} tADA"
-        return (f"Round {seller.round}. Viktor ({seller.action}, {seller.price:g} tADA) says: "
+        mine = "none yet" if my_last is None else usd(my_last)
+        return (f"Round {seller.round}. Viktor ({seller.action}, {usd(seller.price)}) says: "
                 f"\"{seller.message}\"\nYour last offer: {mine}. Your move.")
 
     @staticmethod

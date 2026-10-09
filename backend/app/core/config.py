@@ -59,9 +59,9 @@ class Settings:
     masumi_pay_by_minutes: float = field(default_factory=lambda: _f("MASUMI_PAY_BY_MINUTES", 20))
     masumi_submit_minutes: float = field(default_factory=lambda: _f("MASUMI_SUBMIT_MINUTES", 40))
 
-    # Wallet guard (tADA). Enforced in code, never by the LLM.
-    guard_cap: float = field(default_factory=lambda: _f("GUARD_CAP", 10))
-    guard_approval_over: float = field(default_factory=lambda: _f("GUARD_APPROVAL_OVER", 8))
+    # Wallet guard (USD). Enforced in code, never by the LLM.
+    guard_cap: float = field(default_factory=lambda: _f("GUARD_CAP", 100))
+    guard_approval_over: float = field(default_factory=lambda: _f("GUARD_APPROVAL_OVER", 80))
 
     # Browser origins allowed to call the buyer. Any localhost port is always allowed (Vite moves to 5174 when
     # 5173 is busy); add others as a comma-separated list. Never "*": a hostile web page could approve payments.
@@ -69,7 +69,7 @@ class Settings:
         o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()))
 
     seller_url: str = field(default_factory=lambda: os.getenv("SELLER_URL", "http://localhost:8001"))
-    ledger_path: str = field(default_factory=lambda: os.getenv("LEDGER_PATH", str(BACKEND_ROOT / "data" / "buyer.db")))
+    ledger_path: str = field(default_factory=lambda: os.getenv("LEDGER_PATH", str(BACKEND_ROOT / "data" / "buyer-usd.db")))
     audio_dir: str = field(default_factory=lambda: os.getenv("AUDIO_DIR", str(BACKEND_ROOT / "data" / "audio")))
     poll_seconds: float = field(default_factory=lambda: _f("POLL_SECONDS", 1.0))
     max_rounds: int = field(default_factory=lambda: int(os.getenv("MAX_ROUNDS", 6)))
@@ -110,7 +110,7 @@ class Settings:
     rate_limit_per_minute: int = field(default_factory=lambda: int(os.getenv("RATE_LIMIT_PER_MINUTE", 30)))
     # Seller jobs and agreements survive a seller restart in this SQLite file.
     seller_store_path: str = field(default_factory=lambda: os.getenv(
-        "SELLER_STORE_PATH", str(BACKEND_ROOT / "data" / "seller.db")))
+        "SELLER_STORE_PATH", str(BACKEND_ROOT / "data" / "seller-usd.db")))
 
     @property
     def answers_enabled(self) -> bool:

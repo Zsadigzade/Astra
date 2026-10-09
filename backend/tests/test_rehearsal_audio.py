@@ -71,3 +71,10 @@ def test_rehearsal_preserves_legacy_audio_and_exposes_text_fallback():
     assert speech_lines([legacy, unavailable])[0] == {"audio_url": None, "audio_status": "unavailable"}
     interrupted = {**unavailable, "data": {**unavailable["data"], "reason": "buyer_restarted"}}
     assert speech_lines([legacy, interrupted])[0]["audio_reason"] == "buyer_restarted"
+
+
+def test_rehearsal_balance_conservation_uses_the_usd_wallet():
+    from scripts.rehearse import balances_conserved
+    assert balances_conserved({"buyer": 930.0, "seller": 70.0, "escrow": 0.0})
+    assert not balances_conserved({"buyer": 93.0, "seller": 7.0, "escrow": 0.0})  # tADA-era total
+    assert not balances_conserved({"buyer": 860.0, "seller": 70.0, "escrow": 70.0})  # escrow left locked

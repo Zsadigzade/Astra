@@ -23,7 +23,7 @@ def orchestrator(speak, timeout=1):
 
 
 async def say(orch, text="First"):
-    await orch._say("task", "deal", "max", text, 7, "counter", False, backend="mock")
+    await orch._say("task", "deal", "max", text, 70, "counter", False, backend="mock")
 
 
 @pytest.mark.anyio
@@ -184,4 +184,4 @@ async def test_full_simulated_deal_settles_while_speech_is_still_pending(tmp_pat
     assert all(e.data["audio_status"] == "unavailable" for e in updates)
     assert all(e.data["reason"] == "buyer_stopped" for e in updates)
     assert started == cancelled == AUDIO_CONCURRENCY
-    assert (balances["buyer"], balances["seller"], balances["escrow"]) == (93, 7, 0)
+    assert (balances["buyer"], balances["seller"], balances["escrow"]) == (930, 70, 0)

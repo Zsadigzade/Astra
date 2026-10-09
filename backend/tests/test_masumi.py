@@ -33,6 +33,7 @@ def test_hashes_match_mip004_shape():
     assert len(output_hash("result", "abc")) == 64
 
 
+@pytest.mark.skip(reason="Masumi payments dormant since 2026-10-09; SIMULATED only")
 @pytest.mark.anyio
 async def test_act1_real_flow_on_fake_masumi(tmp_path):
     s = masumi_settings(tmp_path)

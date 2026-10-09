@@ -24,7 +24,7 @@ from app.seller.job import sample_flats
 from tests.test_masumi import masumi_settings
 
 TASK = TaskCreate().model_dump_json()
-OLD_START = StartJobResponse(status="success", job_id="j-old", price=7)
+OLD_START = StartJobResponse(status="success", job_id="j-old", price=70)
 
 
 @pytest.fixture
@@ -39,6 +39,7 @@ def settings(tmp_path, **kw) -> Settings:
 
 def seed(s: Settings, deal_id: str, status: str, **fields) -> Ledger:
     ledger = Ledger(s.ledger_path)
+    ledger.bind_currency()  # a ledger from the USD era
     ledger.create_deal(deal_id, "t-1", TASK, s.seller_url)
     ledger.update(deal_id, status=status, **fields)
     return ledger
@@ -53,7 +54,7 @@ class FakeSeller:
     def __call__(self, req: httpx.Request) -> httpx.Response:
         self.calls.append((req.url.path, req.url.params.get("job_id", "")))
         if req.url.path == "/start_job":
-            return httpx.Response(200, json=StartJobResponse(status="success", job_id="j-new", price=7).model_dump())
+            return httpx.Response(200, json=StartJobResponse(status="success", job_id="j-new", price=70).model_dump())
         if req.url.path == "/status":
             result = JobResult(flats=sample_flats(JobSpec()), source="sample")
             st = StatusResponse(job_id=req.url.params["job_id"], status="completed", result=result)
@@ -85,16 +86,16 @@ async def restart(s: Settings, seller: FakeSeller, until: set[str], approve: boo
 @pytest.mark.anyio
 async def test_errored_funded_deal_resumes_without_relock_or_new_start(tmp_path):
     s = settings(tmp_path)
-    ledger = seed(s, "d1", "error", price=7, escrow_ref="SIM-d1", job_id="j-old",
+    ledger = seed(s, "d1", "error", price=70, escrow_ref="SIM-d1", job_id="j-old",
                   start_json=OLD_START.model_dump_json())
-    await SimulatedPayments(ledger).lock("d1", 7, "http://seller", OLD_START)
+    await SimulatedPayments(ledger).lock("d1", 70, "http://seller", OLD_START)
     seller = FakeSeller()
     buyer, bal = await restart(s, seller, {"released", "refunded", "error"})
     types = [e.type for e in buyer.state.bus.history]
     assert "already_paid" in types and "released" in types and "escrow_locked" not in types
     assert "/start_job" not in seller.paths()
     assert ("/status", "j-old") in seller.calls  # polled the job the escrow was locked for
-    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (93, 7, 0)
+    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (930, 70, 0)
     assert buyer.state.ledger.get("d1")["status"] == "released"
 
 
@@ -102,19 +103,19 @@ async def test_errored_funded_deal_resumes_without_relock_or_new_start(tmp_path)
 async def test_crash_after_lock_reuses_stored_start(tmp_path):
     # Act 3 gap: money locked, ledger still says "paying". Seller restarted meanwhile.
     s = settings(tmp_path)
-    ledger = seed(s, "d1", "paying", price=7, job_id="j-old", start_json=OLD_START.model_dump_json())
-    await SimulatedPayments(ledger).lock("d1", 7, "http://seller", OLD_START)
+    ledger = seed(s, "d1", "paying", price=70, job_id="j-old", start_json=OLD_START.model_dump_json())
+    await SimulatedPayments(ledger).lock("d1", 70, "http://seller", OLD_START)
     seller = FakeSeller()
     buyer, bal = await restart(s, seller, {"released", "refunded", "error"})
     assert "already_paid" in [e.type for e in buyer.state.bus.history]
     assert "/start_job" not in seller.paths()
-    assert bal["buyer"] == 93
+    assert bal["buyer"] == 930
 
 
 @pytest.mark.anyio
 async def test_lost_lock_reply_keeps_intent_and_restart_pays_only_once(tmp_path, monkeypatch):
     s = settings(tmp_path)
-    seed(s, "d1", "agreed", price=7)
+    seed(s, "d1", "agreed", price=70)
     real_lock = SimulatedPayments.lock
 
     async def lost_reply(self, *args, **kwargs):
@@ -125,24 +126,24 @@ async def test_lost_lock_reply_keeps_intent_and_restart_pays_only_once(tmp_path,
     with monkeypatch.context() as patch:
         patch.setattr(SimulatedPayments, "lock", lost_reply)
         failed, balance = await restart(s, seller, {"error"})
-    assert balance["escrow"] == 7
+    assert balance["escrow"] == 70
     assert failed.state.ledger.get("d1")["status"] == "paying"
     assert [d["deal_id"] for d in failed.state.ledger.unfinished()] == ["d1"]
     buyer, balance = await restart(s, seller, {"released"})
     assert buyer.state.ledger.get("d1")["status"] == "released"
-    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (93, 7, 0)
+    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (930, 70, 0)
     assert seller.paths().count("/start_job") == 1
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("limits", [{"guard_cap": 5, "guard_approval_over": 4}, {"guard_approval_over": 5}],
+@pytest.mark.parametrize("limits", [{"guard_cap": 50, "guard_approval_over": 40}, {"guard_approval_over": 50}],
                          ids=["lower-cap", "lower-approval-line"])
 async def test_funded_paying_deal_settles_after_restart_with_lower_limits(tmp_path, limits):
     # Money moved before the lock reply was lost; the operator then lowered the limits.
     # Restart must record and settle that escrow, not block (or re-ask about) a paid deal.
-    ledger = seed(settings(tmp_path), "d1", "paying", price=7, job_id="j-old",
+    ledger = seed(settings(tmp_path), "d1", "paying", price=70, job_id="j-old",
                   start_json=OLD_START.model_dump_json())
-    await SimulatedPayments(ledger).lock("d1", 7, "http://seller", OLD_START)
+    await SimulatedPayments(ledger).lock("d1", 70, "http://seller", OLD_START)
     seller = FakeSeller()
     buyer, bal = await restart(settings(tmp_path, **limits), seller,
                                {"released", "refunded", "blocked", "needs_approval", "error"})
@@ -152,33 +153,33 @@ async def test_funded_paying_deal_settles_after_restart_with_lower_limits(tmp_pa
     assert "/start_job" not in seller.paths()
     deal = buyer.state.ledger.get("d1")
     assert (deal["status"], deal["escrow_ref"]) == ("released", "SIM-d1")
-    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (93, 7, 0)
+    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (930, 70, 0)
 
 
 @pytest.mark.anyio
 async def test_unfunded_paying_deal_is_blocked_by_lower_cap_after_restart(tmp_path):
-    seed(settings(tmp_path), "d1", "paying", price=7, job_id="j-old", start_json=OLD_START.model_dump_json())
-    buyer, bal = await restart(settings(tmp_path, guard_cap=5, guard_approval_over=4), FakeSeller(),
+    seed(settings(tmp_path), "d1", "paying", price=70, job_id="j-old", start_json=OLD_START.model_dump_json())
+    buyer, bal = await restart(settings(tmp_path, guard_cap=50, guard_approval_over=40), FakeSeller(),
                                {"walked_away", "released", "error"})
     assert buyer.state.ledger.get("d1")["status"] == "blocked"
-    assert (bal["buyer"], bal["escrow"]) == (100, 0)
+    assert (bal["buyer"], bal["escrow"]) == (1000, 0)
 
 
 @pytest.mark.anyio
 async def test_legacy_invalid_task_does_not_block_other_funded_recovery(tmp_path, caplog):
     s = settings(tmp_path)
-    ledger = seed(s, "legacy", "locked", price=7, escrow_ref="SIM-legacy", job_id="j-legacy",
-                  start_json=StartJobResponse(status="success", job_id="j-legacy", price=7).model_dump_json())
+    ledger = seed(s, "legacy", "locked", price=70, escrow_ref="SIM-legacy", job_id="j-legacy",
+                  start_json=StartJobResponse(status="success", job_id="j-legacy", price=70).model_dump_json())
     legacy_task = json.loads(TASK)
     legacy_task["job"]["count"] = 201  # Valid before admission limits were introduced.
     legacy_task["text"] = "private legacy task content"
     ledger.update("legacy", task_json=json.dumps(legacy_task))
     ledger.create_deal("valid", "t-valid", TASK, s.seller_url)
-    ledger.update("valid", status="locked", price=7, escrow_ref="SIM-valid", job_id="j-old",
+    ledger.update("valid", status="locked", price=70, escrow_ref="SIM-valid", job_id="j-old",
                   start_json=OLD_START.model_dump_json())
     payments = SimulatedPayments(ledger)
-    await payments.lock("legacy", 7, s.seller_url, OLD_START)
-    await payments.lock("valid", 7, s.seller_url, OLD_START)
+    await payments.lock("legacy", 70, s.seller_url, OLD_START)
+    await payments.lock("valid", 70, s.seller_url, OLD_START)
     original_deal = ledger.get("legacy")
     original_escrow = tuple(ledger.db.execute("SELECT * FROM sim_escrows WHERE deal_id='legacy'").fetchone())
 
@@ -188,7 +189,7 @@ async def test_legacy_invalid_task_does_not_block_other_funded_recovery(tmp_path
     assert tuple(buyer.state.ledger.db.execute(
         "SELECT * FROM sim_escrows WHERE deal_id='legacy'").fetchone()) == original_escrow
     assert buyer.state.ledger.get("valid")["status"] == "released"
-    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (86, 7, 7)
+    assert (balance["buyer"], balance["seller"], balance["escrow"]) == (860, 70, 70)
     assert seller.paths() == ["/status"]
     errors = [event for event in buyer.state.bus.history if event.type == "error"]
     assert len(errors) == 1 and errors[0].deal_id == "legacy"
@@ -198,14 +199,14 @@ async def test_legacy_invalid_task_does_not_block_other_funded_recovery(tmp_path
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("funded", [False, True])
-@pytest.mark.parametrize("fault", [{"status": "error"}, {"price": 8}, {"job_id": " "}])
+@pytest.mark.parametrize("fault", [{"status": "error"}, {"price": 80}, {"job_id": " "}])
 async def test_invalid_persisted_start_never_pays_or_restarts_job(tmp_path, funded, fault):
     s = settings(tmp_path)
     bad_start = OLD_START.model_copy(update=fault).model_dump_json()
-    ledger = seed(s, "legacy", "locked" if funded else "agreed", price=7,
+    ledger = seed(s, "legacy", "locked" if funded else "agreed", price=70,
                   escrow_ref="SIM-legacy" if funded else None, job_id="j-old", start_json=bad_start)
     if funded:
-        await SimulatedPayments(ledger).lock("legacy", 7, s.seller_url, OLD_START)
+        await SimulatedPayments(ledger).lock("legacy", 70, s.seller_url, OLD_START)
 
     seller = FakeSeller()
     buyer, balance = await restart(s, seller, {"error"})
@@ -214,7 +215,7 @@ async def test_invalid_persisted_start_never_pays_or_restarts_job(tmp_path, fund
     assert deal["start_json"] == bad_start and deal["job_id"] == "j-old"
     assert deal["escrow_ref"] == ("SIM-legacy" if funded else None)
     assert (balance["buyer"], balance["seller"], balance["escrow"]) == (
-        (93, 0, 7) if funded else (100, 0, 0))
+        (930, 0, 70) if funded else (1000, 0, 0))
     assert bool(buyer.state.ledger.unfinished()) is funded
     types = {event.type for event in buyer.state.bus.history}
     assert "error" in types
@@ -224,7 +225,7 @@ async def test_invalid_persisted_start_never_pays_or_restarts_job(tmp_path, fund
 @pytest.mark.anyio
 async def test_start_is_saved_before_pay(tmp_path, monkeypatch):
     s = settings(tmp_path)
-    seed(s, "d1", "agreed", price=7)
+    seed(s, "d1", "agreed", price=70)
     seen = {}
 
     async def crash_in_pay(self, deal_id, *a, **kw):
@@ -241,7 +242,7 @@ async def test_start_is_saved_before_pay(tmp_path, monkeypatch):
 @pytest.mark.anyio
 async def test_failure_after_lock_keeps_deal_resumable(tmp_path):
     s = settings(tmp_path)
-    seed(s, "d1", "locked", price=7, escrow_ref="SIM-d1", job_id="j-old", start_json=OLD_START.model_dump_json())
+    seed(s, "d1", "locked", price=70, escrow_ref="SIM-d1", job_id="j-old", start_json=OLD_START.model_dump_json())
     http = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)), base_url=s.seller_url)
     buyer = create_buyer(s, http=http)
     async with buyer.router.lifespan_context(buyer):
@@ -253,23 +254,23 @@ async def test_failure_after_lock_keeps_deal_resumable(tmp_path):
     ledger = buyer.state.ledger
     assert ledger.get("d1")["status"] == "error"
     assert [d["deal_id"] for d in ledger.unfinished()] == ["d1"]
-    assert ledger.spent("t-1") == 7  # still committed, not silently forgotten
+    assert ledger.spent("t-1") == 70  # still committed, not silently forgotten
 
 
 @pytest.mark.anyio
 async def test_agreed_deal_waiting_for_approval_survives_restart(tmp_path):
-    s = settings(tmp_path, guard_approval_over=6)
-    seed(s, "d1", "agreed", price=7)
+    s = settings(tmp_path, guard_approval_over=60)
+    seed(s, "d1", "agreed", price=70)
     buyer, bal = await restart(s, FakeSeller(), {"released", "refunded", "error"}, approve=True)
     types = [e.type for e in buyer.state.bus.history]
     assert types.index("needs_approval") < types.index("approved") < types.index("released")
-    assert bal["seller"] == 7
+    assert bal["seller"] == 70
 
 
 @pytest.mark.anyio
 async def test_shutdown_cancels_pending_approval_and_preserves_recovery(tmp_path):
-    s = settings(tmp_path, guard_approval_over=6)
-    seed(s, "d1", "agreed", price=7)
+    s = settings(tmp_path, guard_approval_over=60)
+    seed(s, "d1", "agreed", price=70)
     async with httpx.AsyncClient(transport=httpx.MockTransport(FakeSeller())) as http:
         buyer = create_buyer(s, http=http)
         async with buyer.router.lifespan_context(buyer):
@@ -315,15 +316,16 @@ def test_old_ledger_gets_start_json_column(tmp_path):
 def test_simulated_wallet_tops_up_when_low(tmp_path, caplog):
     ledger = Ledger(str(tmp_path / "buyer.db"))
     SimulatedPayments(ledger)
-    ledger.db.execute("UPDATE sim_wallets SET balance = 5 WHERE name = 'buyer'")
+    ledger.db.execute("UPDATE sim_wallets SET balance = 50 WHERE name = 'buyer'")
     with caplog.at_level("WARNING"):
         SimulatedPayments(ledger)
-    assert asyncio.run(SimulatedPayments(ledger).balances())["buyer"] == 100
+    assert asyncio.run(SimulatedPayments(ledger).balances())["buyer"] == 1000
     assert "[SIMULATED] top-up" in caplog.text
-    ledger.db.execute("UPDATE sim_wallets SET balance = 50 WHERE name = 'buyer'")
-    assert asyncio.run(SimulatedPayments(ledger).balances())["buyer"] == 50  # healthy wallet untouched
+    ledger.db.execute("UPDATE sim_wallets SET balance = 500 WHERE name = 'buyer'")
+    assert asyncio.run(SimulatedPayments(ledger).balances())["buyer"] == 500  # healthy wallet untouched
 
 
+@pytest.mark.skip(reason="Masumi payments dormant since 2026-10-09; SIMULATED only")
 @pytest.mark.anyio
 @pytest.mark.parametrize("failures,calls,final_state", [(2, 3, "ResultSubmitted"), (99, 3, "FundsLocked")])
 async def test_seller_retries_submit_result_and_keeps_completed(tmp_path, monkeypatch, failures, calls,

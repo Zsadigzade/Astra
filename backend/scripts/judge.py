@@ -38,8 +38,8 @@ def main():
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
             sock.bind(("127.0.0.1", port))
     # Set private paths before importing modules whose default ASGI app is created at import.
-    os.environ.update(LEDGER_PATH=str(state / "bootstrap.db"), AUDIO_DIR=str(state / "bootstrap-audio"),
-                      SELLER_STORE_PATH=str(state / "seller.db"), PAYMENTS_MODE="simulated", CRASH_AFTER_LOCK="0")
+    os.environ.update(LEDGER_PATH=str(state / "bootstrap-usd.db"), AUDIO_DIR=str(state / "bootstrap-audio"),
+                      SELLER_STORE_PATH=str(state / "seller-usd.db"), PAYMENTS_MODE="simulated", CRASH_AFTER_LOCK="0")
     from app.core.config import get_settings
     original = get_settings()
     seller_token_path = state / "seller-token.txt"
@@ -51,7 +51,7 @@ def main():
                "APIFY_MODE": "apify" if args.live else "sample",
                "TTS_MODE": "elevenlabs" if args.live else "off", "STRICT_LIVE": "1" if args.live else "0",
                "SELLER_API_TOKEN": seller_token, "API_TOKEN": "", "MAX_ROUNDS": "6",
-               "SELLER_FLOOR": "7", "SELLER_OPENING_ASK": "18", "GUARD_CAP": "10", "GUARD_APPROVAL_OVER": "8",
+               "SELLER_FLOOR": "70", "SELLER_OPENING_ASK": "180", "GUARD_CAP": "100", "GUARD_APPROVAL_OVER": "80",
                "SELLER_URL": f"http://127.0.0.1:{args.seller_port}"}
     os.environ.update(profile)
     settings = replace(original, llm_mode=profile["LLM_MODE"], seller_llm_mode=profile["SELLER_LLM_MODE"],

@@ -31,7 +31,7 @@ def runner(monkeypatch):
 @pytest.mark.anyio
 async def test_subscription_check_needs_no_api_key(runner, capsys):
     calls, outputs = runner
-    outputs.append({"action": "accept", "price": 15, "message": "Deal."})
+    outputs.append({"action": "accept", "price": 150, "message": "Deal."})
     assert await llm_check.check(Settings()) == 0
     assert len(calls) == 1
     assert "real subscription Codex Max" in capsys.readouterr().out
@@ -40,8 +40,8 @@ async def test_subscription_check_needs_no_api_key(runner, capsys):
 @pytest.mark.anyio
 async def test_real_backend_required_even_when_demo_mode_is_mock(runner, capsys):
     calls, outputs = runner
-    outputs.extend([{"action": "counter", "price": 5, "message": "Five."},
-                    {"action": "accept", "price": 7, "message": "Deal."}])
+    outputs.extend([{"action": "counter", "price": 50, "message": "Fifty."},
+                    {"action": "accept", "price": 70, "message": "Deal."}])
     assert await llm_check.check(Settings(llm_mode="mock")) == 0
     assert len(calls) == 2
     assert all(c["settings"].llm_mode == "mock" for c in calls)
@@ -67,7 +67,7 @@ async def test_fallback_can_never_pass_live_check(runner, failure, capsys, caplo
 @pytest.mark.anyio
 async def test_guard_failure_cannot_be_hidden_by_valid_llm(runner, monkeypatch, capsys):
     _, outputs = runner
-    outputs.extend([{"action": "accept", "price": 15, "message": "Deal."}])
+    outputs.extend([{"action": "accept", "price": 150, "message": "Deal."}])
     monkeypatch.setattr(WalletGuard, "evaluate", lambda *a, **kw: Decision(Verdict.allow, "broken"))
     assert await llm_check.check(Settings()) == 1
     assert "FAIL: SIMULATED in-memory guard hard cap" in capsys.readouterr().out
@@ -87,8 +87,8 @@ def test_guard_uses_actual_rules_without_payment_calls(monkeypatch):
 async def test_viktor_check_requires_real_opening_and_agreement(monkeypatch, capsys, fail):
     import app.seller.persona as persona
 
-    outputs = [{"action": "counter", "price": 18, "message": "Eighteen for the data."},
-               {"action": "accept", "price": 7, "message": "Seven. Deal."}]
+    outputs = [{"action": "counter", "price": 180, "message": "One eighty for the data."},
+               {"action": "accept", "price": 70, "message": "Seventy. Deal."}]
 
     async def run(*args):
         if fail:

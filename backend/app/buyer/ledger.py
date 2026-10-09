@@ -98,6 +98,22 @@ class Ledger:
             db.execute("CREATE TABLE IF NOT EXISTS ledger_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
             db.execute("INSERT OR IGNORE INTO ledger_metadata VALUES ('payments_mode', ?)", (mode,))
 
+    def bind_currency(self, currency: str = "USD") -> None:
+        """Bind the money unit. Ledgers from before the USD switch hold tADA amounts: refuse them."""
+        with self.tx() as db:
+            db.execute("CREATE TABLE IF NOT EXISTS ledger_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            row = db.execute("SELECT value FROM ledger_metadata WHERE key = 'currency'").fetchone()
+            if row:
+                if row[0] != currency:
+                    raise LedgerSafetyError(f"Ledger amounts are in {row[0]}, not {currency}; use a separate LEDGER_PATH.")
+                return
+            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            paid = db.execute("SELECT 1 FROM deals WHERE price IS NOT NULL OR escrow_ref IS NOT NULL LIMIT 1").fetchone()
+            if paid or "sim_wallets" in tables:
+                raise LedgerSafetyError("Ledger holds tADA amounts from before the USD switch; "
+                                        "preserve it and use a separate LEDGER_PATH.")
+            db.execute("INSERT INTO ledger_metadata VALUES ('currency', ?)", (currency,))
+
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:
         self.db.execute("BEGIN IMMEDIATE")
@@ -135,7 +151,7 @@ class Ledger:
         return [dict(r) for r in self.db.execute(q, OPEN_STATUSES)]
 
     def spent(self, task_id: str, exclude_deal: str | None = None) -> float:
-        """tADA committed for a task: locked or released, not refunded."""
+        """USD committed for a task: locked or released, not refunded."""
         row = self.db.execute(
             "SELECT COALESCE(SUM(price), 0) FROM deals WHERE task_id = ? AND escrow_ref IS NOT NULL "
             "AND status != 'refunded' AND deal_id != COALESCE(?, '')",

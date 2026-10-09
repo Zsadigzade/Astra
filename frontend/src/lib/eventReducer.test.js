@@ -50,12 +50,12 @@ test("honest deal runs every stage to done and counts released spend", () => {
 });
 
 test("blocked deal fails the guard stage, never reaches escrow, and says why", () => {
-  const v = deriveDealState([ev("task_created", { demo_mode: "con" }), ev("quote", { price: 25 }), ev("blocked", { reason: "25 tADA is over the hard cap of 10" }), ev("walked_away")]);
+  const v = deriveDealState([ev("task_created", { demo_mode: "con" }), ev("quote", { price: 250 }), ev("blocked", { reason: "$250 is over the hard cap of $100" }), ev("walked_away")]);
   assert.equal(v.outcome, "blocked");
   assert.equal(v.stages.guard, "fail");
   assert.equal(v.stages.escrow, "idle");
   assert.equal(v.guard.status, "blocked");
-  assert.match(v.guard.message, /over the hard cap of 10/);
+  assert.match(v.guard.message, /over the hard cap of \$100/);
 });
 
 test("junk delivery fails verify and settles as a refund", () => {
@@ -68,13 +68,13 @@ test("junk delivery fails verify and settles as a refund", () => {
 });
 
 test("approval stays pending until approved or blocked and drives the guard state", () => {
-  const ask = ev("needs_approval", { price: 9, reason: "9 tADA is over the approval line of 8" });
+  const ask = ev("needs_approval", { price: 90, reason: "$90 is over the approval line of $80" });
   assert.equal(pendingApprovals([ask]).length, 1);
   assert.equal(pendingApprovals([ask, ev("approved")]).length, 0);
-  const v = deriveDealState([ev("task_created", {}), ev("quote", { price: 9 }), ask]);
+  const v = deriveDealState([ev("task_created", {}), ev("quote", { price: 90 }), ask]);
   assert.equal(v.stages.guard, "wait");
   assert.equal(v.guard.status, "approval");
-  assert.equal(v.approval.data.price, 9);
+  assert.equal(v.approval.data.price, 90);
 });
 
 test("guard walks ready -> checking -> safe -> escrow as the deal progresses", () => {
@@ -82,7 +82,7 @@ test("guard walks ready -> checking -> safe -> escrow as the deal progresses", (
   assert.equal(status([]), "ready");
   assert.equal(status([ev("task_created", {})]), "ready");
   assert.equal(status([ev("task_created", {}), ev("quote", { price: 7 })]), "checking");
-  assert.equal(status([ev("task_created", {}), ev("quote", { price: 9 }), ev("needs_approval", { price: 9, reason: "r" }), ev("approved", {})]), "safe");
+  assert.equal(status([ev("task_created", {}), ev("quote", { price: 90 }), ev("needs_approval", { price: 9, reason: "r" }), ev("approved", {})]), "safe");
   assert.equal(status([ev("quote", { price: 7 }), ev("escrow_locked", { price: 7 })]), "escrow");
 });
 

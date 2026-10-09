@@ -1,4 +1,4 @@
-import { SCENARIOS, tada } from "../lib/formatters.js";
+import { SCENARIOS, usd } from "../lib/formatters.js";
 import { clock } from "../lib/formatters.js";
 import StatusBadge from "./StatusBadge.jsx";
 
@@ -24,7 +24,7 @@ export default function DealsPanel({ view, selected, onSelect }) {
                   <span className="deal-text">{d.text ?? "Request"}</span>
                   <span className="deal-meta">{clock(d.ts)} · {SCENARIOS[d.scenario]?.name ?? d.scenario}{d.items != null ? (d.kind === "general" ? " · AI answer" : ` · ${d.items} listings`) : ""}</span>
                 </span>
-                <span className="deal-price num">{d.price != null ? tada(d.price, 1) : ""}</span>
+                <span className="deal-price num">{d.price != null ? usd(d.price, 1) : ""}</span>
                 <StatusBadge tone={tone} icon={null}>{label}</StatusBadge>
               </button>
             </li>

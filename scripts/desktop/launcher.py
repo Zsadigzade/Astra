@@ -18,6 +18,8 @@ import urllib.request
 import uuid
 import webbrowser
 
+# USD after the sample honest release ($70), blocked con and refunded junk, from the $1,000 wallet.
+SAMPLE_BALANCES = (930, 70, 0)
 ACTIONS = ("all", "tests", "backend", "frontend", "build", "readiness", "live-probe", "rehearse", "demo", "recovery", "smoke")
 
 
@@ -79,12 +81,12 @@ def environment(root, artifact, profile):
     for key, value in dotenv_values(Path(root) / ".env", {"API_TOKEN", "SELLER_API_TOKEN"}).items():
         env.setdefault(key, value)
     env.update(PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8", NO_COLOR="1", NO_OPEN="1",
-               PAYMENTS_MODE="simulated", LEDGER_PATH=str(artifact / "buyer.db"),
-               SELLER_STORE_PATH=str(artifact / "seller.db"),
+               PAYMENTS_MODE="simulated", LEDGER_PATH=str(artifact / "buyer-usd.db"),
+               SELLER_STORE_PATH=str(artifact / "seller-usd.db"),
                AUDIO_DIR=str(artifact / "audio"), CRASH_AFTER_LOCK="0",
                SELLER_URL="http://127.0.0.1:8001", VITE_BUYER_URL="http://127.0.0.1:8000",
-               VITE_SELLER_URL="http://127.0.0.1:8001", GUARD_CAP="10", GUARD_APPROVAL_OVER="8",
-               SELLER_FLOOR="7", SELLER_OPENING_ASK="18", MAX_ROUNDS="6")
+               VITE_SELLER_URL="http://127.0.0.1:8001", GUARD_CAP="100", GUARD_APPROVAL_OVER="80",  # USD
+               SELLER_FLOOR="70", SELLER_OPENING_ASK="180", MAX_ROUNDS="6")
     if profile == "sample":
         # Offline providers are not a production profile: STRICT_LIVE would refuse to start them.
         env.update(LLM_MODE="mock", SELLER_LLM_MODE="mock", APIFY_MODE="sample", TTS_MODE="off", STRICT_LIVE="0")
@@ -294,7 +296,7 @@ class Runner:
                     if self.stop_event.is_set():
                         return False
                 balance = request(buyer_url + "/balances", token=token)
-                if (balance["buyer"], balance["seller"], balance["escrow"]) != (93, 7, 0):
+                if (balance["buyer"], balance["seller"], balance["escrow"]) != SAMPLE_BALANCES:
                     raise RuntimeError("Sample balance conservation failed.")
                 self.results.append({"check": "sample HTTP demo: release/block/refund and balances", "passed": True})
                 return True

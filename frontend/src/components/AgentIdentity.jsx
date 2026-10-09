@@ -1,4 +1,4 @@
-import { tada } from "../lib/formatters.js";
+import { usd } from "../lib/formatters.js";
 import { PROVENANCE } from "../lib/eventLabels.js";
 
 const WHO = {
@@ -23,7 +23,7 @@ export default function AgentIdentity({ who, view }) {
       <div className="identity-text">
         <div className="identity-name"><strong>{w.name}</strong><span title={PROVENANCE[lastLine?.provenance]?.hint}>{w.role}{source ? ` · ${source}` : ""}</span></div>
         <div className="identity-meta">
-          <span className="num offer">{tada(view.prices[who], 1)}</span>
+          <span className="num offer">{usd(view.prices[who], 1)}</span>
           <span className="identity-state">{speaking ? "Speaking" : state}</span>
         </div>
       </div>

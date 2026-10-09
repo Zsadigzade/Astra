@@ -1,7 +1,7 @@
 // Pure view-model derivation from the buyer SSE history. No React, no network: unit-testable.
 // Everything shown on the dashboard comes from here; nothing is invented that the backend did not send.
 import { describeEvent, provenanceOf } from "./eventLabels.js";
-import { tada } from "./formatters.js";
+import { usd } from "./formatters.js";
 import { audioLines } from "../audioEvents.js";
 
 export const STAGES = [
@@ -73,11 +73,11 @@ export function guardOf(deal, stages, outcome) {
   const rel = last(deal, "released");
   if (rel) {
     return rel.data.release === "scheduled"
-      ? { status: "release_scheduled", tone: "success", title: "Release scheduled", message: `Release of ${tada(rel.data.price)} is scheduled${rel.data.settles_at ? ` for ${rel.data.settles_at}` : ""}. It has not settled yet.` }
-      : { status: "released", tone: "success", title: "Payment released", message: `${tada(rel.data.price)} released to Viktor after the delivery passed verification.` };
+      ? { status: "release_scheduled", tone: "success", title: "Release scheduled", message: `Release of ${usd(rel.data.price)} is scheduled${rel.data.settles_at ? ` for ${rel.data.settles_at}` : ""}. It has not settled yet.` }
+      : { status: "released", tone: "success", title: "Payment released", message: `${usd(rel.data.price)} released to Viktor after the delivery passed verification.` };
   }
   const ref = last(deal, "refunded");
-  if (ref) return { status: "refunded", tone: "warning", title: "Refunded", message: `${tada(ref.data.price)} returned to Max because the delivery failed verification.` };
+  if (ref) return { status: "refunded", tone: "warning", title: "Refunded", message: `${usd(ref.data.price)} returned to Max because the delivery failed verification.` };
   const ver = last(deal, "verified");
   if (ver && !ver.data.ok) return { status: "verify_failed", tone: "danger", title: "Verification failed", message: "The delivery did not pass the checks. Escrow is being refunded." };
   const ask = pendingApprovals(deal)[0];

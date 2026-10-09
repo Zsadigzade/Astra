@@ -20,7 +20,7 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
         if request.url.path == "/negotiate":
             body = json.loads(request.content)
             response = {"deal_id": body["deal_id"], "round": body["round"],
-                        "action": "counter", "price": 7, "message": "Seven."}
+                        "action": "counter", "price": 70, "message": "Seventy."}
             if fault == "deal":
                 response["deal_id"] = "another-deal"
             elif fault == "round":
@@ -28,7 +28,7 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
             elif fault == "open_accept":
                 response["action"] = "accept"
             elif fault == "accept_price" and body["action"] == "counter":
-                response.update(action="accept", price=9)
+                response.update(action="accept", price=90)
             elif body["action"] == "accept":
                 response["action"] = "counter" if fault == "ack" else "accept"
             return httpx.Response(200, json=response)
@@ -36,7 +36,7 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
             return httpx.Response(200, json={
                 "status": "error" if fault == "start_error" else "success",
                 "job_id": " " if fault == "empty_job" else "this-job",
-                "price": 8 if fault == "start_price" else 7})
+                "price": 80 if fault == "start_price" else 70})
         assert request.url.path == "/status"
         result = JobResult(flats=sample_flats(JobSpec()), source="sample").model_dump()
         if fault == "malformed_port":
@@ -66,11 +66,11 @@ async def test_mismatched_seller_messages_cannot_release_money(tmp_path, fault):
         assert "released" not in {event.type for event in events}
         assert balances["seller"] == 0
         if fault in {"status_job", "bool_rent", "string_rent", "float_rent"}:
-            assert balances["escrow"] == 7
-            assert balances["buyer"] == 93
+            assert balances["escrow"] == 70
+            assert balances["buyer"] == 930
             assert buyer.state.ledger.unfinished()  # Keep the original funded job recoverable.
         else:
-            assert balances["buyer"] == 100 and balances["escrow"] == 0
+            assert balances["buyer"] == 1000 and balances["escrow"] == 0
         if fault in {"failed_with_result", "malformed_port", "control_url"}:
             assert "refunded" in {event.type for event in events}
         else:

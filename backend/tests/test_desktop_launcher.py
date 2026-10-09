@@ -49,7 +49,7 @@ def test_sample_profile_overrides_live_environment_without_mutating_it(repo, mon
     assert env["LLM_MODE"] == env["SELLER_LLM_MODE"] == "mock"
     assert env["APIFY_MODE"] == "sample" and env["TTS_MODE"] == "off"
     assert env["CRASH_AFTER_LOCK"] == "0"
-    assert Path(env["LEDGER_PATH"]) == artifact / "buyer.db"
+    assert Path(env["LEDGER_PATH"]) == artifact / "buyer-usd.db"
     assert Path(env["AUDIO_DIR"]) == artifact / "audio"
     assert all(os.environ[key] == value for key, value in original.items())
 
@@ -62,7 +62,7 @@ def test_configured_profile_preserves_provider_modes_but_isolates_payments(repo,
     env = launcher.environment(repo, artifact, "configured")
     assert (env["LLM_MODE"], env["APIFY_MODE"], env["TTS_MODE"]) == ("codex", "cached", "elevenlabs")
     assert env["PAYMENTS_MODE"] == "simulated"
-    assert Path(env["LEDGER_PATH"]) == artifact / "buyer.db"
+    assert Path(env["LEDGER_PATH"]) == artifact / "buyer-usd.db"
     assert env["LEDGER_PATH"] != os.environ["LEDGER_PATH"]
 
 
@@ -199,3 +199,11 @@ def test_runner_launch_owns_redirector_descendants_and_preserves_failure_code(tm
         if thread:
             thread.join(timeout=5)
         runner.log.close()
+
+
+def test_launcher_profile_uses_usd_limits(repo, tmp_path):
+    env = launcher.environment(repo, tmp_path, "sample")
+    assert (env["GUARD_CAP"], env["GUARD_APPROVAL_OVER"], env["SELLER_FLOOR"], env["SELLER_OPENING_ASK"]) == \
+        ("100", "80", "70", "180")
+    assert env["LEDGER_PATH"].endswith("buyer-usd.db") and env["SELLER_STORE_PATH"].endswith("seller-usd.db")
+    assert launcher.SAMPLE_BALANCES == (930, 70, 0)  # honest release + blocked con + refunded junk from $1,000

@@ -1,5 +1,5 @@
 import { PROVENANCE } from "../lib/eventLabels.js";
-import { clock, tada } from "../lib/formatters.js";
+import { clock, usd } from "../lib/formatters.js";
 
 const NAME = { max: "Max", viktor: "Viktor" };
 const ACTION = { counter: "Counter", accept: "Accepted", walk: "Walked away", open: "Asks" };
@@ -25,7 +25,7 @@ export default function MessageBubble({ e, round }) {
         </header>
         <p className="msg-text">{e.data.text}</p>
         {(price || e.data.action === "walk") && (
-          <p className="msg-quote">{ACTION[e.data.action] ?? e.data.action}{price && <b className="num">{tada(e.data.price, 1)}</b>}</p>
+          <p className="msg-quote">{ACTION[e.data.action] ?? e.data.action}{price && <b className="num">{usd(e.data.price, 1)}</b>}</p>
         )}
       </article>
     </li>
