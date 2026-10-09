@@ -39,6 +39,13 @@ environment). If `APIFY_MODE=apify`, requesting data may spend Apify credits. La
 payments always remain **SIMULATED**. Codex requires your external ChatGPT sign-in;
 there is no OpenAI API-key requirement.
 
+The launcher's **Live four-act rehearsal** retains its cached-data/scripted-seller baseline.
+For the newly enabled two-agent/live-data profile, run the explicit
+[live rehearsal command](../../README.md#repeat-the-final-rehearsal-r02r05) from a terminal.
+The EXE reads the checkout's scripts and dependencies, so the updated rehearsal and Vite
+dependency do not require rebuilding the executable. Restart an existing demo after its
+deals finish to load changed `.env` modes and dependencies.
+
 Interactive demos require ports 8000, 8001 and 5173. If occupied, the launcher reports
 the conflict without stopping the other session. Stop that session in its own terminal
 before starting an interactive demo. Closing the launcher or pressing Stop terminates

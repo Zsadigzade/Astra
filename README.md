@@ -8,6 +8,7 @@ Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dus
 - Unassigned tasks and deadlines: [plan.md](plan.md)
 - Team memory (decisions, contracts, current state): [memory/MAP.md](memory/MAP.md)
 - Demo script, captions and recording/release handoff: [video/README.md](video/README.md)
+- Latest local live-provider checks and deployment limits: [release check](memory/status/production-readiness.md)
 
 ## How it works
 
@@ -235,6 +236,19 @@ audio and a fresh ledger stay under `backend/data/r-rehearsal-*/`. Only its own 
 are stopped; existing ledgers and services are preserved. Act 3 restarts only the buyer.
 Review screenshots before recording; changing the agent/payment profile requires another rehearsal.
 
+To check both subscription agents with live rental data, use:
+
+```powershell
+uv run --locked --with playwright python scripts/rehearse.py --browser --seller-mode codex --data-mode apify --repeats 1
+```
+
+This runs each act once plus approval and decline, using private ports and a fresh SIMULATED
+ledger. It can start three paid Apify runs, each requesting a $1.10 cap, and uses subscription
+and speech quota. Live-data acceptance rejects cached fallback. Use `--repeats 3` for the full
+repeated profile check (up to seven scrapes), or omit `--data-mode apify` to use saved data.
+Reports record per-agent live turns and delivery provenance. Scripted acknowledgements and
+the staged con remain intentional. A one-repeat check does not replace the three-repeat gate.
+
 ## Making requests
 
 Type what you want in the **Request** box, for example `10 flats in Praha 2 under 30,000 CZK` or `5 cheap apartments in Prague 5, max 18k`.
@@ -256,7 +270,7 @@ Out of the box everything runs offline and is labelled SIMULATED / SAMPLE / SCRI
 ```bash
 npm run setup          # creates .env from .env.example (never overwrites)
 npm run doctor         # what is ready, what is missing, and the next action per integration (no secrets printed)
-npm run doctor:live    # adds read-only live checks: Masumi node, ElevenLabs voices (or a tiny speech probe), one Codex round
+npm run doctor:live    # checks enabled providers; subscription turns and a fallback speech probe can use quota
 ```
 
 | Part | Switch | Needs | Verify |
@@ -267,8 +281,19 @@ npm run doctor:live    # adds read-only live checks: Masumi node, ElevenLabs voi
 | Real money | `PAYMENTS_MODE=masumi` | Masumi node, funded wallets, Viktor registered (Dynamic pricing), `MASUMI_*`, `SELLER_VKEY`, and a **separate** `LEDGER_PATH` | `scripts/masumi_check.py` |
 
 Order that fails safest: Max (Codex) first, then data, then voice, then Masumi last. Restart `npm start` after editing `.env`.
-With `APIFY_MODE=apify`, a live scrape for a request other than the saved one costs credits each time and never overwrites the saved demo cache.
+With `APIFY_MODE=apify`, every rental delivery attempts a paid live scrape, including requests
+that already have a saved cache. Success refreshes that exact request's cache; other request
+caches and the legacy demo cache remain intact. Provider failure may use a valid, labelled cache.
 The staged "con" act always uses a scripted, foolable Max so the guard has something to stop.
+
+These switches enable providers for the local application. They do not make it suitable for
+public hosting: buyer task/approval/control endpoints have no authentication or rate limits,
+seller jobs live in memory, and subscription agents depend on local Codex sign-in. Public
+deployment needs access control, durable seller state, a supported hosted agent runtime,
+persistent ledger/audio storage, and production HTTPS/static serving. Keep this release on
+loopback until those requirements are implemented. The Windows launcher uses **Configured**
+to load `.env`; **Sample** deliberately overrides it with offline providers. Restart the owning
+session after existing deals finish to load mode and dependency changes.
 
 ## Layout
 

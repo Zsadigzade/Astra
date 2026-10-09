@@ -3,7 +3,8 @@
 Run from backend: python scripts/rehearse.py [--browser]
 Browser checks require Playwright, installed Edge and frontend npm dependencies.
 Each run uses fresh artifacts and private ports. Never resets an existing ledger.
-Calls live subscription Codex and ElevenLabs; Apify uses the saved real cache only.
+Calls live subscription Codex and ElevenLabs. Defaults use cached Apify data;
+--data-mode apify starts paid scrapes and rejects cached fallback as acceptance.
 """
 
 import argparse
@@ -55,12 +56,29 @@ def speech_lines(events):
     return lines
 
 
+def check_seller_lines(speech, mode, act):
+    lines = [line for line in speech if line["speaker"] == "viktor"]
+    require(lines and not any(line.get("fallback_reason") for line in lines), "seller fallback occurred")
+    if mode == "mock" or act == 2:
+        require(all(line.get("backend") == "mock" for line in lines), "unexpected seller mode")
+    else:
+        # Acceptance/walk acknowledgements are intentionally scripted; offers must be live.
+        offers = [line for line in lines if line.get("action") == "counter"]
+        require(offers and all(line.get("backend") == "codex" for line in offers),
+                "seller offers were not live Codex turns")
+
+
 class Rehearsal:
-    def __init__(self, browser=False):
+    def __init__(self, browser=False, *, seller_mode="mock", data_mode="cached", repeats=3):
+        require(seller_mode in {"mock", "codex"}, "invalid seller mode")
+        require(data_mode in {"cached", "apify"}, "invalid data mode")
+        require(repeats in {1, 2, 3}, "repeats must be 1, 2 or 3")
         self.browser = browser
+        self.seller_mode, self.data_mode, self.repeats = seller_mode, data_mode, repeats
         self.artifact = ROOT / "data" / f"r-rehearsal-{uuid4().hex[:8]}"
         self.artifact.mkdir(parents=True)
-        self.report = {"profile": "codex/cached/elevenlabs/simulated", "seller_llm_mode": "mock", "runs": [],
+        self.report = {"profile": f"codex/{data_mode}/elevenlabs/simulated", "seller_llm_mode": seller_mode,
+                       "repeats": repeats, "runs": [],
                        "screenshots": [], "page_errors": [], "passed": False}
         self.processes = {}
         self.logs = []
@@ -73,8 +91,9 @@ class Rehearsal:
                 if port not in self.ports.values():
                     self.ports[name] = port
                     break
-        self.env = {**os.environ, "PAYMENTS_MODE": "simulated", "LLM_MODE": "codex", "SELLER_LLM_MODE": "mock",
-                    "APIFY_MODE": "cached", "TTS_MODE": "elevenlabs", "CRASH_AFTER_LOCK": "0",
+        self.env = {**os.environ, "PAYMENTS_MODE": "simulated", "LLM_MODE": "codex", "SELLER_LLM_MODE": seller_mode,
+                    "APIFY_MODE": data_mode, "TTS_MODE": "elevenlabs", "CRASH_AFTER_LOCK": "0",
+                    "APIFY_ALLOW_STALE_CACHE": "0",
                     "LEDGER_PATH": str(self.artifact / "buyer.db"),
                     "AUDIO_DIR": str(self.artifact / "audio"),
                     "GUARD_CAP": "10", "GUARD_APPROVAL_OVER": "8", "MAX_ROUNDS": "6",
@@ -137,8 +156,8 @@ class Rehearsal:
         page.wait_for_timeout(500)
         require(page.get_by_text("SIMULATED MONEY", exact=True).is_visible(), "simulation label missing")
         require(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "horizontal overflow")
-        selectors = [".honesty", ".guard-status", ".feed", ".parties"]
-        selectors += [".approval", ".approval .row"] if approval else [".result", ".deal-badges"]
+        selectors = [".header", ".guard-status", ".deal-head"]
+        selectors += [".approval", ".approval .row"] if approval else [".result-line", ".deal-badges", ".feed"]
         for selector in selectors:
             box = page.locator(selector).bounding_box()
             require(box and box["y"] >= 0 and box["y"] + box["height"] <= 1080
@@ -167,7 +186,8 @@ class Rehearsal:
                 self.page.get_by_role("radio").nth(act - 1).click()
             if self.page and not crash:
                 with self.page.expect_response(lambda r: r.url.endswith("/tasks") and r.request.method == "POST") as response:
-                    self.page.get_by_role("button", name="Run scenario", exact=True).first.click()
+                    self.page.get_by_role("complementary", name="Scenarios and usage").get_by_role(
+                        "button", name="Run request", exact=True).click()
                 require(response.value.ok, "dashboard task launch failed")
                 deal_id = response.value.json()["deal_id"]
             else:
@@ -214,7 +234,7 @@ class Rehearsal:
             max_lines = [e for e in speech if e["speaker"] == "max" and e.get("backend") != "guard"]
             require(max_lines and all(e.get("backend") == ("mock" if act == 2 else "codex")
                                      and not e.get("fallback_reason") for e in max_lines), "Codex fallback occurred")
-            require(all(e.get("backend") == "mock" for e in speech if e["speaker"] == "viktor"), "unexpected seller mode")
+            check_seller_lines(speech, self.seller_mode, act)
             interrupted = [e for e in speech if not e.get("audio_url")
                            and e.get("audio_reason") == "buyer_restarted" and crash and restarted]
             require(speech and all(e.get("audio_url") or e in interrupted for e in speech),
@@ -232,7 +252,9 @@ class Rehearsal:
                 verified = next(e["data"]["ok"] for e in events if e["type"] == "verified")
                 require(verified == (expected == "released"), "wrong verification decision")
                 if expected == "released":
-                    require(delivery["source"] == "apify_cached" and delivery["items"] == 20, "real cache not used")
+                    source = "apify" if self.data_mode == "apify" else "apify_cached"
+                    require(delivery["source"] == source and delivery["items"] == 20,
+                            f"expected {source} delivery; fallback is not live acceptance")
             if crash:
                 require(restarted and counts["already_paid"] == 1, "crash did not recover exactly once")
                 require(self.processes["seller"].pid == seller_pid and self.processes["seller"].poll() is None,
@@ -249,9 +271,11 @@ class Rehearsal:
                 self.page.wait_for_function("([id, type]) => window.rehearsalEvents.some(e => e.deal_id === id && e.type === type)",
                                             arg=[deal_id, terminal], timeout=20000)
                 if act in (2, 3, 4):
-                    require(self.page.get_by_text("STAGED SCENARIO", exact=True).first.is_visible(), "STAGED badge missing")
+                    require(self.page.locator(".deal-badges").get_by_text("STAGED", exact=True).is_visible(), "STAGED badge missing")
                 self.capture(label, deal_id)
             result = {"label": label, "deal_id": deal_id, "outcome": expected, "codex_turns": sum(e.get("backend") == "codex" for e in max_lines),
+                      "seller_codex_turns": sum(e.get("backend") == "codex" for e in speech if e["speaker"] == "viktor"),
+                      "delivery": next((e["data"] for e in events if e["type"] == "delivered"), None),
                       "speech_clips": sum(bool(e.get("audio_url")) for e in speech),
                       "text_fallbacks": len(interrupted), "crash_interrupted_speech": len(interrupted),
                       "provider_text_fallbacks": 0, "buyer_restarts": int(restarted),
@@ -281,7 +305,7 @@ class Rehearsal:
                     self.page.goto(self.url("frontend"))
                     self.page.wait_for_function("document.querySelector('button[aria-pressed]')?.disabled===false")
                 for act in (1, 2, 3, 4):
-                    for repeat in range(1, 4):
+                    for repeat in range(1, self.repeats + 1):
                         self.run_act(act, repeat)
                 # All prior deals are settled before restarting the owned seller.
                 self.stop("seller")
@@ -307,12 +331,21 @@ class Rehearsal:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--browser", action="store_true", help="capture/check Edge at 1920x1080")
+    parser.add_argument("--seller-mode", choices=("mock", "codex"), default="mock")
+    parser.add_argument("--data-mode", choices=("cached", "apify"), default="cached",
+                        help="apify uses paid live scrapes; cached fallback fails acceptance")
+    parser.add_argument("--repeats", type=int, choices=(1, 2, 3), default=3,
+                        help="runs per act; approval/decline also run once each")
     args = parser.parse_args()
     settings = get_settings()
     require(settings.elevenlabs_api_key and settings.voice_max and settings.voice_viktor,
             "Configure ElevenLabs credentials and both voice IDs first")
-    load_cache(JobSpec(), settings)  # accepts validated per-job or legacy cache; enforces age policy
-    Rehearsal(args.browser).run()
+    if args.data_mode == "cached":
+        load_cache(JobSpec(), settings)
+    else:
+        require(settings.apify_token, "Configure APIFY_TOKEN first")
+        print(f"Live data: up to {2 * args.repeats + 1} paid scrapes, each requesting a $1.10 cap.", flush=True)
+    Rehearsal(args.browser, seller_mode=args.seller_mode, data_mode=args.data_mode, repeats=args.repeats).run()
 
 
 if __name__ == "__main__":

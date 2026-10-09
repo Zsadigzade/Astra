@@ -1,4 +1,17 @@
-from scripts.rehearse import speech_lines
+import pytest
+
+from scripts.rehearse import check_seller_lines, speech_lines
+
+
+def test_live_seller_acceptance_allows_scripted_ack_but_rejects_fallback():
+    offer = {"speaker": "viktor", "action": "counter", "backend": "codex"}
+    ack = {"speaker": "viktor", "action": "accept", "backend": "mock"}
+    check_seller_lines([offer, ack], "codex", 1)
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_seller_lines([offer, {**ack, "fallback_reason": "TimeoutError"}], "codex", 1)
+    with pytest.raises(RuntimeError, match="not live"):
+        check_seller_lines([{**offer, "backend": "mock"}, ack], "codex", 1)
+    check_seller_lines([{**offer, "backend": "mock"}, ack], "codex", 2)
 
 
 def test_rehearsal_resolves_audio_by_full_message_identity():

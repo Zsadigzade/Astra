@@ -2,6 +2,17 @@
 
 updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
 
+## Local live-provider release check (2026-10-09 02:40 +02:00)
+
+- User selected live data, both agents and voices with SIMULATED payments. Ignored `.env`
+  now selects Codex Max/Viktor, live Apify and ElevenLabs; stale override and crash flag off.
+- 541 backend tests, 50 frontend tests, production build, dependency audits and six live
+  browser scenarios pass. Vite updated to 6.4.4; rehearsal supports live data/both agents
+  and uses current dashboard selectors. [Full results and limits](status/production-readiness.md).
+- Existing terminal services preserved: restart after current deals finish to load the modes.
+  Public hosting is not ready: unauthenticated controls and in-memory seller state remain.
+  Deployment destination is unconfirmed. No commit/push/deploy or real payment performed.
+
 ## Windows launcher (2026-10-09 02:27, ziya)
 - `dist/AstraLauncher.exe` built locally; [usage/build guide](../scripts/desktop/README.md). Uses the checkout and installed dependencies; sample/configured demos, readiness, full development tests and live HTTP rehearsal. Always SIMULATED with isolated ledgers; provider usage explicit. EXE acceptance: 540 backend + 50 frontend tests/build and sample HTTP release/block/refund pass; GUI and owned-process cleanup verified. Existing terminal services preserved. No fresh live-provider acceptance in this packaging task.
 
