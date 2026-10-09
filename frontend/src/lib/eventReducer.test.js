@@ -197,3 +197,10 @@ test("a past deal can be selected, unknown ids fall back to the latest, isLatest
   assert.equal(deriveDealState(events, "nope").dealId, "d2");
   assert.deepEqual(dealsOf([]), []);
 });
+
+test("the delivery carries when it arrived, so the board only animates fresh results", () => {
+  const events = [ev("task_created", {}), ev("delivered", { items: 2, source: "sample", result: { flats: [] } })];
+  const v = deriveDealState(events);
+  assert.equal(v.delivery.ts, events[1].ts);
+  assert.equal(deriveDealState([ev("task_created", {})]).delivery, null);
+});

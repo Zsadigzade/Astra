@@ -2,7 +2,7 @@ import { tada } from "../lib/formatters.js";
 import Ghost from "./Ghost.jsx";
 
 const WHO = { max: { name: "Max", role: "buyer" }, viktor: { name: "Viktor", role: "seller" } };
-const clip = (t, n = 74) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+const clip = (t, n = 130) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 
 // What is actually writing this agent's lines. Shown once, beside the agent, instead of on every message.
 // Before it has said anything, fall back to the configured mode (the staged con act is scripted regardless).
@@ -16,7 +16,7 @@ function provenance(chat, who, modes) {
   return mode === "codex" ? ["Codex subscription", "info"] : ["Scripted", "neutral"];
 }
 
-function Side({ who, thinking, speaking, offer, prov }) {
+function Side({ who, thinking, speaking, offer, prov, track }) {
   const mood = speaking?.who === who ? "speaking" : thinking === who ? "thinking" : "idle";
   return (
     <div className={`ghost-side ghost-side-${who}`}>
@@ -24,7 +24,7 @@ function Side({ who, thinking, speaking, offer, prov }) {
         {mood === "thinking" && <span className="thought" aria-label={`${WHO[who].name} is thinking`}><i /><i /><i /></span>}
         {mood === "speaking" && <p className="speech" aria-hidden="true">{clip(speaking.text)}</p>}
       </div>
-      <Ghost who={who} mood={mood} />
+      <Ghost who={who} mood={mood} tracking={track} />
       <div className="ghost-name"><b>{WHO[who].name}</b><span>{WHO[who].role}</span>
         <span className="num ghost-offer">{offer != null ? tada(offer, 1) : ""}</span></div>
       {prov && <span className={`ghost-prov prov-${prov[1]}`} title="What writes this agent's lines">{prov[0]}</span>}
@@ -33,18 +33,18 @@ function Side({ who, thinking, speaking, offer, prov }) {
 }
 
 // Two ghosts facing each other across the deal. The coin is the price currently on the table.
-export default function GhostStage({ chat, thinking, speaking, caughtUp, agreed, modes }) {
+export default function GhostStage({ chat, thinking, speaking, caughtUp, agreed, modes, trackEyes = false }) {
   const lastOf = (who) => [...chat].reverse().find((e) => e.data.speaker === who && e.data.price > 0)?.data.price ?? null;
   const onTable = [...chat].reverse().find((e) => e.data.price > 0)?.data.price ?? null;
   const settled = caughtUp && agreed != null;
   return (
     <div className="stage" role="group" aria-label="Max and Viktor">
-      <Side who="max" thinking={thinking} speaking={speaking} offer={lastOf("max")} prov={provenance(chat, "max", modes)} />
+      <Side who="max" thinking={thinking} speaking={speaking} offer={lastOf("max")} prov={provenance(chat, "max", modes)} track={trackEyes} />
       <div className={`coin ${settled ? "is-agreed" : ""}`} aria-label={onTable != null ? `Price on the table: ${tada(onTable, 1)}` : "No price yet"}>
         <span className="coin-face num">{onTable != null ? onTable.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "–"}</span>
         <span className="coin-label">{settled ? "agreed" : "tADA"}</span>
       </div>
-      <Side who="viktor" thinking={thinking} speaking={speaking} offer={lastOf("viktor")} prov={provenance(chat, "viktor", modes)} />
+      <Side who="viktor" thinking={thinking} speaking={speaking} offer={lastOf("viktor")} prov={provenance(chat, "viktor", modes)} track={trackEyes} />
     </div>
   );
 }

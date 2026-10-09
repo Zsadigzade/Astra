@@ -78,6 +78,7 @@ this check for reset, including an empty ledger already bound to Masumi. Keep se
 ### buyer "Max" (orchestrator + wallet guard + verifier) — owner: ziya
 - runs from `backend/`: `uv run uvicorn app.buyer.app:app --port 8000`
 - `POST /requests/parse` body {text} → {ok, summary, job:{count, district, max_price_czk}|null, notes[], examples[]}. Preview only (creates nothing, spends nothing). Deterministic English parser (`backend/app/core/intent.py`): count, `Praha 1`-`Praha 22` (also `Prague N`), rent cap (`under 25,000`, `max 30k`, `up to 18000 CZK`); missing parts get documented defaults and are listed in `notes`; non-rental or non-Prague requests return `ok:false` with a reason. Job bounds on the network: count 1-100, rent 1,000-1,000,000 CZK.
+- Conversation order: Max speaks first. The first `negotiation` event of a deal is Max's opening question (`speaker: max`, `action: open`, `price: 0`, `backend: mock`; a fixed template, labelled scripted in every mode, never a model call). Viktor's opening ask follows as his answer.
 - `POST /tasks` body `TaskCreate` {text, budget, job:{count, district, max_price_czk}, demo_mode: honest|con|junk} → {task_id, deal_id}
 - `GET /events` SSE, `data:` = `Event` {id, ts, type, task_id, deal_id, simulated, staged, data}; replays history on connect.
   types: task_created, negotiation{speaker: max|viktor, text, price, action, audio_url, audio_status?, backend?, fallback_reason?}, audio_ready{message_id, message_ts, audio_status, audio_url, reason?}, quote{price}, needs_approval{price, reason},

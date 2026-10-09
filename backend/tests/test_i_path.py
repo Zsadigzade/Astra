@@ -30,8 +30,9 @@ async def test_codex_failure_is_visible_in_honest_negotiation(tmp_path, monkeypa
     settings = Settings(llm_mode="codex", ledger_path=str(tmp_path / "buyer.db"),
                         audio_dir=str(tmp_path / "audio"), seller_url="http://seller")
     events, balances = await run_task(tmp_path, "honest", settings=settings)
+    # Max's opening question is a fixed template (action "open"), not a model call, so it has no fallback reason.
     max_lines = [e for e in events if e.type == "negotiation" and e.data["speaker"] == "max"
-                 and e.data["action"] != "walk"]
+                 and e.data["action"] not in {"walk", "open"}]
     assert max_lines and all(e.data["backend"] == "mock" for e in max_lines)
     assert all(e.data["fallback_reason"] for e in max_lines)
     assert "released" in {e.type for e in events}

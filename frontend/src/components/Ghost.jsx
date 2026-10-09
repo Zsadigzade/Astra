@@ -1,8 +1,13 @@
+import { useRef } from "react";
+import useCursorEyes from "../hooks/useCursorEyes.js";
+
 // A small floating ghost. All motion is CSS (see styles.css) and is switched off under prefers-reduced-motion.
 // mood: idle | thinking | speaking. `who` only picks the colour and which way it faces.
-export default function Ghost({ who, mood = "idle" }) {
+export default function Ghost({ who, mood = "idle", tracking = false }) {
+  const root = useRef(null);
+  useCursorEyes(root, tracking && mood === "idle"); // motion only: the eyes follow the cursor
   return (
-    <div className={`ghost ghost-${who} is-${mood}`} aria-hidden="true">
+    <div ref={root} className={`ghost ghost-${who} is-${mood}`} aria-hidden="true">
       <svg viewBox="0 0 80 100" width="76" height="95" focusable="false">
         <ellipse className="ghost-shadow" cx="40" cy="95" rx="22" ry="4" />
         <g className="ghost-body">

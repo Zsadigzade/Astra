@@ -2,6 +2,16 @@
 
 updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
 
+## Conversation order, board and right-rail chat (2026-10-09, samir/claude; uncommitted)
+- Max opens every deal with a question ("Hi Viktor. Can you get me ...? What is your price?"), then Viktor answers with his ask (`orchestrator.haggle`, template line, backend `mock`, voiced like any other line).
+- Layout: the transcript is now the right rail's top card (`ChatFeed`), replacing Wallet policy there; Balances and Delivery and verification stay under it. Wallet policy moved to a centre **Wallet** tab. Centre tabs: Results, Wallet, Timeline, Deals; the ghosts sit above the tabs.
+- Results board (`ResultsBoard`): an offer ladder whose chips appear as offers are made, then the listings, which wait until the conversation has finished, fade in row by row and are marked Accepted (or Rejected) by Max from the verification result.
+- Pacing: speech bubbles stay `1.2s + 40ms/char` (1.6s to 5.5s), the next line waits for the bubble to end. Only lines created AFTER the page loaded are paced; a reload or an older deal shows everything at once. Purely cosmetic, the guard/pipeline/result still update in real time.
+
+## Cursor-following eyes (2026-10-09, samir/claude; uncommitted)
+- Before a request is given the empty state shows the two ghosts (the existing drawing, unchanged) and their eyes follow the cursor (`hooks/useCursorEyes.js`, maths in `lib/eyes.js`, 5 tests). Typing keeps them following; pressing Run stops it for the rest of the page session (a reload re-arms it). It also works in the deal view when the ledger has history (the page then opens there, not in the empty state). Off under `prefers-reduced-motion`.
+- Appearance was deliberately NOT changed (owner request): same ghost drawing, size, colours, logo. A first attempt at new character art was backed out. Viktor's drawing is mirrored, so his horizontal eye/tilt direction is flipped in CSS.
+
 ## Ghost stage (2026-10-09, samir/claude; uncommitted)
 - Chat tab opens with two animated SVG ghosts (`Ghost.jsx`, `GhostStage.jsx`): levitate, blink, thinking (dots, eyes up, sway), speaking (mouth, lean, speech bubble), plus a coin with the price on the table. Pure CSS, no new dependency; all motion off under `prefers-reduced-motion`.
 - `hooks/usePacedChat.js` + `lib/pacing.js`: live lines get a thinking beat (~0.7-1.5s) before they appear. COSMETIC pacing: only for lines younger than 8s on the latest deal; history, reloads, past deals and reduced motion show everything at once. The pipeline/guard/result update in real time and can be ahead of the chat by a few seconds.

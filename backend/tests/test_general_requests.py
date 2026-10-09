@@ -121,3 +121,17 @@ async def test_live_scrape_for_another_request_does_not_clobber_the_saved_demo_c
     after = json.loads(apify.cache_path(demo, s).read_text(encoding="utf-8"))["job"]
     assert after == before == demo.model_dump()  # ...but the demo cache is untouched
     assert apify.load_cache(other, s).flats == result.flats
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("mode", ["honest", "con", "junk"])
+async def test_max_opens_with_a_question_and_viktor_answers(tmp_path, mode):
+    from tests.test_acts import run_task
+
+    events, _ = await run_task(tmp_path, mode)
+    lines = [e for e in events if e.type == "negotiation"]
+    first, second = lines[0], lines[1]
+    assert first.data["speaker"] == "max" and first.data["action"] == "open" and first.data["price"] == 0
+    assert "What is your price?" in first.data["text"] and "20 flats in Praha 7" in first.data["text"]
+    assert first.data["backend"] == "mock"  # a fixed template, labelled scripted in every mode
+    assert second.data["speaker"] == "viktor" and second.data["price"] > 0
