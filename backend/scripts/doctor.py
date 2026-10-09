@@ -164,6 +164,23 @@ def main() -> int:
         add("Money (Masumi)", WARN, "PAYMENTS_MODE=simulated: local ledger, labelled SIMULATED",
             "after `masumi_check.py --node-only` passes and Viktor is registered: PAYMENTS_MODE=masumi + a separate LEDGER_PATH")
 
+    # --- production profile and access control (names and set/unset only; never values)
+    if s.strict_live:
+        problems = s.live_problems()
+        add("Production", FAIL if problems else OK,
+            "STRICT_LIVE=1: " + ("services will refuse to start: " + "; ".join(problems) if problems
+                                 else "live providers only, no scripted/cached fallbacks"),
+            "fix the listed settings or set STRICT_LIVE=0 for a development profile" if problems else "")
+    else:
+        add("Production", INFO, "STRICT_LIVE=0: scripted/cached fallbacks allowed",
+            "set STRICT_LIVE=1 once every provider above is live")
+    add("Access", OK if s.api_token else INFO, "buyer API_TOKEN " + ("set" if s.api_token else "not set: buyer is open"),
+        "" if s.api_token else "set API_TOKEN to a long random value (the dashboard gets it via npm start)")
+    add("Access", OK if s.seller_api_token else INFO,
+        "seller SELLER_API_TOKEN " + ("set" if s.seller_api_token else "not set: seller is open"),
+        "" if s.seller_api_token else "set SELLER_API_TOKEN to a long random value (the buyer sends it)")
+    add("Access", INFO, f"rate limit: {s.rate_limit_per_minute or 'off'} task/preview requests per minute per client")
+
     return report()
 
 

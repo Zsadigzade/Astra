@@ -84,9 +84,51 @@ class Settings:
     apify_cache_max_age_seconds: float = field(default_factory=lambda: _f("APIFY_CACHE_MAX_AGE_SECONDS", 86400))
     apify_allow_stale_cache: bool = field(default_factory=lambda: os.getenv("APIFY_ALLOW_STALE_CACHE", "0") == "1")
 
+    # Production: STRICT_LIVE=1 means every agent turn, rental delivery and staged act uses the live
+    # provider; failures surface as errors instead of scripted/cached fallbacks. Payments may stay SIMULATED.
+    strict_live: bool = field(default_factory=lambda: os.getenv("STRICT_LIVE", "0") == "1")
+
+    # Access control. Empty = open (local development only). Buyer endpoints other than /health
+    # require API_TOKEN; seller endpoints other than /health and /availability require SELLER_API_TOKEN.
+    api_token: str = field(default_factory=lambda: os.getenv("API_TOKEN", ""))
+    seller_api_token: str = field(default_factory=lambda: os.getenv("SELLER_API_TOKEN", ""))
+    # Per-client limit on task creation and request previews (requests per minute; 0 disables).
+    rate_limit_per_minute: int = field(default_factory=lambda: int(os.getenv("RATE_LIMIT_PER_MINUTE", 30)))
+    # Seller jobs and agreements survive a seller restart in this SQLite file.
+    seller_store_path: str = field(default_factory=lambda: os.getenv(
+        "SELLER_STORE_PATH", str(BACKEND_ROOT / "data" / "seller.db")))
+
     @property
     def simulated(self) -> bool:
         return self.payments_mode != "masumi"
+
+    def live_problems(self) -> list[str]:
+        """Why this configuration is not fully live; empty when STRICT_LIVE can run."""
+        problems = []
+        if self.llm_mode != "codex":
+            problems.append("LLM_MODE must be codex")
+        if self.seller_llm_mode != "codex":
+            problems.append("SELLER_LLM_MODE must be codex")
+        if self.apify_mode != "apify":
+            problems.append("APIFY_MODE must be apify")
+        if not self.apify_token:
+            problems.append("APIFY_TOKEN is required")
+        if self.apify_allow_stale_cache:
+            problems.append("APIFY_ALLOW_STALE_CACHE must be 0")
+        if self.tts_mode != "elevenlabs":
+            problems.append("TTS_MODE must be elevenlabs")
+        if not (self.elevenlabs_api_key and self.voice_max and self.voice_viktor):
+            problems.append("ELEVENLABS_API_KEY, VOICE_MAX and VOICE_VIKTOR are required")
+        return problems
+
+    def require_live(self) -> None:
+        """Refuse to start a STRICT_LIVE service on a configuration that would simulate anything but payments."""
+        if self.strict_live and (problems := self.live_problems()):
+            raise ValueError("STRICT_LIVE=1 but the configuration is not live: " + "; ".join(problems))
+
+
+class LiveProviderUnavailable(RuntimeError):
+    """STRICT_LIVE: a live provider failed and no scripted or cached substitute is allowed."""
 
 
 def get_settings() -> Settings:

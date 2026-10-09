@@ -53,16 +53,41 @@ def npm_command(*args):
     raise RuntimeError("Cannot find npm-cli.js beside Node/npm. Install the standard Node.js distribution.")
 
 
+def dotenv_values(path, names):
+    """Read selected KEY=value pairs from the repository .env (the frozen launcher cannot import the app)."""
+    found = {}
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return found
+    for line in lines:
+        key, sep, value = line.strip().removeprefix("export ").partition("=")
+        key, value = key.strip(), value.strip()
+        if not sep or key not in names:
+            continue
+        if value[:1] in {'"', "'"} and value.find(value[0], 1) > 0:
+            value = value[1:value.find(value[0], 1)]
+        else:
+            value = value.split(" #", 1)[0].strip()
+        found[key] = value
+    return found
+
+
 def environment(root, artifact, profile):
     env = dict(os.environ)
+    # Services read the same .env; the launcher needs the tokens for its own HTTP checks and the dashboard.
+    for key, value in dotenv_values(Path(root) / ".env", {"API_TOKEN", "SELLER_API_TOKEN"}).items():
+        env.setdefault(key, value)
     env.update(PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8", NO_COLOR="1", NO_OPEN="1",
                PAYMENTS_MODE="simulated", LEDGER_PATH=str(artifact / "buyer.db"),
+               SELLER_STORE_PATH=str(artifact / "seller.db"),
                AUDIO_DIR=str(artifact / "audio"), CRASH_AFTER_LOCK="0",
                SELLER_URL="http://127.0.0.1:8001", VITE_BUYER_URL="http://127.0.0.1:8000",
                VITE_SELLER_URL="http://127.0.0.1:8001", GUARD_CAP="10", GUARD_APPROVAL_OVER="8",
                SELLER_FLOOR="7", SELLER_OPENING_ASK="18", MAX_ROUNDS="6")
     if profile == "sample":
-        env.update(LLM_MODE="mock", SELLER_LLM_MODE="mock", APIFY_MODE="sample", TTS_MODE="off")
+        # Offline providers are not a production profile: STRICT_LIVE would refuse to start them.
+        env.update(LLM_MODE="mock", SELLER_LLM_MODE="mock", APIFY_MODE="sample", TTS_MODE="off", STRICT_LIVE="0")
     return env
 
 
@@ -211,7 +236,10 @@ class Runner:
                     if port not in ports:
                         ports.append(port)
         buyer_url, seller_url, dashboard_url = [f"http://127.0.0.1:{p}" for p in ports]
-        env = {**env, "SELLER_URL": seller_url, "VITE_BUYER_URL": buyer_url, "VITE_SELLER_URL": seller_url}
+        token = env.get("API_TOKEN", "")
+        # Only the dev server gets the token (never a production build written to disk).
+        env = {**env, "SELLER_URL": seller_url, "VITE_BUYER_URL": buyer_url, "VITE_SELLER_URL": seller_url,
+               "VITE_API_TOKEN": token}
         # Refuse occupied ports; never stop or attach to another terminal's services.
         reserved = []
         try:
@@ -243,7 +271,7 @@ class Runner:
                     raise RuntimeError("A demo service exited. Inspect the log above.")
                 try:
                     for url in (buyer_url + "/health", seller_url + "/health", dashboard_url):
-                        request(url)
+                        request(url, token=token)
                     break
                 except OSError:
                     if time.monotonic() > deadline:
@@ -252,10 +280,10 @@ class Runner:
             self.say(f"READY: {dashboard_url} — SIMULATED payments; isolated ledger.")
             if smoke:
                 for mode, expected in (("honest", "released"), ("con", "blocked"), ("junk", "refunded")):
-                    deal_id = request(buyer_url + "/tasks", {"demo_mode": mode})["deal_id"]
+                    deal_id = request(buyer_url + "/tasks", {"demo_mode": mode}, token=token)["deal_id"]
                     deadline = time.monotonic() + 45
                     while not self.stop_event.is_set():
-                        deals = request(buyer_url + "/deals")
+                        deals = request(buyer_url + "/deals", token=token)
                         deal = next((d for d in deals if d["deal_id"] == deal_id), {})
                         if deal.get("status") == expected:
                             self.say(f"PASS: sample {mode} -> {expected}")
@@ -265,7 +293,7 @@ class Runner:
                         self.stop_event.wait(.1)
                     if self.stop_event.is_set():
                         return False
-                balance = request(buyer_url + "/balances")
+                balance = request(buyer_url + "/balances", token=token)
                 if (balance["buyer"], balance["seller"], balance["escrow"]) != (93, 7, 0):
                     raise RuntimeError("Sample balance conservation failed.")
                 self.results.append({"check": "sample HTTP demo: release/block/refund and balances", "passed": True})
@@ -328,9 +356,10 @@ class Runner:
         return 0 if self.report["passed"] else 1
 
 
-def request(url, data=None):
+def request(url, data=None, token=""):
     payload = None if data is None else json.dumps(data).encode()
-    req = urllib.request.Request(url, payload, {"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json", **({"X-API-Token": token} if token else {})}
+    req = urllib.request.Request(url, payload, headers)
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(req, timeout=5) as response:
         body = response.read()

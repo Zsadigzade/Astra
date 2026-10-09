@@ -168,6 +168,17 @@ async def check(settings: Settings, job: BoundedJobSpec, *, live_probe: bool = F
         voice_ok = False
         report(False, "voice", "set TTS_MODE to off or elevenlabs")
 
+    # Production profile and access control: only names and set/unset states, never values.
+    if settings.strict_live:
+        problems = settings.live_problems()
+        report(not problems, "STRICT_LIVE", "on; live providers only, no scripted/cached fallbacks; payments may stay SIMULATED"
+               if not problems else "on, but services will refuse to start: " + "; ".join(problems))
+    else:
+        print("INFO: STRICT_LIVE: off; scripted/cached fallbacks allowed (STRICT_LIVE=1 for production)")
+    print(f"INFO: access: buyer API_TOKEN {'set' if settings.api_token else 'NOT set (open buyer)'}; "
+          f"seller SELLER_API_TOKEN {'set' if settings.seller_api_token else 'NOT set (open seller)'}; "
+          f"rate limit {settings.rate_limit_per_minute or 'off'}/min")
+
     if live_probe:
         if needs_codex:
             agent = ("both" if settings.llm_mode == settings.seller_llm_mode == "codex"

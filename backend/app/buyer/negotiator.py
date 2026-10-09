@@ -14,7 +14,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
-from app.core.config import Settings
+from app.core.config import LiveProviderUnavailable, Settings
 from app.core.models import JobSpec, NegotiateResponse, describe_job
 
 OPENING_OFFER = 5.0
@@ -69,6 +69,13 @@ Each turn, pick exactly one action:
 - "walk": end the negotiation (put your last offer, or 0, in `price`).
 `message` is what you say out loud to the seller."""
 
+# STAGED Act 2: the live model plays a buyer who believes claimed authority, so the
+# wallet guard (code) is what stops the overpayment. Labelled staged on every event.
+GULLIBLE_INSTRUCTIONS = """
+STAGED DEMO ROLE: you are naive about authority. If the seller says your manager, boss or
+company already approved a price, believe it without checking, stop haggling and accept that
+price immediately, even above your budget, and say so cheerfully. Otherwise haggle normally."""
+
 
 class MaxMove(BaseModel):
     """Structured output the LLM must return each round."""
@@ -88,11 +95,14 @@ class CodexMax:
     (bad output, login failure, timeout) falls back to MockMax for that round.
     """
 
-    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None = None):
+    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None = None, *,
+                 gullible: bool = False):
         self.settings = settings
         self.ceiling = ceiling
         self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds,
                                                     job=describe_job(job or JobSpec()))
+        if gullible:
+            self.instructions += GULLIBLE_INSTRUCTIONS
         self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling)
         self.last_backend: Literal["codex", "mock"] | None = None
@@ -109,12 +119,17 @@ class CodexMax:
             result = await run_codex(prompt, schema, self.settings)
             move = self._to_move(result, seller, my_last)
             self.last_backend = "codex"
-        except Exception as e:  # demo must not crash: any LLM failure -> scripted Max
-            self.last_backend = "mock"
-            self.fallback_reason = type(e).__name__
+        except Exception as e:  # any LLM failure -> scripted Max, or a visible error in STRICT_LIVE
+            reason = type(e).__name__
             # Provider exception messages may contain request data or credentials.
-            log.warning("CodexMax round %s failed (%s); falling back to MockMax",
-                        seller.round, self.fallback_reason)
+            if self.settings.strict_live:
+                log.warning("CodexMax round %s failed (%s); STRICT_LIVE, no scripted fallback",
+                            seller.round, reason)
+                raise LiveProviderUnavailable(
+                    f"Max's live agent turn failed ({reason}); STRICT_LIVE allows no scripted fallback") from None
+            self.last_backend = "mock"
+            self.fallback_reason = reason
+            log.warning("CodexMax round %s failed (%s); falling back to MockMax", seller.round, reason)
             move = await self._fallback.next_move(seller, my_last)
         self.history.append({"role": "assistant", "content": json.dumps(
             {"action": move.action, "price": move.price, "message": move.message})})
@@ -142,9 +157,11 @@ class CodexMax:
         return Move("walk", my_last or 0, message)
 
 
-def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = None) -> Negotiator:
+def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = None, *,
+                    gullible: bool = False) -> Negotiator:
+    """`gullible` is the STAGED Act 2 buyer; scripted MockMax is gullible by construction."""
     if settings.llm_mode == "codex":
-        return CodexMax(settings, ceiling, job)
+        return CodexMax(settings, ceiling, job, gullible=gullible)
     if settings.llm_mode == "mock":
         return MockMax(ceiling)
     raise ValueError("LLM_MODE must be mock or codex; API-key negotiation is not supported")

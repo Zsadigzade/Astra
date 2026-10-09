@@ -40,7 +40,7 @@ I13 runtime and I14 readiness belong to the two terminal sessions; their files a
 | `APIFY_TOKEN` | seller agents | Apify API token |
 | `ELEVENLABS_API_KEY` | seller agents | ElevenLabs key |
 | `BAD_MODE` | seller agents | superseded by task `demo_mode: junk` (2026-10-08 21:40) |
-| `LLM_MODE` / `SELLER_LLM_MODE` | buyer / seller | independently `mock` (scripted, default) or `codex` (local ChatGPT subscription); other modes rejected. Act 2 forces scripted Max and Viktor. |
+| `LLM_MODE` / `SELLER_LLM_MODE` | buyer / seller | independently `mock` (scripted, default) or `codex` (local ChatGPT subscription); other modes rejected. In codex mode Act 2 is live (Viktor voices the con at code-fixed 25; Max gets a STAGED gullible role) and every Viktor acknowledgement is a live line with code-fixed action/price. |
 | `CODEX_COMMAND`, `CODEX_MODEL` | buyer / seller | installed Codex CLI path/name; optional model (blank uses CLI default); authenticate with `codex login` |
 | `CODEX_TIMEOUT_SECONDS` | buyer / seller | default 30s for queueing plus local CLI execution; failure produces labelled scripted fallback; buyer allows seller deadline plus cleanup before giving up HTTP; no API keys |
 | `CODEX_MAX_CONCURRENT`, `CODEX_QUEUE_TIMEOUT_SECONDS` | buyer / seller | default 2 simultaneous turns per service process, 5s queue wait (inside total turn deadline); cancelled/expired waiters start no child; slots remain occupied until child cleanup finishes |
@@ -58,6 +58,11 @@ I13 runtime and I14 readiness belong to the two terminal sessions; their files a
 | `TTS_MODE`, `VOICE_MAX`, `VOICE_VIKTOR` | buyer (voice/) | `off`/`elevenlabs` + ElevenLabs voice ids |
 | `TTS_MODEL`, `TTS_TIMEOUT_SECONDS` | buyer (voice/) | default `eleven_flash_v2_5`; total per-line deadline 12s, then text fallback |
 | `TTS_CACHE_MAX_FILES`, `TTS_CACHE_MAX_BYTES` | buyer (voice/) | default 512 files / 134217728 bytes; counts legacy MP3s, retains all published URLs; refuse new unique audio at capacity, reuse existing clips; one buyer per audio directory |
+| `STRICT_LIVE` | buyer / seller | `1` = production profile: startup refuses unless codex/codex/apify(+token, no stale override)/elevenlabs(+key, voices); Codex/Apify failures raise (`error` event or refund), never scripted lines or cached listings; voice still degrades to text; payments may stay simulated. Seller returns 503 on a failed live turn. |
+| `API_TOKEN` | buyer, dashboard, scripts | when set, all buyer routes except `GET /health` need `X-API-Token` or `Authorization: Bearer`; `/events` and `/audio/*` also accept `?token=`. `npm start` passes it to Vite as `VITE_API_TOKEN` (dev only; never build a production bundle with it). |
+| `SELLER_API_TOKEN` | seller, buyer | same for seller routes except `/health` and `/availability`; buyer's seller client sends it |
+| `RATE_LIMIT_PER_MINUTE` | buyer | per-client sliding window, separately on `POST /tasks` and `POST /requests/parse`; 429 + `Retry-After`; `0` disables (default 30) |
+| `SELLER_STORE_PATH` | seller | SQLite for jobs, start responses and Viktor agreements (default `backend/data/seller.db`); running/awaiting-payment jobs resume on startup in their own payment mode; one file per payment mode |
 | `CRASH_AFTER_LOCK` | buyer | `1` = STAGED Act 3, buyer exits right after escrow lock |
 | `LEDGER_PATH` | buyer | SQLite file, default `backend/data/buyer.db`; separate files for simulated/real payments. `up.py --reset` archives this configured file to a timestamped `.bak`, only for completed simulated work; refuses unfinished/real/mixed ledgers and SQLite sidecars. Relative paths resolve from `backend/`. |
 | `MASUMI_NETWORK`, `MASUMI_AGENT_ID`, `SELLER_VKEY` | seller (masumi mode) | `Preprod`; Viktor's registry agentIdentifier; selling wallet vkey |

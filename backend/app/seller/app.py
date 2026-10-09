@@ -9,11 +9,13 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException
 
-from app.core.config import Settings, get_settings
+from app.core.auth import TokenAuth, open_paths
+from app.core.config import BACKEND_ROOT, LiveProviderUnavailable, Settings, get_settings
 from app.core.masumi import LOCKED_STATES, MasumiClient, input_hash, output_hash
 from app.core.models import (
     DemoMode,
@@ -28,6 +30,7 @@ from app.core.models import (
 )
 from app.seller.job import run_job
 from app.seller.persona import NegotiationConflict, make_viktor
+from app.seller.store import PersistentDeals, SellerStore
 
 log = logging.getLogger("astra.seller")
 JOB_SECONDS = float(os.getenv("JOB_SECONDS", 2))
@@ -36,13 +39,20 @@ SUBMIT_TRIES = 3
 
 def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient | None = None) -> FastAPI:
     s = settings or get_settings()
-    app = FastAPI(title="Astra seller (Viktor)")
+    s.require_live()  # STRICT_LIVE refuses to start on a configuration that would simulate providers
+    store = SellerStore(s.seller_store_path or str(BACKEND_ROOT / "data" / "seller.db"))  # blank = default
     viktor = make_viktor(s)
-    jobs: dict[str, StatusResponse] = {}
-    by_purchaser: dict[str, StartJobResponse] = {}
+    # Jobs, start acknowledgements and agreements survive a seller restart (write-through to SQLite).
+    viktor.deals = PersistentDeals(store)
+    jobs: dict[str, StatusResponse] = store.statuses()
+    by_purchaser: dict[str, StartJobResponse] = {r.purchaser: r.response for r in store.starts()}
     running: set[asyncio.Task] = set()
     masumi = None if s.simulated else MasumiClient(s.masumi_payment_url, s.masumi_api_key, s.masumi_network,
                                                    masumi_http)
+
+    def set_status(job_id: str, status: str, result: JobResult | None = None) -> None:
+        jobs[job_id] = StatusResponse(job_id=job_id, status=status, result=result)
+        store.put_status(jobs[job_id])
 
     def spawn(coro) -> None:
         t = asyncio.create_task(coro)
@@ -50,15 +60,15 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
         t.add_done_callback(running.discard)
 
     async def work(job_id: str, job: JobSpec, mode: DemoMode) -> JobResult | None:
-        jobs[job_id] = StatusResponse(job_id=job_id, status="running")
+        set_status(job_id, "running")
         await asyncio.sleep(JOB_SECONDS)
         try:
             result: JobResult = await run_job(job, mode, s)
-            jobs[job_id] = StatusResponse(job_id=job_id, status="completed", result=result)
+            set_status(job_id, "completed", result)
             return result
         except Exception:
             log.exception("job %s failed", job_id)
-            jobs[job_id] = StatusResponse(job_id=job_id, status="failed")
+            set_status(job_id, "failed")
             return None
 
     async def work_when_paid(job_id: str, blockchain_id: str, purchaser_id: str, job: JobSpec,
@@ -69,7 +79,7 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
         except Exception:
             log.exception("job %s: Masumi step failed", job_id)
             if jobs[job_id].status != "completed":  # delivered work stays delivered
-                jobs[job_id] = StatusResponse(job_id=job_id, status="failed")
+                set_status(job_id, "failed")
 
     async def _work_when_paid(job_id, blockchain_id, purchaser_id, job, mode, deadline) -> None:
         while time.time() < deadline:
@@ -78,9 +88,21 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
                 break
             await asyncio.sleep(s.masumi_poll_seconds)
         else:
-            jobs[job_id] = StatusResponse(job_id=job_id, status="failed")
+            set_status(job_id, "failed")
             log.warning("job %s: buyer never paid", job_id)
             return
+        await _deliver_paid(job_id, blockchain_id, purchaser_id, job, mode)
+
+    async def deliver_paid(job_id: str, blockchain_id: str, purchaser_id: str, job: JobSpec, mode: DemoMode) -> None:
+        """Masumi resume: funds were confirmed locked before the restart; work and submit the result."""
+        try:
+            await _deliver_paid(job_id, blockchain_id, purchaser_id, job, mode)
+        except Exception:
+            log.exception("job %s: Masumi step failed", job_id)
+            if jobs[job_id].status != "completed":
+                set_status(job_id, "failed")
+
+    async def _deliver_paid(job_id, blockchain_id, purchaser_id, job, mode) -> None:
         result = await work(job_id, job, mode)
         if result is None:
             return
@@ -94,6 +116,47 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
                     log.exception("job %s: submit_result failed %d times; funds stay locked", job_id, attempt)
                     return
                 await asyncio.sleep(s.masumi_poll_seconds * attempt)
+
+    def resume() -> None:
+        """Restart recovery: re-spawn work that was in flight when the seller stopped."""
+        for record in store.starts():
+            status = jobs.get(record.job_id)
+            state = status.status if status else None
+            if masumi is None:
+                if record.blockchain_id is not None:
+                    if state in {"running", "awaiting_payment"}:
+                        log.warning("job %s belongs to Masumi payments; not resumed in SIMULATED mode",
+                                    record.job_id)
+                elif state == "running":
+                    log.info("resuming SIMULATED job %s after restart", record.job_id)
+                    spawn(work(record.job_id, record.job, record.demo_mode))
+            elif record.blockchain_id is None:
+                if state in {"running", "awaiting_payment"}:
+                    log.warning("job %s is SIMULATED; not resumed in Masumi mode", record.job_id)
+            elif state == "awaiting_payment":
+                log.info("resuming Masumi payment watch for job %s after restart", record.job_id)
+                spawn(work_when_paid(record.job_id, record.blockchain_id, record.purchaser, record.job,
+                                     record.demo_mode, record.deadline or 0.0))
+            elif state == "running":
+                log.info("resuming paid Masumi job %s after restart", record.job_id)
+                spawn(deliver_paid(record.job_id, record.blockchain_id, record.purchaser, record.job,
+                                   record.demo_mode))
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        resume()
+        try:
+            yield
+        finally:
+            # Unfinished work stays persisted as running/awaiting_payment and resumes on the next start.
+            for task in list(running):
+                task.cancel()
+            await asyncio.gather(*running, return_exceptions=True)
+
+    app = FastAPI(title="Astra seller (Viktor)", lifespan=lifespan)
+    app.add_middleware(TokenAuth, token=s.seller_api_token, is_open=open_paths("/health", "/availability"))
+    app.state.store = store
+    app.state.viktor = viktor
 
     @app.get("/health")
     async def health():
@@ -117,6 +180,8 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
             return await viktor.respond_async(req)
         except NegotiationConflict as exc:
             raise HTTPException(409, str(exc)) from exc
+        except LiveProviderUnavailable as exc:  # STRICT_LIVE: no scripted substitute for a failed live turn
+            raise HTTPException(503, str(exc)) from exc
 
     @app.post("/start_job", response_model=StartJobResponse)
     async def start_job(req: StartJobRequest):
@@ -139,7 +204,9 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
             # SIMULATED: work starts immediately and trusts the buyer's simulated escrow.
             resp = StartJobResponse(status="success", job_id=job_id, price=price,
                                     message="SIMULATED: work starts without on-chain payment check")
-            jobs[job_id] = StatusResponse(job_id=job_id, status="running")
+            store.put_start(purchaser, resp, job, mode)
+            set_status(job_id, "running")
+            by_purchaser[purchaser] = resp
             spawn(work(job_id, job, mode))
         else:
             in_hash = input_hash(data, purchaser)
@@ -151,10 +218,11 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
                 submitResultTime=str(pay["submitResultTime"]), unlockTime=str(pay["unlockTime"]),
                 externalDisputeUnlockTime=str(pay["externalDisputeUnlockTime"]),
                 agentIdentifier=s.masumi_agent_id, sellerVKey=s.seller_vkey, inputHash=in_hash)
-            jobs[job_id] = StatusResponse(job_id=job_id, status="awaiting_payment")
             deadline = time.time() + s.masumi_pay_by_minutes * 60
+            store.put_start(purchaser, resp, job, mode, pay["blockchainIdentifier"], deadline)
+            set_status(job_id, "awaiting_payment")
+            by_purchaser[purchaser] = resp
             spawn(work_when_paid(job_id, pay["blockchainIdentifier"], purchaser, job, mode, deadline))
-        by_purchaser[purchaser] = resp
         return resp
 
     @app.get("/status", response_model=StatusResponse)

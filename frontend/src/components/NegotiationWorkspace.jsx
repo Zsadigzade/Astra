@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BUYER } from "../api.js";
+import { API_TOKEN, BUYER } from "../api.js";
 import { eventKey } from "../eventIdentity.js";
 import ApprovalCard from "./ApprovalCard.jsx";
 import ChatPanel from "./ChatPanel.jsx";
@@ -31,7 +31,7 @@ export default function NegotiationWorkspace({ view, events, controls, selected,
     <div className="workspace">
       <DealHeader view={view} onLatest={() => onSelect(null)} />
       {view.approval && view.isLatest && <ApprovalCard key={eventKey(view.approval)} approval={view.approval} controls={controls} />}
-      <Tabs tabs={tabs} value={tab} onChange={setTab} extra={<VoicePlayback events={events} buyerUrl={BUYER} dealId={view.dealId} />} />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} extra={<VoicePlayback events={events} buyerUrl={BUYER} token={API_TOKEN} dealId={view.dealId} />} />
       <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>{panel}</div>
     </div>
   );

@@ -138,6 +138,29 @@ async def test_timeout_aborts_cloud_run(monkeypatch, settings):
 
 
 @pytest.mark.anyio
+async def test_live_junk_sabotages_a_real_scrape_so_verification_refunds(monkeypatch, settings):
+    from app.buyer.verifier import verify
+
+    calls = success(monkeypatch, [row(n) for n in range(1, 6)])
+    job = JobSpec(count=5)
+    result = await run_job(job, DemoMode.junk, settings)
+    assert calls and result.source == "apify" and result.run_id == "run1"
+    assert len(result.flats) == 3 and all(f.url == "" and f.price_czk == 99_999 for f in result.flats)
+    ok, checks = verify(result, job)
+    assert not ok and not checks["urls_valid_and_unique"] and not checks["at_least_5_flats"]
+
+
+@pytest.mark.anyio
+async def test_strict_live_failure_never_uses_cache(monkeypatch, settings):
+    success(monkeypatch, [row()])
+    job = JobSpec(count=1)
+    await run_job(job, DemoMode.honest, settings)  # saves a valid matching cache
+    strict = replace(settings, apify_token="", strict_live=True)
+    with pytest.raises(apify.ApifyError, match="STRICT_LIVE"):
+        await run_job(job, DemoMode.honest, strict)
+
+
+@pytest.mark.anyio
 async def test_failure_uses_labelled_matching_cache(monkeypatch, settings, caplog):
     success(monkeypatch, [row()])
     job = JobSpec(count=1)
@@ -168,12 +191,13 @@ async def test_cache_validation_and_failed_scrape_preserve_prior_cache(monkeypat
 
 
 @pytest.mark.anyio
-async def test_sample_and_staged_junk_never_call_provider(monkeypatch, settings):
+async def test_sample_mode_never_calls_provider(monkeypatch, settings):
     def fail(request):
         pytest.fail("Unexpected paid API call")
     mock_http(monkeypatch, fail)
-    assert (await run_job(JobSpec(), DemoMode.junk, settings)).source == "sample"
-    assert (await run_job(JobSpec(), DemoMode.honest, replace(settings, apify_mode="sample"))).source == "sample"
+    sample = replace(settings, apify_mode="sample")
+    assert (await run_job(JobSpec(), DemoMode.junk, sample)).source == "sample"
+    assert (await run_job(JobSpec(), DemoMode.honest, sample)).source == "sample"
     with pytest.raises(ValueError, match="APIFY_MODE"):
         await run_job(JobSpec(), DemoMode.honest, replace(settings, apify_mode="typo"))
 

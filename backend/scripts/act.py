@@ -7,8 +7,12 @@ Act 3: start the buyer with CRASH_AFTER_LOCK=1, run `act.py honest`, restart the
 import argparse
 import json
 import sys
+from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.core.config import get_settings  # noqa: E402
 
 FINAL = {"released", "refunded", "walked_away", "error"}
 COLORS = {"blocked": "\033[1;31m", "error": "\033[1;31m", "released": "\033[1;32m", "refunded": "\033[1;33m",
@@ -74,6 +78,12 @@ def run(client: httpx.Client, mode: str, watch: bool) -> int:
     return 1
 
 
+def buyer_headers() -> dict[str, str]:
+    """The buyer's API_TOKEN from .env, when access control is on."""
+    token = get_settings().api_token
+    return {"X-API-Token": token} if token else {}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", nargs="?", choices=["honest", "con", "junk"], default="honest")
@@ -83,10 +93,14 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles; flats have Czech names.
     try:
-        with httpx.Client(base_url=a.buyer, timeout=REQUEST_TIMEOUT) as client:
+        with httpx.Client(base_url=a.buyer, timeout=REQUEST_TIMEOUT, headers=buyer_headers()) as client:
             return run(client, a.mode, a.watch)
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 423:
+        if exc.response.status_code == 401:
+            print("Buyer rejected the API token (HTTP 401); API_TOKEN in .env must match the running buyer.")
+        elif exc.response.status_code == 429:
+            print("Buyer rate limit reached (HTTP 429); wait a minute or raise RATE_LIMIT_PER_MINUTE.")
+        elif exc.response.status_code == 423:
             print("Agents are paused; resume them in the dashboard before starting an act.")
         else:
             print(f"Buyer request failed (HTTP {exc.response.status_code}); check the buyer service.")

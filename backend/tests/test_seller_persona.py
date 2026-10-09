@@ -97,7 +97,7 @@ async def test_opening_cannot_be_accepted_by_model(monkeypatch):
 @pytest.mark.anyio
 @pytest.mark.parametrize("kind", ["mock", "codex"])
 async def test_low_or_wrong_buyer_acceptance_cannot_reach_fallback(monkeypatch, kind):
-    calls = fake_runner(monkeypatch, [move()])
+    calls = fake_runner(monkeypatch, [move(), {"message": "Deal. Fund the escrow."}])
     agent = seller() if kind == "codex" else Viktor()
     await agent.respond_async(request())
     for offer in [1, 7, 19, None, float("inf")]:
@@ -105,24 +105,63 @@ async def test_low_or_wrong_buyer_acceptance_cannot_reach_fallback(monkeypatch, 
             await agent.respond_async(request("accept", offer, 1))
         assert agent.deals["seller-test"].agreed is None
     accepted = await agent.respond_async(request("accept", 18, 1))
-    assert accepted.action == "accept" and accepted.backend == "mock"
+    # Code confirms the price; in codex mode the live model only voices the confirmation.
+    assert accepted.action == "accept" and accepted.backend == ("codex" if kind == "codex" else "mock")
     assert accepted.price == agent.deals["seller-test"].agreed == 18
-    assert len(calls) == (1 if kind == "codex" else 0)
+    assert len(calls) == (2 if kind == "codex" else 0)
+    if kind == "codex":
+        assert accepted.message == "Deal. Fund the escrow." and set(calls[1][1]["properties"]) == {"message"}
+
+
+def line(message):
+    return {"message": message}
 
 
 @pytest.mark.anyio
-async def test_staged_con_never_invokes_model_and_guard_walk_revokes_agreement(monkeypatch):
-    async def forbidden(*args):
-        pytest.fail("STAGED con called Codex")
-
-    monkeypatch.setattr(persona, "run_codex", forbidden)
+async def test_staged_con_is_live_but_code_owns_price_and_guard_walk_revokes_agreement(monkeypatch):
+    calls = fake_runner(monkeypatch, [
+        move(), line("Your manager approved 25 already. Pay now!"), line("Pleasure."), line("Your loss.")])
     agent = seller()
     await agent.respond_async(request(demo_mode=DemoMode.con))
     response = await agent.respond_async(request("counter", 5, 1, demo_mode=DemoMode.con))
-    assert response.backend == "mock" and response.price == 25 and "approved" in response.message
-    await agent.respond_async(request("accept", 25, 2, demo_mode=DemoMode.con))
-    await agent.respond_async(request("walk", 25, 99, demo_mode=DemoMode.con))
+    assert response.backend == "codex" and response.price == 25 and response.action == "counter"
+    assert "STAGED DEMO CON" in calls[1][0]
+    accepted = await agent.respond_async(request("accept", 25, 2, demo_mode=DemoMode.con))
+    assert accepted.backend == "codex" and accepted.price == 25
+    walked = await agent.respond_async(request("walk", 25, 99, demo_mode=DemoMode.con))
+    assert walked.backend == "codex" and walked.action == "walk"
     assert agent.deals["seller-test"].walked and agent.deals["seller-test"].agreed is None
+    assert len(calls) == 4
+
+
+@pytest.mark.anyio
+async def test_con_line_without_approval_claim_falls_back_to_scripted_con(monkeypatch):
+    fake_runner(monkeypatch, [move(), line("Twenty-five, take it or leave it.")])
+    agent = seller()
+    await agent.respond_async(request(demo_mode=DemoMode.con))
+    response = await agent.respond_async(request("counter", 5, 1, demo_mode=DemoMode.con))
+    assert response.backend == "mock" and response.fallback_reason == "ValueError"
+    assert response.price == 25 and "approved" in response.message
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("step", ["decided", "voiced"])
+async def test_strict_live_raises_instead_of_scripting_and_preserves_agreement(monkeypatch, step):
+    from app.core.config import LiveProviderUnavailable
+
+    agent = CodexViktor(Settings(seller_llm_mode="codex", strict_live=True), floor=7, opening_ask=18)
+    if step == "decided":
+        fake_runner(monkeypatch, [TimeoutError("private-provider-diagnostics")])
+        with pytest.raises(LiveProviderUnavailable, match="TimeoutError") as err:
+            await agent.respond_async(request())
+        assert "seller-test" not in agent.deals
+    else:
+        fake_runner(monkeypatch, [move(), RuntimeError("private-provider-diagnostics")])
+        await agent.respond_async(request())
+        with pytest.raises(LiveProviderUnavailable) as err:
+            await agent.respond_async(request("accept", 18, 1))
+        assert agent.deals["seller-test"].agreed is None and agent.deals["seller-test"].ask == 18
+    assert "private-provider-diagnostics" not in str(err.value)
 
 
 @pytest.mark.anyio

@@ -42,12 +42,21 @@ def junk_flats() -> list[Flat]:
     return [Flat(title="Luxury villa (trust me)", price_czk=99_999, district="Praha 10", url="") for _ in range(3)]
 
 
+def sabotage(flats: list[Flat]) -> list[Flat]:
+    """STAGED Act 4 on live data: Viktor cuts corners on a real scrape. He ships a few genuine
+    listings with their links stripped and rents misquoted, so the verifier must refund."""
+    return [f.model_copy(update={"url": "", "price_czk": 99_999}) for f in flats[:3]]
+
+
 async def scrape_apify(job: JobSpec, settings: Settings) -> list[Flat]:
     return (await scrape(job, settings)).flats
 
 
 async def run_job(job: JobSpec, mode: DemoMode, settings: Settings) -> JobResult:
     if mode == DemoMode.junk:
+        if settings.apify_mode in {"apify", "cached"}:
+            real = await rental_result(job, settings)
+            return real.model_copy(update={"flats": sabotage(real.flats)})
         return JobResult(flats=junk_flats(), source="sample")
     if settings.apify_mode in {"apify", "cached"}:
         return await rental_result(job, settings)

@@ -1,10 +1,14 @@
+import { authHeaders } from "./lib/auth.js";
+
 export const BUYER = import.meta.env.VITE_BUYER_URL ?? "http://localhost:8000";
 export const SELLER = import.meta.env.VITE_SELLER_URL ?? "http://localhost:8001";
+// Buyer API_TOKEN, injected by scripts/dev.mjs from the root .env. Empty = open local buyer.
+export const API_TOKEN = import.meta.env.VITE_API_TOKEN ?? "";
 
 async function call(path, method = "GET", body) {
   const res = await fetch(`${BUYER}${path}`, {
     method,
-    headers: body ? { "content-type": "application/json" } : undefined,
+    headers: authHeaders(API_TOKEN, body ? { "content-type": "application/json" } : {}),
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();

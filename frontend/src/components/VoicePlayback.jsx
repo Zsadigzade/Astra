@@ -3,19 +3,19 @@ import { AudioQueue } from "../audioQueue";
 import Icon from "./Icons.jsx";
 
 // Mount once next to the negotiation transcript. Do not add parallel audio players.
-export default function VoicePlayback({ events, buyerUrl, dealId }) {
+export default function VoicePlayback({ events, buyerUrl, token = "", dealId }) {
   const queue = useRef(null);
   const [state, setState] = useState({ playing: false, queued: 0, enabled: false,
     muted: false, blocked: false, skipped: 0, speed: 1, replayable: [] });
   const [selected, setSelected] = useState("");
 
   useEffect(() => {
-    const instance = new AudioQueue({ buyerUrl, onChange: setState });
+    const instance = new AudioQueue({ buyerUrl, token, onChange: setState });
     queue.current = instance;
     setState(instance.snapshot());
     setSelected("");
     return () => { instance.destroy(); queue.current = null; };
-  }, [buyerUrl, dealId]);
+  }, [buyerUrl, token, dealId]);
 
   useEffect(() => { queue.current?.ingest(events.filter((event) => event.deal_id === dealId)); }, [events, buyerUrl, dealId]);
 
