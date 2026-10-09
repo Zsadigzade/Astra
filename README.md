@@ -43,6 +43,10 @@ Non-honest acts carry `staged: true` on every event. All 4 acts plus the approva
 
 ## Run
 
+**Windows executable:** open `dist/AstraLauncher.exe` for demo controls, readiness,
+development tests and live rehearsal. This is a launcher for the existing checkout;
+see [setup, usage and rebuilding](scripts/desktop/README.md).
+
 With Node.js/npm and uv installed, run `npm start` from the project root. It installs missing
 dependencies and starts the buyer (:8000), seller (:8001), and dashboard (http://localhost:5173).
 Template defaults use scripted agents, sample data, text-only speech and SIMULATED money without keys.

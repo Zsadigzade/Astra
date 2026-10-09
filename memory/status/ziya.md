@@ -1,18 +1,18 @@
 # ziya — status
-updated: 2026-10-09 01:53 +02:00
-doing: I07–I12 complete and integrated with parallel I13/I14; final acceptance complete; ready for recording gates
-touching: data/voice/audio integration, tests, plan/archive and shared memory; preserve other terminal changes
-blocked on: nothing for I completion; live Masumi/video acceptance remains separate
-next: P01/D01/P02 then V02 recording readiness; O01/O02 remain optional follow-ups
+updated: 2026-10-09 02:27 +02:00
+doing: Windows repository launcher built and verified; ready for user
+touching: scripts/desktop/, scripts/build_launcher.ps1, launcher tests, README and scoped memory
+blocked on: no launcher blockers; live Masumi and final video acceptance remain separate
+next: open dist/AstraLauncher.exe; Sample > All local checks, then Start demo > Open dashboard
 done today:
-- Exact-job multi-cache, one-day freshness limit/explicit labelled override, validation reports and legacy compatibility.
-- Recovered existing Apify run with GET only: 22 valid records, 20 selected, original timestamp kept; no new Actor run.
-- Speech cache/deduplication, bounded retention/admission, repeated-cancellation cleanup and fresh-only readiness probes.
-- Immediate transcript with ordered asynchronous speech, exact message identity, recovery labels, replay/speed and safe Stop/Mute/deal changes.
-- Fixed recurring live seller ReadError by disabling idle HTTP connection reuse; real HTTP regression passes without retrying offers.
-- Integrated all eight new I tasks; 31 completed tasks archived, 19 remaining release/conditional/optional tasks preserved.
-- Live four-act run: 9 Codex turns, 27 speech clips, zero fallback, one actual buyer crash recovered with one payment; final SIMULATED balances 86/14/0.
-- Frontend: 41 tests/build and synthetic Edge keyboard/layout checks pass; 1920x1080 screenshot reviewed.
-- Full backend: 527 tests pass in 26.81s, including fresh-probe and real-HTTP regressions; reproduction in memory/SYSTEM_CHECK.md.
-- Evidence: backend/data/r-rehearsal-72848658/ and backend/data/i11-voice-ui/. All owned services stopped.
-- Existing .env, application ledgers and unrelated terminal services preserved; I13/I14 owners retain their status files.
+- Built unsigned Windows x64 dist/AstraLauncher.exe (~11.4 MiB); repository/dependencies remain external as requested.
+- Demo/recovery, readiness/live probes, full development tests/build and live four-act rehearsal controls.
+- Sample checks need no keys; configured provider usage is explicit; all launcher payments are SIMULATED.
+- Fresh ledger/audio/log/report directories; private smoke ports; busy interactive ports are preserved.
+- Suspended child + Windows Job ownership prevents orphaned descendants; unrelated processes survive.
+- EXE acceptance: readiness, 540 backend tests (13 launcher regressions), 50 frontend tests/build, real HTTP release/block/refund and balances pass.
+- Final EXE GUI opens/closes cleanly; screenshot reviewed. Occupied-port/provider-usage failure reporting verified.
+- Evidence: backend/data/launcher-bbb78291a3/report.json, data/launcher-exe-*.json, data/launcher-window.png.
+- No new provider calls or real payments; existing .env/ledgers/other terminal services preserved.
+- Earlier I07–I14 integrated: exact-job cache/freshness, subscription runtime, async voice/cache/replay and readiness.
+- Earlier live four acts: 9 Codex turns, 27 clips, no provider fallback, actual buyer recovery and one payment.

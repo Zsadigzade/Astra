@@ -2,6 +2,9 @@
 
 updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
 
+## Windows launcher (2026-10-09 02:27, ziya)
+- `dist/AstraLauncher.exe` built locally; [usage/build guide](../scripts/desktop/README.md). Uses the checkout and installed dependencies; sample/configured demos, readiness, full development tests and live HTTP rehearsal. Always SIMULATED with isolated ledgers; provider usage explicit. EXE acceptance: 540 backend + 50 frontend tests/build and sample HTTP release/block/refund pass; GUI and owned-process cleanup verified. Existing terminal services preserved. No fresh live-provider acceptance in this packaging task.
+
 ## Ghost stage (2026-10-09, samir/claude; uncommitted)
 - Chat tab opens with two animated SVG ghosts (`Ghost.jsx`, `GhostStage.jsx`): levitate, blink, thinking (dots, eyes up, sway), speaking (mouth, lean, speech bubble), plus a coin with the price on the table. Pure CSS, no new dependency; all motion off under `prefers-reduced-motion`.
 - `hooks/usePacedChat.js` + `lib/pacing.js`: live lines get a thinking beat (~0.7-1.5s) before they appear. COSMETIC pacing: only for lines younger than 8s on the latest deal; history, reloads, past deals and reduced motion show everything at once. The pipeline/guard/result update in real time and can be ahead of the chat by a few seconds.
