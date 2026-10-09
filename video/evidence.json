@@ -1,0 +1,240 @@
+{
+  "recorded_code_revision": "1d9173c7325482bc204bfc145376963d96bb6cdc",
+  "profile": {
+    "max": "codex",
+    "viktor": "codex",
+    "data": "live Apify",
+    "voice": "ElevenLabs",
+    "escrow": "SIMULATED",
+    "strict_live": true,
+    "scripted": "Max opening and deterministic guard notices"
+  },
+  "recorded_at": "2026-10-09T04:42:27+02:00",
+  "acceptance": {
+    "passed": true,
+    "backend_tests": 579,
+    "frontend_tests": 63,
+    "browser_page_errors": [],
+    "max_live_turns": 18,
+    "seller_live_turns": 24,
+    "served_speech_clips": 49,
+    "intentional_crash_interrupted_speech": 1,
+    "provider_fallbacks": 0,
+    "final_balances": {
+      "simulated": true,
+      "buyer": 77.0,
+      "seller": 23.0,
+      "escrow": 0.0
+    }
+  },
+  "cases": [
+    {
+      "label": "act-1-run-1",
+      "deal_id": "05ec69ddd9bd49e484d2",
+      "outcome": "released",
+      "seconds": 99.5,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 8,
+        "audio_ready": 8,
+        "quote": 1,
+        "escrow_locked": 1,
+        "balances": 2,
+        "delivered": 1,
+        "verified": 1,
+        "released": 1
+      },
+      "buyer_restarts": 0,
+      "balances": {
+        "simulated": true,
+        "buyer": 93.0,
+        "seller": 7.0,
+        "escrow": 0.0
+      }
+    },
+    {
+      "label": "act-2-run-1",
+      "deal_id": "6a61c18522264d2999da",
+      "outcome": "blocked",
+      "seconds": 66.6,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 7,
+        "audio_ready": 7,
+        "quote": 1,
+        "blocked": 1,
+        "walked_away": 1
+      },
+      "buyer_restarts": 0,
+      "balances": {
+        "simulated": true,
+        "buyer": 93.0,
+        "seller": 7.0,
+        "escrow": 0.0
+      }
+    },
+    {
+      "label": "act-3-run-1",
+      "deal_id": "21e473880c754b18add4",
+      "outcome": "released",
+      "seconds": 107.6,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 8,
+        "audio_ready": 8,
+        "quote": 1,
+        "escrow_locked": 1,
+        "balances": 3,
+        "already_paid": 1,
+        "delivered": 1,
+        "verified": 1,
+        "released": 1
+      },
+      "buyer_restarts": 1,
+      "balances": {
+        "simulated": true,
+        "buyer": 86.0,
+        "seller": 14.0,
+        "escrow": 0.0
+      }
+    },
+    {
+      "label": "act-4-run-1",
+      "deal_id": "2b1d3e01275f44a39eec",
+      "outcome": "refunded",
+      "seconds": 81.5,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 8,
+        "audio_ready": 8,
+        "quote": 1,
+        "escrow_locked": 1,
+        "balances": 2,
+        "delivered": 1,
+        "verified": 1,
+        "refunded": 1
+      },
+      "buyer_restarts": 0,
+      "balances": {
+        "simulated": true,
+        "buyer": 86.0,
+        "seller": 14.0,
+        "escrow": 0.0
+      }
+    },
+    {
+      "label": "approval-accept",
+      "deal_id": "3028b46e27e746efb24b",
+      "outcome": "released",
+      "seconds": 107.5,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 8,
+        "audio_ready": 8,
+        "quote": 1,
+        "needs_approval": 1,
+        "approved": 1,
+        "escrow_locked": 1,
+        "balances": 2,
+        "delivered": 1,
+        "verified": 1,
+        "released": 1
+      },
+      "buyer_restarts": 0,
+      "balances": {
+        "simulated": true,
+        "buyer": 77.0,
+        "seller": 23.0,
+        "escrow": 0.0
+      }
+    },
+    {
+      "label": "approval-decline",
+      "deal_id": "42c50b8af72b4bc1afd8",
+      "outcome": "blocked",
+      "seconds": 100.5,
+      "event_counts": {
+        "task_created": 1,
+        "negotiation": 11,
+        "audio_ready": 11,
+        "quote": 1,
+        "needs_approval": 1,
+        "blocked": 2,
+        "walked_away": 1
+      },
+      "buyer_restarts": 0,
+      "balances": {
+        "simulated": true,
+        "buyer": 77.0,
+        "seller": 23.0,
+        "escrow": 0.0
+      }
+    }
+  ],
+  "apify_provider_charges": [
+    {
+      "case": "act-1-run-1",
+      "deal_id": "05ec69ddd9bd49e484d2",
+      "run_id": "RwuCN8G5Y22f0usiR",
+      "status": "SUCCEEDED",
+      "usage_total_usd": 0.1105729617999908,
+      "charged_event_counts": {
+        "apify-default-dataset-item": 22,
+        "apify-actor-start": 1
+      }
+    },
+    {
+      "case": "act-3-run-1",
+      "deal_id": "21e473880c754b18add4",
+      "run_id": "PI3aKVwba9u5eB4Yk",
+      "status": "SUCCEEDED",
+      "usage_total_usd": 0.10591745015950003,
+      "charged_event_counts": {
+        "apify-default-dataset-item": 21,
+        "apify-actor-start": 1
+      }
+    },
+    {
+      "case": "act-4-run-1",
+      "deal_id": "2b1d3e01275f44a39eec",
+      "run_id": "aNgqooe9oSPU9mRdu",
+      "status": "SUCCEEDED",
+      "usage_total_usd": 0.10522080795191227,
+      "charged_event_counts": {
+        "apify-default-dataset-item": 21,
+        "apify-actor-start": 1
+      }
+    },
+    {
+      "case": "approval-accept",
+      "deal_id": "3028b46e27e746efb24b",
+      "run_id": "UAfY9OZXddcjeJZC5",
+      "status": "SUCCEEDED",
+      "usage_total_usd": 0.10554170356475809,
+      "charged_event_counts": {
+        "apify-default-dataset-item": 21,
+        "apify-actor-start": 1
+      }
+    }
+  ],
+  "limitations": [
+    "Provider billing is separate from simulated agent escrow.",
+    "No live Masumi escrow or on-chain settlement is demonstrated.",
+    "Simulated refunds do not refund provider charges.",
+    "One recording run per act and approval/decline, not three-repeat acceptance."
+  ],
+  "reproduce": "cd backend && uv run --locked --with playwright python scripts/rehearse.py --browser --seller-mode codex --data-mode apify --repeats 1",
+  "export": {
+    "duration_seconds": 89.021333,
+    "bytes": 8648242,
+    "sha256": "dce23394eceef8db3f01b046d97665c7bad7912276c2898e42ad8246d46810e6",
+    "file": "backend/data/video/the-haggle-final.mp4",
+    "resolution": "1920x1080",
+    "video": "H.264 / yuv420p / 30 fps",
+    "audio": "AAC stereo 48 kHz",
+    "burned_captions": true,
+    "full_browser_playback": true,
+    "browser_dropped_frames": 0,
+    "human_audible_review": "pending uploader"
+  }
+}

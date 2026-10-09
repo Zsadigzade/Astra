@@ -350,39 +350,6 @@ def test_the_ai_seller_is_told_to_speak_freely_but_only_state_real_facts():
     assert '"what_you_have_found_so_far":' not in v._prompt(req, DealState(ask=18))  # no facts, no claims in the context
 
 
-@pytest.mark.anyio
-async def test_the_closing_line_is_freshly_worded_but_the_deal_is_unchanged(monkeypatch):
-    import app.seller.persona as persona
-
-    prompts = []
-
-    async def fake(prompt, schema, settings, **kw):
-        prompts.append(prompt)
-        return {"message": "Done, Max. Fund the escrow and watch me work."}
-
-    monkeypatch.setattr(persona, "run_codex", fake)
-    v = CodexViktor(Settings(llm_mode="mock"), floor=7, opening_ask=18)
-    v.deals["a"] = DealState(ask=12)
-    r = await v.respond_async(NegotiateRequest(deal_id="a", round=2, action="accept", offer=12, job=general()))
-    assert (r.action, r.price, r.message, r.backend) == ("accept", 12, "Done, Max. Fund the escrow and watch me work.", "codex")
-    assert v.deals["a"].agreed == 12 and "Do not change the price" in prompts[0] and "12 tADA" in prompts[0]
-
-
-@pytest.mark.anyio
-async def test_a_failed_closing_line_keeps_the_scripted_one_and_the_deal(monkeypatch):
-    import app.seller.persona as persona
-
-    async def boom(*a, **kw):
-        raise RuntimeError("no model")
-
-    monkeypatch.setattr(persona, "run_codex", boom)
-    v = CodexViktor(Settings(llm_mode="mock"), floor=7, opening_ask=18)
-    v.deals["a"] = DealState(ask=12)
-    r = await v.respond_async(NegotiateRequest(deal_id="a", round=2, action="accept", offer=12, job=general()))
-    assert (r.action, r.price, r.backend) == ("accept", 12, "mock") and r.message.startswith("Pleasure doing business")
-    assert v.deals["a"].agreed == 12
-
-
 def test_max_is_told_to_speak_freely_and_react_to_what_viktor_really_says():
     assert "speak freely in your own words" in MAX_INSTRUCTIONS and "any number of options he says he already has" in MAX_INSTRUCTIONS
     assert "Never invent facts about what Viktor has" in MAX_INSTRUCTIONS

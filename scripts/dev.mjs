@@ -4,7 +4,7 @@
 //   node scripts/dev.mjs --web-only   dashboard only
 //   node scripts/dev.mjs --api-only   backend only
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,6 +16,24 @@ const isWin = process.platform === "win32";
 const color = { api: "\x1b[36m", web: "\x1b[35m", dev: "\x1b[90m" };
 
 const log = (tag, line) => process.stdout.write(`${color[tag]}[${tag}]\x1b[0m ${line}\n`);
+
+// Minimal .env reader (KEY=value, # comments, optional quotes). Like python-dotenv, real environment
+// variables win. Only used to hand the buyer's API_TOKEN to the dashboard; never printed.
+function dotenv(file) {
+  const out = {};
+  if (!existsSync(file)) return out;
+  for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const m = raw.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    let value = m[2].trim();
+    const q = value[0];
+    if ((q === '"' || q === "'") && value.indexOf(q, 1) > 0) value = value.slice(1, value.indexOf(q, 1));
+    else value = value.replace(/\s+#.*$/, "").trim();
+    out[m[1]] = value;
+  }
+  return out;
+}
+const apiToken = process.env.API_TOKEN ?? dotenv(join(root, ".env")).API_TOKEN ?? "";
 
 if (wantApi && spawnSync(isWin ? "uv --version" : "uv", isWin ? { shell: true, stdio: "ignore" } : ["--version"], isWin ? undefined : { stdio: "ignore" }).status !== 0) {
   log("dev", "uv is not installed or not on PATH. Install it from https://docs.astral.sh/uv/ and retry.");
@@ -74,6 +92,7 @@ if (wantApi) start("api", "uv", ["run", "python", "scripts/up.py"], join(root, "
 if (wantWeb) {
   const webArgs = ["run", "dev"];
   if (!process.env.NO_OPEN) webArgs.push("--", "--open");
-  start("web", "npm", webArgs, join(root, "frontend"));
+  // The dashboard sends the buyer token as X-API-Token (and ?token= for SSE/audio).
+  start("web", "npm", webArgs, join(root, "frontend"), { VITE_API_TOKEN: process.env.VITE_API_TOKEN ?? apiToken });
 }
 log("dev", `starting ${[wantApi && "backend (:8000 buyer, :8001 seller)", wantWeb && "dashboard (:5173)"].filter(Boolean).join(" + ")}. Ctrl+C stops everything.`);

@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import replace
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,6 +20,7 @@ from app.buyer.ledger import Ledger
 from app.buyer.negotiator import make_negotiator
 from app.buyer.orchestrator import Orchestrator
 from app.buyer.payments import make_payments
+from app.core.auth import RateLimiter, TokenAuth, open_paths
 from app.core.config import Settings, get_settings
 from app.core.intent import parse_request
 from app.core.models import ApprovalDecision, RequestText, TaskCreate, TaskCreated
@@ -32,6 +33,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)  # status polling would dro
 def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None = None,
                masumi_http: httpx.AsyncClient | None = None) -> FastAPI:
     s = settings or get_settings()
+    s.require_live()  # STRICT_LIVE refuses to start on a configuration that would simulate providers
     ledger = Ledger(s.ledger_path)
     bus = EventBus(ledger, simulated=s.simulated)
     guard = WalletGuard(ledger, make_payments(s, ledger, masumi_http), s.guard_cap, s.guard_approval_over)
@@ -42,7 +44,10 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     async def lifespan(app: FastAPI):
         # A model turn may outlast the seller's HTTP keep-alive window. Fresh
         # connections avoid racing an idle close; do not retry stateful offers.
-        client = http or httpx.AsyncClient(timeout=30, limits=httpx.Limits(max_keepalive_connections=0))
+        # This client only talks to the seller, so it carries the seller's token when one is configured.
+        client = http or httpx.AsyncClient(
+            timeout=30, limits=httpx.Limits(max_keepalive_connections=0),
+            headers={"X-API-Token": s.seller_api_token} if s.seller_api_token else None)
         app.state.orch = Orchestrator(
             s, ledger, bus, guard, client,
             lambda ceiling, rounds, job=None: make_negotiator(replace(s, max_rounds=rounds), ceiling, job),
@@ -56,9 +61,17 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
                 await client.aclose()
 
     app = FastAPI(title="Astra buyer (Max)", lifespan=lifespan)
+    # Auth sits inside CORS: preflights are answered without a token and 401s still carry CORS headers.
+    # EventSource and <audio src> cannot set headers, so those two routes also accept ?token=.
+    app.add_middleware(TokenAuth, token=s.api_token, is_open=open_paths("/health", methods=("GET", "HEAD")),
+                       allow_query=lambda path: path == "/events" or path.startswith("/audio/"))
     app.add_middleware(CORSMiddleware, allow_origins=list(s.cors_origins),
                        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
-                       allow_methods=["GET", "POST", "PUT", "OPTIONS"], allow_headers=["content-type"])
+                       allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+                       allow_headers=["content-type", "authorization", "x-api-token"],
+                       expose_headers=["retry-after"])
+    limiter = RateLimiter(s.rate_limit_per_minute)
+    app.state.rate_limiter = limiter
     app.mount("/audio", StaticFiles(directory=s.audio_dir), name="audio")
     app.state.bus = bus
     app.state.ledger = ledger
@@ -71,12 +84,12 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
                 "seller_llm_mode": s.seller_llm_mode,
                 "tts_mode": s.tts_mode, "guard": {"cap": guard.cap, "approval_over": guard.approval_over}}
 
-    @app.post("/requests/parse")
+    @app.post("/requests/parse", dependencies=[Depends(limiter.dependency("parse"))])
     async def parse(body: RequestText):
         """Preview only: what Max would buy for this text. Creates nothing, spends nothing."""
         return parse_request(body.text, general=s.answers_enabled).public()
 
-    @app.post("/tasks", response_model=TaskCreated)
+    @app.post("/tasks", response_model=TaskCreated, dependencies=[Depends(limiter.dependency("tasks"))])
     async def create_task(task: TaskCreate, request: Request):
         if controls.paused:
             raise HTTPException(423, "agents are paused; resume them to start a new task")

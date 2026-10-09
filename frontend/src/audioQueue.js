@@ -1,13 +1,15 @@
 import { eventKey } from "./eventIdentity.js";
 import { audioLines } from "./audioEvents.js";
+import { withToken } from "./lib/auth.js";
 
 // One audio element at a time. Inject createAudio for tests without a browser.
 export class AudioQueue {
-  constructor({ buyerUrl, createAudio = (url) => new Audio(url), onChange = () => {},
+  constructor({ buyerUrl, token = "", createAudio = (url) => new Audio(url), onChange = () => {},
     inactivityTimeoutMs = 10000,
     scheduleTimeout = (callback, delay) => globalThis.setTimeout(callback, delay),
     cancelTimeout = (timer) => globalThis.clearTimeout(timer) }) {
     this.buyerUrl = buyerUrl.replace(/\/$/, "");
+    this.token = token; // <audio src> cannot send headers: the buyer accepts ?token= on /audio
     this.createAudio = createAudio;
     this.onChange = onChange;
     this.inactivityTimeoutMs = inactivityTimeoutMs;
@@ -42,19 +44,23 @@ export class AudioQueue {
       if (existing) {
         if (existing.status === "pending" && event.data.audio_status !== "pending") {
           existing.status = event.data.audio_status;
-          existing.url = event.data.audio_url ? this.buyerUrl + event.data.audio_url : null;
+          existing.url = this.clipUrl(event.data.audio_url);
         }
         continue;
       }
       if (this.seen.has(key)) continue;
       this.seen.add(key);
-      const item = { key, url: event.data.audio_url ? this.buyerUrl + event.data.audio_url : null,
+      const item = { key, url: this.clipUrl(event.data.audio_url),
         status: event.data.audio_status, text: event.data.text ?? "Voice line", speaker: event.data.speaker ?? "Agent" };
       this.lines.set(key, item);
       if (!this.muted && item.status !== "unavailable") this.pending.push(item);
     }
     this.pump();
     this.notify();
+  }
+
+  clipUrl(path) {
+    return path ? withToken(this.buyerUrl + path, this.token) : null;
   }
 
   play() {

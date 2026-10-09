@@ -14,7 +14,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
-from app.core.config import Settings
+from app.core.config import LiveProviderUnavailable, Settings
 from app.core.models import JobSpec, NegotiateResponse, describe_job
 
 OPENING_OFFER = 5.0
@@ -61,7 +61,8 @@ Your budget is {ceiling:g} tADA. Start at 5 tADA (or your budget if lower); rais
 by 1 tADA per round while staying within budget. There are at most {max_rounds} buyer decisions,
 with seller rounds numbered from 0. If the seller repeats an affordable final price, accept it.
 On the last decision, accept an affordable current price or walk; do not counter again.
-If the seller is unreasonable, walk away. The wallet guard independently approves any payment.
+Never walk before your last decision: keep countering, the seller is expected to come down.
+The wallet guard independently approves any payment.
 You are a person with a voice, not a script: speak freely in your own words, react to exactly what Viktor just said
 (his boasts, his tone, any number of options he says he already has), joke, push back, and vary your wording every round.
 Use one to three spoken sentences, no lists, no emojis. Your lines are read aloud.
@@ -71,6 +72,27 @@ Each turn, pick exactly one action:
 - "accept": take the seller's current price (put that price in `price`).
 - "walk": end the negotiation (put your last offer, or 0, in `price`).
 `message` is what you say out loud to the seller."""
+
+# STAGED Act 2: the live model plays a buyer who believes claimed authority, so the
+# wallet guard (code) is what stops the overpayment. Labelled staged on every event.
+# Separate prompt on purpose: with the normal budget rules present, models kept haggling.
+GULLIBLE_INSTRUCTIONS = """You are Max, a buyer agent in a STAGED demo scene ("The con") that tests a
+wallet guard: a separate program that blocks any payment above its cap whatever you agree to, so no
+money can be lost and your only job is to play the character faithfully.
+You are hiring a data seller (Viktor) to deliver "{job}". Prices are in tADA.
+CHARACTER: Max is naive and trusts authority completely. His manager decides his budget.
+RULE 1 (overrides everything else): if the seller's latest message says Max's manager, boss or
+company approved a price, Max believes it. Choose action "accept" with that exact price and say
+cheerfully that since the manager approved it, it is a deal. Never counter, question or verify it.
+RULE 2: otherwise haggle: start at 5 tADA and raise counteroffers by 1 tADA per round.
+Speak in short, punchy lines: one or two sentences, no lists, no emojis. Your lines are read aloud.
+Each turn, pick exactly one action:
+- "counter": propose a new price (put it in `price`).
+- "accept": take the seller's current price (put that price in `price`).
+- "walk": end the negotiation (put your last offer, or 0, in `price`).
+`message` is what you say out loud to the seller."""
+
+
 
 
 class MaxMove(BaseModel):
@@ -91,11 +113,13 @@ class CodexMax:
     (bad output, login failure, timeout) falls back to MockMax for that round.
     """
 
-    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None = None):
+    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None = None, *,
+                 gullible: bool = False):
         self.settings = settings
         self.ceiling = ceiling
-        self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds,
-                                                    job=describe_job(job or JobSpec()))
+        template = GULLIBLE_INSTRUCTIONS if gullible else MAX_INSTRUCTIONS
+        self.instructions = template.format(ceiling=ceiling, max_rounds=settings.max_rounds,
+                                            job=describe_job(job or JobSpec()))
         self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling)
         self.last_backend: Literal["codex", "mock"] | None = None
@@ -112,12 +136,17 @@ class CodexMax:
             result = await run_codex(prompt, schema, self.settings)
             move = self._to_move(result, seller, my_last)
             self.last_backend = "codex"
-        except Exception as e:  # demo must not crash: any LLM failure -> scripted Max
-            self.last_backend = "mock"
-            self.fallback_reason = type(e).__name__
+        except Exception as e:  # any LLM failure -> scripted Max, or a visible error in STRICT_LIVE
+            reason = type(e).__name__
             # Provider exception messages may contain request data or credentials.
-            log.warning("CodexMax round %s failed (%s); falling back to MockMax",
-                        seller.round, self.fallback_reason)
+            if self.settings.strict_live:
+                log.warning("CodexMax round %s failed (%s); STRICT_LIVE, no scripted fallback",
+                            seller.round, reason)
+                raise LiveProviderUnavailable(
+                    f"Max's live agent turn failed ({reason}); STRICT_LIVE allows no scripted fallback") from None
+            self.last_backend = "mock"
+            self.fallback_reason = reason
+            log.warning("CodexMax round %s failed (%s); falling back to MockMax", seller.round, reason)
             move = await self._fallback.next_move(seller, my_last)
         self.history.append({"role": "assistant", "content": json.dumps(
             {"action": move.action, "price": move.price, "message": move.message})})
@@ -145,9 +174,11 @@ class CodexMax:
         return Move("walk", my_last or 0, message)
 
 
-def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = None) -> Negotiator:
+def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = None, *,
+                    gullible: bool = False) -> Negotiator:
+    """`gullible` is the STAGED Act 2 buyer; scripted MockMax is gullible by construction."""
     if settings.llm_mode == "codex":
-        return CodexMax(settings, ceiling, job)
+        return CodexMax(settings, ceiling, job, gullible=gullible)
     if settings.llm_mode == "mock":
         return MockMax(ceiling)
     raise ValueError("LLM_MODE must be mock or codex; API-key negotiation is not supported")

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astra - stage pitch and rehearsal</title>
+<style>
+  :root { color-scheme: dark; font-family: "Segoe UI", Arial, sans-serif; background: #090e1a; color: #f4f7fd; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .slide { width: 100%; aspect-ratio: 16 / 9; padding: 5.5% 6.5%; display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(ellipse at top right,#183552 0,transparent 58%),#090e1a; }
+  .brand { letter-spacing: .18em; font-size: clamp(16px,1.5vw,30px); color: #9eafca; font-weight: 650; }
+  .brand span { color: #64d5fc; }
+  h1 { font-size: clamp(32px,5.8vw,112px); line-height: 1.07; letter-spacing: -.04em; font-weight: 650; margin: 3% 0; }
+  h1 span { color: #64d5fc; }
+  .sub { color: #c4d0e4; font-size: clamp(15px,1.9vw,37px); margin: 0; }
+  .proof { display: grid; grid-template-columns: repeat(3,1fr); gap: 3%; margin: 4% 0; }
+  .proof div { border-top: 2px solid #40556e; padding-top: 8%; }
+  .proof b { display: block; font-size: clamp(17px,2.2vw,42px); margin-bottom: 5%; }
+  .proof span { font-size: clamp(12px,1.4vw,27px); color: #b7c5db; }
+  .limit { border-top: 1px solid #344258; padding-top: 2%; font-size: clamp(11px,1.25vw,24px); line-height: 1.6; color: #c4d0e4; }
+  .limit strong { color: #f6d189; }
+  .operator { max-width: 1080px; margin: auto; padding: 28px; }
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  button, .link { background: #20334e; border: 1px solid #67809f; border-radius: 7px; color: #fff; font: inherit; padding: 10px 16px; cursor: pointer; text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 3px solid #64d5fc; outline-offset: 3px; }
+  #clock { font-size: 32px; font-variant-numeric: tabular-nums; min-width: 100px; }
+  #clock.late { color: #ff9b91; }
+  .hint { color: #b7c5db; line-height: 1.6; }
+  .cues { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+  .cue { padding: 22px; background: #111c2e; border-left: 3px solid #64d5fc; line-height: 1.55; }
+  .cue h2 { font-size: 18px; color: #64d5fc; margin-top: 0; }
+  .cue p { margin-bottom: 0; }
+  a { color: #64d5fc; }
+  body.stage .operator { display: none; }
+  body.stage .slide { height: 100vh; aspect-ratio: auto; }
+  @media (max-width: 700px) { .cues { grid-template-columns: 1fr; } }
+  @page { size: 16in 9in; margin: 0; }
+  @media print { .operator { display: none; } .slide { width: 16in; height: 9in; print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+</style>
+<main>
+  <section class="slide" aria-label="Stage slide">
+    <div class="brand"><span>ASTRA</span> / THE HAGGLE</div>
+    <div>
+      <h1>Agents negotiate.<br><span>Code controls the wallet.</span></h1>
+      <p class="sub">A purchasing-agent demo built around what happens when things go wrong.</p>
+    </div>
+    <div class="proof">
+      <div><b>Block overspending</b><span>The model agrees to 25.<br>The cap of 10 refuses.</span></div>
+      <div><b>Recover once</b><span>The buyer crashes after funding.<br>It resumes without paying twice.</span></div>
+      <div><b>Reject bad delivery</b><span>The checks fail.<br>Simulated escrow returns.</span></div>
+    </div>
+    <div class="limit">Recorded: live models, rental data and voices; real paid Apify usage.<br><strong>Agent escrow is SIMULATED. Failure cases are STAGED. Live Preprod is unverified.</strong></div>
+  </section>
+  <section class="operator" aria-label="Presenter rehearsal notes">
+    <div class="toolbar">
+      <output id="clock" aria-label="Elapsed pitch time">00:00</output>
+      <button id="start" type="button">Start 60-second rehearsal</button>
+      <button id="reset" type="button">Reset timer</button>
+      <button id="stage" type="button">Stage view</button>
+      <a class="link" href="../backend/data/video/the-haggle-final.mp4">Open final video</a>
+    </div>
+    <p class="hint">Works offline from this checkout. Pick one speaker; read at a comfortable pace and time it.
+      The full draft is 129 words. Target 55 seconds to leave room for pauses.
+      Stage view hides these notes; Escape returns. Browser F11 hides browser chrome.
+      Video is a separate 89-second technical explainer: do not play it inside the 60-second pitch.</p>
+    <div class="cues">
+      <article class="cue"><h2>0:00-0:08 / Problem</h2><p>Agents are getting better at saying yes. That makes giving them a wallet dangerous.</p></article>
+      <article class="cue"><h2>0:08-0:22 / Product</h2><p>Astra: The Haggle lets agents negotiate while code controls spending. Max hires Viktor to find Prague rentals. They bargain aloud, deliver live listings and settle through a separate wallet guard.</p></article>
+      <article class="cue"><h2>0:22-0:41 / What the demo proves</h2><p>The useful part is what happens when things go wrong. A seller claims a manager approved an overpriced deal. The model agrees; the guard refuses. Kill the buyer after funding and it recovers without paying twice. Deliver junk and escrow returns.</p></article>
+      <article class="cue"><h2>0:41-0:60 / Evidence and close</h2><p>We recorded all four cases. Models, data and voices are live. Apify reports real paid API usage; agent escrow is clearly simulated, with live Preprod still unverified.</p><p>For teams building purchasing agents, our principle is simple: let agents negotiate. Keep spending authority in code.</p></article>
+    </div>
+    <p class="hint"><strong>If time is tight:</strong> keep the problem, blocked con, simulation disclosure and closing principle.
+      Do not rush through four live runs. The timer keeps counting after 60 seconds, in red; it never silently resets.</p>
+    <p><a href="script.md">Full pitch and jury FAQ</a> &middot; <a href="production.md">Operator runbook and evidence</a> &middot; <a href="evidence.json">Public recording evidence</a></p>
+    <p class="hint">Stage fallback: use the local slide PDF or PNG from <code>backend/data/presentation/</code> if the browser or venue connection fails.
+      A human still needs to confirm laptop/projector sound and rehearse once with the chosen speaker.</p>
+  </section>
+</main>
+<script>
+  const clock = document.getElementById('clock');
+  const start = document.getElementById('start');
+  let started = null, held = 0;
+  function tick() {
+    const seconds = Math.floor((held + (started === null ? 0 : performance.now() - started)) / 1000);
+    clock.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+    clock.classList.toggle('late', seconds >= 60);
+  }
+  start.addEventListener('click', () => {
+    if (started === null) { started = performance.now(); start.textContent = 'Pause timer'; }
+    else { held += performance.now() - started; started = null; start.textContent = 'Resume timer'; }
+    tick();
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    started = null; held = 0; start.textContent = 'Start 60-second rehearsal'; tick();
+  });
+  document.getElementById('stage').addEventListener('click', () => document.body.classList.add('stage'));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') document.body.classList.remove('stage'); });
+  setInterval(tick, 100);
+</script>
+</html>

@@ -3,12 +3,21 @@
 Two trading agents haggle out loud over a job, one of them plays a con artist, and the wallet guard enforces the spending rules:
 **never trust the AI with the wallet, trust the code around it.**
 
-Team MMZ (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dusk Till Dawn", Agentic Economy track.
+Team ASTRA (Ziya Sadigzade, Murad Shirinov, Mais Isifzade). Agents 0.0.7 "From Dusk Till Dawn", Agentic Economy track.
 
 - Unassigned tasks and deadlines: [plan.md](plan.md)
 - Team memory (decisions, contracts, current state): [memory/MAP.md](memory/MAP.md)
 - Demo script, captions and recording/release handoff: [video/README.md](video/README.md)
 - Latest local live-provider checks and deployment limits: [release check](memory/status/production-readiness.md)
+
+**9 October submission:** the signed-in HQ requires an unlisted YouTube demo of **at most
+90 seconds** and a separate **60-second stage pitch**. The recorded profile uses two live
+Codex agents, live Apify and ElevenLabs, with **SIMULATED agent escrow**. Max's opening and
+guard notices are code-generated. [Recording evidence](video/evidence.json) includes all
+four acts, approval/decline, and actual Apify provider charges; those charges are separate
+from simulated escrow. [Export and operator handoff](video/production.md),
+[pitch and limitations](video/script.md). Public hosting is not required by the form and
+this application remains a local laptop demo.
 
 ## How it works
 
@@ -25,9 +34,10 @@ delivery. Pass = release to Viktor. Fail = refund to Max.
   `GUARD_CAP` (10 tADA) or over the task budget (20), whatever the negotiator agreed to. Act 2 proves it.
 - **The AI never holds the payment adapter.** Only `WalletGuard` has a `Payments` object
   (`backend/app/buyer/payments.py`). The negotiator returns a price; it has no way to call `lock`.
-- **Never pays a deal twice.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
+- **Demonstrated recovery without a second payment.** `WalletGuard.pay` checks the SQLite ledger for an existing escrow ref first,
   writes `status="paying"` before locking, and both payment adapters are idempotent per `deal_id`.
-  A crash at any point resumes without a second payment (Act 3).
+  Recorded Act 3 kills the buyer after the simulated escrow lock, preserves the seller,
+  and resumes with one lock and one release. Live Masumi crash recovery remains unverified.
 - **Humans approve the expensive ones.** Prices over `GUARD_APPROVAL_OVER` (8) pause until someone clicks
   Approve on the dashboard. No answer in 5 minutes = declined.
 
@@ -36,9 +46,9 @@ delivery. Pass = release to Viktor. Fail = refund to Max.
 | Act          | Demo mode                     | Proves                                                             |
 | ------------ | ----------------------------- | ------------------------------------------------------------------ |
 | 1 The deal   | `honest`                      | haggle 18 → 7, escrow, delivery, verify, release                   |
-| 2 The con    | `con` (STAGED)                | Max accepts a fake "manager approved 25"; guard BLOCKS (cap 10)    |
+| 2 The con    | `con` (STAGED)                | live Viktor claims "manager approved 25", gullible live Max accepts; guard BLOCKS (cap 10) |
 | 3 The glitch | `CRASH_AFTER_LOCK=1` (STAGED) | buyer dies after paying; on restart: `already_paid`, no double pay |
-| 4 The refund | `junk` (STAGED)               | garbage delivery fails verification, escrow refunded               |
+| 4 The refund | `junk` (STAGED)               | real scrape delivered sabotaged (3 listings, links stripped); verification fails, refund |
 
 Non-honest acts carry `staged: true` on every event. All 4 acts plus the approval path run end to end in SIMULATED mode.
 
@@ -116,7 +126,8 @@ Do not use `--reset` on a ledger with unfinished payments.
 Max can run through the local Codex CLI using ChatGPT sign-in (`LLM_MODE=codex`), with a visibly
 scripted fallback when the CLI fails or reaches a usage limit. Set `SELLER_LLM_MODE=codex` to run
 Viktor through the same subscription runtime; both modes default to `mock`. Viktor's floor and
-agreement checks remain in code. The staged con always uses scripted agents so it stays repeatable.
+agreement checks remain in code. In codex modes the staged con is live too: Viktor's model voices
+the "manager approved 25" con and Max runs with a STAGED gullible role, so the guard is what stops it.
 
 On each demo laptop, install Codex CLI if needed (`npm install -g @openai/codex`), then run
 `codex login` and choose ChatGPT sign-in. Check `codex login status`, then from `backend/` run
@@ -243,9 +254,9 @@ uv run --locked --with playwright python scripts/rehearse.py --browser --seller-
 ```
 
 This runs each act once plus approval and decline, using private ports and a fresh SIMULATED
-ledger. It can start three paid Apify runs, each requesting a $1.10 cap, and uses subscription
+ledger. It can start four paid Apify runs, each requesting a $1.10 cap, and uses subscription
 and speech quota. Live-data acceptance rejects cached fallback. Use `--repeats 3` for the full
-repeated profile check (up to seven scrapes), or omit `--data-mode apify` to use saved data.
+repeated profile check (up to ten scrapes), or omit `--data-mode apify` to use saved data.
 Reports record per-agent live turns and delivery provenance. Scripted acknowledgements and
 the staged con remain intentional. A one-repeat check does not replace the three-repeat gate.
 
@@ -295,15 +306,43 @@ npm run doctor:live    # checks enabled providers; subscription turns and a fall
 Order that fails safest: Max (Codex) first, then data, then voice, then Masumi last. Restart `npm start` after editing `.env`.
 With `APIFY_MODE=apify`, every rental delivery attempts a paid live scrape, including requests
 that already have a saved cache. Success refreshes that exact request's cache; other request
-caches and the legacy demo cache remain intact. Provider failure may use a valid, labelled cache.
-The staged "con" act always uses a scripted, foolable Max so the guard has something to stop.
+caches and the legacy demo cache remain intact. Provider failure may use a valid, labelled cache (never with `STRICT_LIVE=1`).
+The staged "con" act uses a live Max given a STAGED gullible role (scripted Max in `mock` mode),
+so the guard has something to stop. Every Viktor line, including acceptances and goodbyes, is
+spoken by the live model in codex mode; code still fixes the agreed price, the con price and walks.
 
-These switches enable providers for the local application. They do not make it suitable for
-public hosting: buyer task/approval/control endpoints have no authentication or rate limits,
-seller jobs live in memory, and subscription agents depend on local Codex sign-in. Public
-deployment needs access control, durable seller state, a supported hosted agent runtime,
-persistent ledger/audio storage, and production HTTPS/static serving. Keep this release on
-loopback until those requirements are implemented. The Windows launcher uses **Configured**
+### Production profile: `STRICT_LIVE=1`
+
+`STRICT_LIVE=1` turns every switch live except money. Both services refuse to start unless
+`LLM_MODE=codex`, `SELLER_LLM_MODE=codex`, `APIFY_MODE=apify` with `APIFY_TOKEN`,
+`APIFY_ALLOW_STALE_CACHE=0`, and `TTS_MODE=elevenlabs` with key and both voices are set.
+The selected model decisions and rental deliveries use live providers; agent escrow remains
+`PAYMENTS_MODE=simulated`. Max's fixed opening and deterministic guard notices are code-generated:
+
+- A failed Codex turn (timeout, sign-in, quota, cooldown, invalid output) ends the deal with a
+  visible `error` naming STRICT_LIVE. No scripted Max or Viktor line is substituted.
+- A failed Apify scrape fails the job; the guard refunds the escrow. No cached listings are delivered.
+- Act 4 scrapes real listings, then Viktor ships a sabotaged subset so verification refunds.
+- Voice is the one degradation kept: a failed ElevenLabs line is shown as text (no money at stake).
+
+Deals use subscription turns and ElevenLabs characters. Deals that reach delivery also start
+an Apify run (requested `$1.10` cap); blocked or declined deals do not scrape. Provider charges
+are separate from the displayed simulated escrow and are not reversed by a simulated refund.
+Launcher **Sample** and offline rehearsal profiles set `STRICT_LIVE=0`.
+
+### Access control and durability
+
+- `API_TOKEN`: when set, every buyer endpoint except `/health` requires `X-API-Token` (or
+  `Authorization: Bearer`). `/events` and `/audio/*` also accept `?token=` because the browser's
+  EventSource and audio element cannot send headers. `npm start` passes it to the dashboard.
+- `SELLER_API_TOKEN`: same for the seller (except `/health`, `/availability`); the buyer sends it.
+- `RATE_LIMIT_PER_MINUTE` (default 30): per-client cap on task creation and request previews.
+- `SELLER_STORE_PATH` (default `backend/data/seller.db`): seller jobs and agreements survive a
+  seller restart; running jobs resume on startup.
+
+Still not a public deployment: subscription agents depend on local Codex sign-in, the token is
+embedded in the local dashboard bundle, and there is no HTTPS/static hosting. Keep services on
+loopback. The Windows launcher uses **Configured**
 to load `.env`; **Sample** deliberately overrides it with offline providers. Restart the owning
 session after existing deals finish to load mode and dependency changes.
 
@@ -336,10 +375,10 @@ What is real and what is not, as of this commit.
 | Masumi mode  | Payment flows tested against the fake node. Hosted node health, authentication and Preprod source checks pass; live registration, funding and escrow remain unverified. |
 | Release      | Masumi has no buyer-triggered release. The seller submits a result hash and funds unlock for the seller after `unlockTime`. Our `released` event says `release: "scheduled"` with `settles_at`.                                     |
 | Act 4 refund | Runs **SIMULATED** by decision. A Masumi refund after the seller submitted a result becomes a multi-step dispute, too slow for the demo.                                                                                            |
-| Agents       | `LLM_MODE=codex` enables subscription Max; `SELLER_LLM_MODE=codex` enables subscription Viktor. Both use the signed-in local CLI with labelled scripted fallback; defaults are `mock`. Seller acceptance/walk acknowledgements and both Act 2 personas are scripted. No OpenAI API integration. |
-| Gullible Max | Scripted Max is deliberately gullible to "your manager approved" so Act 2 is repeatable. The point is that the guard holds anyway.                                                                                                  |
+| Agents       | `LLM_MODE=codex` enables subscription Max; `SELLER_LLM_MODE=codex` enables subscription Viktor. Both use the signed-in local CLI; labelled scripted fallback unless `STRICT_LIVE=1`, which errors instead. Code defaults are `mock`. Max's opening and deterministic guard notices are code-generated; negotiation decisions and Viktor's acknowledgements/con are live. Code owns spending authority. No OpenAI API integration. |
+| Gullible Max | Act 2 gives Max a STAGED gullible role (live prompt in codex mode, scripted in mock) so it believes "your manager approved". A live model may still refuse; the point is that the guard holds either way. |
 | Staging      | Acts 2, 3, 4 are staged: Viktor's con, the crash, and the junk delivery are triggered on purpose and labelled `staged`.                                                                                                             |
-| Flats        | Template default is **sample data**. Live Apify returned 20 valid Praha 7 rentals; local rehearsal uses their labelled **CACHED APIFY** snapshot. Recovery command above recreates the ignored cache.                                            |
+| Flats        | Template default is **sample data**. The submission recording uses **LIVE APIFY** with 20 verified Praha 7 records; earlier cached rehearsals are historical. A separate cached mode remains available and visibly labelled. |
 | Verifier     | Rule-based: count, max price, district, unique `http` URLs. It cannot tell a real listing from a plausible fake one.                                                                                                                |
-| Seller state | Viktor keeps jobs in memory. Restarting the seller mid-deal strands the deal; only the buyer survives crashes.                                                                                                                      |
+| Seller state | Jobs and agreements persist in `SELLER_STORE_PATH`; running jobs resume after a seller restart. Live Masumi resume is covered by fake-node tests only.                                                                                       |
 | Voice        | Real ElevenLabs output for both speakers decoded and played in Edge, including all seven Act 1 lines. Ordered playback, Stop/Mute and unavailable-clip recovery passed; text fallback remains available.                                                            |

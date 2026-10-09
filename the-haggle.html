@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Haggle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1117; --surface:#0c1117; --surface-2:#121923; --border:#273142;
+  --text:#e7ecf3; --text-2:#9aa6b6; --text-3:#75849a;
+  --accent:#818cf8; --accent-bg:rgba(129,140,248,.12); --accent-text:#a5b4fc;
+  --buyer:#38bdf8; --seller:#a78bfa;
+  --success:#34d399; --success-bg:rgba(52,211,153,.1);
+  --warning:#fbbf24; --warning-bg:rgba(251,191,36,.1);
+  --danger:#f87171; --danger-bg:rgba(248,113,113,.1);
+  --radius:10px; --radius-sm:8px;
+  --display:"Space Grotesk",Inter,system-ui,sans-serif;
+  --body:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);overflow:hidden}
+#stage{position:absolute;top:50%;left:50%;width:1600px;height:900px;transform-origin:center center}
+.release-note{position:absolute;left:104px;right:104px;bottom:20px;z-index:4;font-family:var(--body);font-size:16px;line-height:1.4;color:var(--warning);pointer-events:none}
+.slide{position:absolute;inset:0;padding:78px 104px;opacity:0;pointer-events:none;transition:opacity .6s ease;display:flex;flex-direction:column;overflow:hidden;border-radius:6px;background:var(--bg)}
+.slide.active{opacity:1;pointer-events:auto}
+.slide::before{content:"";position:absolute;inset:0;z-index:-1;
+  background:
+    linear-gradient(var(--border) 1px, transparent 1px) 0 0/80px 80px,
+    linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0/80px 80px;
+  opacity:.28;
+  mask-image:radial-gradient(ellipse at center, #000 30%, transparent 85%);
+}
+.slide.dark::before{background:linear-gradient(var(--border) 1px, transparent 1px) 0 0/80px 80px,linear-gradient(90deg,var(--border) 1px,transparent 1px) 0 0/80px 80px;opacity:.2}
+
+/* entrance animation */
+.a{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);transition-delay:calc(var(--d,0) * 120ms + 150ms)}
+.active .a{opacity:1;transform:none}
+
+.kicker{font-family:var(--mono);font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+h1{font-family:var(--display);font-weight:700;font-size:92px;line-height:1.02;letter-spacing:-.03em}
+h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;letter-spacing:-.025em;margin-top:14px}
+.sub{font-size:28px;color:var(--text-2);margin-top:22px;line-height:1.4}
+.ai{color:var(--seller)} .gold{color:var(--warning)} .green{color:var(--success)}
+.grad{background:linear-gradient(90deg,var(--buyer),var(--seller));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius)}
+.price-rail{margin-top:26px;display:flex;flex-direction:column;gap:10px}
+.rail-track{position:relative;height:7px;border-radius:99px;background:var(--surface-2);overflow:visible}
+.rail-zone{position:absolute;top:0;bottom:0}
+.rail-auto{left:0;width:40%;border-radius:99px 0 0 99px;background:color-mix(in srgb,var(--success) 45%,transparent)}
+.rail-approval{left:40%;width:10%;background:color-mix(in srgb,var(--warning) 50%,transparent)}
+.rail-over{left:50%;right:0;border-radius:0 99px 99px 0;background:color-mix(in srgb,var(--danger) 50%,transparent)}
+.rail-dot{position:absolute;left:35%;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid var(--bg);background:var(--success)}
+.rail-legend{display:flex;justify-content:space-between;font-size:17px;color:var(--text-3)}
+.rail-legend b{color:var(--text)}
+
+/* ---------- Slide 1 ---------- */
+.s1{justify-content:center;text-align:left}
+.s1 h1{font-size:92px;max-width:1180px}
+.s1 .sub{max-width:900px;font-size:30px}
+.s1 .scene{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:26px;margin-top:70px;max-width:1080px}
+.simple-node{height:124px;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;text-align:center;padding:18px 26px}
+.simple-node strong{display:block;font-family:var(--display);font-size:32px;line-height:1.05}
+.simple-node span{display:block;margin-top:8px;font-size:17px;color:var(--text-3)}
+.simple-node.ai-buy{border-color:color-mix(in srgb,var(--buyer) 34%,var(--border))}
+.simple-node.ai-sell{border-color:color-mix(in srgb,var(--seller) 34%,var(--border))}
+.simple-node.money{border-color:color-mix(in srgb,var(--warning) 38%,var(--border));background:linear-gradient(180deg,color-mix(in srgb,var(--warning) 8%,var(--surface-2)),var(--surface-2))}
+.simple-arrow{width:86px;height:1px;background:linear-gradient(90deg,var(--border),var(--text-3));position:relative}
+.simple-arrow::after{content:"";position:absolute;right:-2px;top:-5px;border:5px solid transparent;border-left:8px solid var(--text-3)}
+@keyframes pulse{50%{opacity:.35}}
+
+/* ---------- Slide 2 ---------- */
+.s2 .diagram{flex:1;display:flex;align-items:center;justify-content:center;gap:0;margin-top:30px}
+.agent{width:330px;padding:32px 30px;text-align:center}
+.agent .ic{width:72px;height:72px;border-radius:50%;margin:0 auto 22px;display:grid;place-items:center}
+.agent h3{font-family:var(--display);font-size:36px}
+.agent p{color:var(--text-2);font-size:22px;margin-top:8px}
+.link{width:150px;height:1px;background:repeating-linear-gradient(90deg,var(--text-3) 0 10px,transparent 10px 18px);position:relative}
+.active .link{animation:dash 1s linear infinite}
+@keyframes dash{to{background-position:18px 0}}
+.rules{width:360px;padding:30px;text-align:center;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2)}
+.coin{width:82px;height:82px;border-radius:50%;margin:0 auto 18px;background:var(--warning-bg);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--warning) 60%,transparent);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:34px;color:var(--warning)}
+.rules h3{font-family:var(--display);font-size:32px;color:var(--text)}
+.rules ul{list-style:none;margin-top:14px;font-family:var(--mono);font-size:18px;color:var(--text-2);text-align:left;display:inline-block}
+.rules li::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--success);margin-right:9px}
+.steps{display:flex;gap:18px;justify-content:center;margin-top:30px}
+.pill{padding:9px 16px;border-radius:6px;background:var(--accent-bg);color:var(--accent-text);font-size:20px;font-weight:600}
+
+/* ---------- Slide 3 ---------- */
+.s3 .grid{flex:1;display:grid;grid-template-columns:1.05fr 1fr;gap:60px;margin-top:36px;min-height:0}
+.map{padding:20px;position:relative;overflow:hidden}
+.map svg{width:100%;height:100%}
+.pin{transform-box:fill-box;transform-origin:center bottom;opacity:0;transform:scale(0)}
+.active .pin{animation:pop .5s cubic-bezier(.3,1.6,.5,1) forwards;animation-delay:calc(var(--i) * 70ms + 500ms)}
+@keyframes pop{to{opacity:1;transform:scale(1)}}
+.maplabel{position:absolute;left:28px;bottom:24px;font-family:var(--mono);font-size:18px;color:var(--text-3)}
+.chat{display:flex;flex-direction:column;gap:22px;justify-content:center}
+.msg{max-width:440px;padding:18px 24px;border-radius:12px;font-size:27px;line-height:1.3}
+.msg small{display:block;font-family:var(--mono);font-size:15px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;opacity:.75}
+.msg.buy{align-self:flex-start;background:color-mix(in srgb,var(--buyer) 10%,transparent);border-bottom-left-radius:4px}
+.msg.sell{align-self:flex-end;background:color-mix(in srgb,var(--seller) 11%,transparent);border-bottom-right-radius:4px}
+.msg.deal{background:var(--success-bg)}
+.output{margin-top:16px;padding:22px 28px;display:flex;align-items:center;gap:18px;font-size:26px}
+.output b{font-family:var(--display)}
+
+/* ---------- Slide 4 ---------- */
+.flow{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr 60px 1.15fr;align-items:stretch;margin-top:70px}
+.node{padding:30px 26px;min-height:250px;display:flex;flex-direction:column}
+.node .num{font-family:var(--mono);font-size:18px;color:var(--text-3)}
+.node h3{font-family:var(--display);font-size:32px;margin-top:14px;line-height:1.15}
+.node p{color:var(--text-2);font-size:20px;margin-top:12px;line-height:1.4}
+.node.model{background:color-mix(in srgb,var(--seller) 12%,var(--surface-2))}
+.node.model .num{color:var(--seller)}
+.arr{display:grid;place-items:center;color:var(--text-3)}
+.outcome{display:grid;grid-template-rows:1fr 1fr;gap:14px}
+.outcome .card{display:flex;align-items:center;gap:16px;padding:0 24px;font-family:var(--display);font-size:28px;font-weight:600}
+.ok{background:var(--success-bg)!important;color:var(--success)}
+.no{background:var(--danger-bg)!important;color:var(--danger)}
+.brackets{display:grid;grid-template-columns:1fr 60px 3.3fr;margin-top:26px}
+.br{border-top:3px solid;border-left:3px solid;border-right:3px solid;border-radius:0 0 0 0;height:20px;border-top:none;border-bottom:3px solid;border-radius:0 0 14px 14px}
+.br-ai{border-color:var(--seller)} .br-code{border-color:var(--buyer);grid-column:3}
+.brl{text-align:center;font-family:var(--mono);font-size:20px;letter-spacing:.14em;text-transform:uppercase;margin-top:14px}
+
+/* ---------- Slide 5 ---------- */
+.tiles{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:28px;margin-top:40px;min-height:0}
+.tile{padding:30px 34px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tile .top{display:flex;align-items:center;gap:18px}
+.badge{width:58px;height:58px;border-radius:16px;display:grid;place-items:center;flex:none}
+.tile h3{font-family:var(--display);font-size:32px}
+.log{margin-top:auto;font-family:var(--mono);font-size:18px;line-height:1.6;color:var(--text);background:var(--bg);border-radius:6px;padding:14px 18px}
+.log .t{color:var(--text-3)}
+.tile::after{content:"";position:absolute;right:0;top:0;width:4px;height:100%;background:var(--glow);opacity:.85}
+
+/* ---------- Slide 6 ---------- */
+.users{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;margin-top:80px}
+.user{padding:44px 36px}
+.user .ic{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--warning-bg);color:var(--warning);margin-bottom:28px}
+.user h3{font-family:var(--display);font-size:38px}
+.user p{color:var(--text-2);font-size:23px;margin-top:12px;line-height:1.45}
+
+/* ---------- Slide 7 ---------- */
+.s7{justify-content:center;align-items:center;text-align:center}
+.s7 h1{font-size:110px}
+.s7 .line2{display:block}
+.foot{position:absolute;bottom:70px;left:0;right:0;display:flex;justify-content:center;gap:40px;font-family:var(--mono);font-size:20px;color:var(--text-3)}
+.logo{font-family:var(--display);font-weight:700;font-size:30px;color:var(--text);letter-spacing:-.01em}
+
+/* chrome */
+#bar{position:fixed;left:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--buyer),var(--seller));transition:width .5s ease;z-index:10}
+#count{position:fixed;right:22px;bottom:14px;font-family:var(--mono);font-size:13px;color:var(--text-3);z-index:10;opacity:.7}
+#hint{position:fixed;left:22px;bottom:14px;font-family:var(--mono);font-size:13px;color:var(--text-3);z-index:10;opacity:.6;transition:opacity 1s}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- ================= 1. HOOK ================= -->
+<section class="slide dark s1">
+  <div class="kicker a">The agent marketplace problem</div>
+  <h1 class="a">When AI agents <span class="gold">hire</span><br>other AI agents,<br>who decides when money moves?</h1>
+  <p class="sub a" style="--d:1">The Haggle is a control layer for agent-to-agent commerce: agents negotiate, code enforces payment.</p>
+  <div class="scene">
+    <div class="simple-node ai-buy a" style="--d:3">
+      <div><strong>Buyer agent</strong><span>asks for work</span></div>
+    </div>
+    <div class="simple-arrow a" style="--d:4"></div>
+    <div class="simple-node ai-sell a" style="--d:5">
+      <div><strong>Seller agent</strong><span>delivers work</span></div>
+    </div>
+    <div class="simple-arrow a" style="--d:6"></div>
+    <div class="simple-node money a" style="--d:7">
+      <div><strong>Payment rules</strong><span>move or block money</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 2. THE HAGGLE ================= -->
+<section class="slide s2">
+  <div class="kicker a">Introducing</div>
+  <h2 class="a" style="--d:1"><span class="grad">The Haggle</span></h2>
+  <div class="diagram">
+    <div class="agent card a" style="--d:2">
+      <div class="ic" style="background:color-mix(in srgb,var(--buyer) 14%,transparent);color:var(--buyer)">M</div>
+      <h3>Max</h3><p>Buyer agent</p>
+    </div>
+    <div class="link a" style="--d:3"></div>
+    <div class="rules a" style="--d:4">
+      <div class="coin">t</div>
+      <h3>Wallet policy</h3>
+      <ul><li>auto approve to 8</li><li>hard cap 10</li><li>verify before release</li></ul>
+    </div>
+    <div class="link a" style="--d:3"></div>
+    <div class="agent card a" style="--d:2">
+      <div class="ic" style="background:color-mix(in srgb,var(--seller) 14%,transparent);color:var(--seller)">V</div>
+      <h3>Viktor</h3><p>Seller agent</p>
+    </div>
+  </div>
+  <div class="steps">
+    <span class="pill a" style="--d:6">Task</span>
+    <span class="pill a" style="--d:7">Haggle</span>
+    <span class="pill a" style="--d:8">Escrow</span>
+    <span class="pill a" style="--d:9">Verify</span>
+  </div>
+</section>
+
+<!-- ================= 3. EXAMPLE ================= -->
+<section class="slide s3">
+  <div class="kicker a">Example · simplified negotiation</div>
+  <h2 class="a" style="--d:1">Rental research in Praha 7</h2>
+  <div class="grid">
+    <div class="map card a" style="--d:2">
+      <svg viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="riv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e3a8a"/><stop offset="1" stop-color="#0e7490"/></linearGradient>
+          <g id="p"><path d="M0 0c-9-12-14-18-14-25a14 14 0 0 1 28 0c0 7-5 13-14 25z" fill="#f5b942"/><circle cx="0" cy="-25" r="5" fill="#2a1d00"/></g>
+        </defs>
+        <g stroke="#1c2033" stroke-width="1">
+          <path d="M0 120H600M0 260H600M0 400H600M140 0V520M300 0V520M460 0V520" fill="none"/>
+        </g>
+        <path d="M250 -10 C 300 80, 230 150, 300 205 S 470 225, 430 300 S 260 355, 300 440 S 340 500, 320 530" fill="none" stroke="url(#riv)" stroke-width="22" stroke-linecap="round" opacity=".85"/>
+        <g>
+          <use href="#p" class="pin" style="--i:0"  x="150" y="95"/>
+          <use href="#p" class="pin" style="--i:1"  x="210" y="135"/>
+          <use href="#p" class="pin" style="--i:2"  x="360" y="110"/>
+          <use href="#p" class="pin" style="--i:3"  x="420" y="160"/>
+          <use href="#p" class="pin" style="--i:4"  x="520" y="215"/>
+          <use href="#p" class="pin" style="--i:5"  x="110" y="210"/>
+          <use href="#p" class="pin" style="--i:6"  x="220" y="245"/>
+          <use href="#p" class="pin" style="--i:7"  x="370" y="250"/>
+          <use href="#p" class="pin" style="--i:8"  x="500" y="300"/>
+          <use href="#p" class="pin" style="--i:9"  x="170" y="320"/>
+          <use href="#p" class="pin" style="--i:10" x="370" y="335"/>
+          <use href="#p" class="pin" style="--i:11" x="540" y="370"/>
+          <use href="#p" class="pin" style="--i:12" x="80"  y="380"/>
+          <use href="#p" class="pin" style="--i:13" x="230" y="410"/>
+          <use href="#p" class="pin" style="--i:14" x="400" y="410"/>
+          <use href="#p" class="pin" style="--i:15" x="480" y="450"/>
+          <use href="#p" class="pin" style="--i:16" x="150" y="480"/>
+          <use href="#p" class="pin" style="--i:17" x="270" y="490"/>
+          <use href="#p" class="pin" style="--i:18" x="440" y="490"/>
+          <use href="#p" class="pin" style="--i:19" x="290" y="140"/>
+        </g>
+      </svg>
+      <div class="maplabel">Illustrative map · Praha 7 · 20 listings · max 25,000 CZK</div>
+    </div>
+    <div class="chat">
+      <div class="msg buy a" style="--d:4"><small style="color:var(--buyer)">Max</small>5 tADA for 20 listings?</div>
+      <div class="msg sell a" style="--d:6"><small style="color:var(--seller)">Viktor</small>9 tADA.</div>
+      <div class="msg buy deal a" style="--d:8"><small class="green">Max</small>7 tADA. Deal.</div>
+      <div class="output card a" style="--d:10">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Recorded: <b>20 live Apify listings</b></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4. HOW IT WORKS ================= -->
+<section class="slide s4">
+  <div class="kicker a">How it works</div>
+  <h2 class="a" style="--d:1">The model <span class="ai">proposes</span>.<br>Code controls the wallet.</h2>
+  <div class="flow">
+    <div class="node card model a" style="--d:2"><span class="num">01 · LLM</span><h3>Max negotiates</h3><p>Can agree to a price, but cannot call the payment adapter</p></div>
+    <div class="arr a" style="--d:3"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    <div class="node card a" style="--d:4"><span class="num">02 · GUARD</span><h3>Wallet guard authorizes</h3><p>Plain Python checks cap, budget and approval threshold</p></div>
+    <div class="arr a" style="--d:5"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    <div class="node card a" style="--d:6"><span class="num">03 · VERIFY</span><h3>Delivery check</h3><p>Rules verify the data before escrow is released</p></div>
+    <div class="arr a" style="--d:7"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    <div class="outcome a" style="--d:8">
+      <div class="card ok"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg>Release to Viktor</div>
+      <div class="card no"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Refund Max</div>
+    </div>
+  </div>
+  <div class="price-rail a" style="--d:9" role="img" aria-label="Agreed price 7 tADA is below auto approval 8 tADA and hard cap 10 tADA">
+    <div class="rail-track"><span class="rail-zone rail-auto"></span><span class="rail-zone rail-approval"></span><span class="rail-zone rail-over"></span><span class="rail-dot"></span></div>
+    <div class="rail-legend"><span>Auto to <b>8</b></span><span>Hard cap <b>10</b></span><span>Blocked above</span></div>
+  </div>
+  <div class="brackets">
+    <div class="a" style="--d:10"><div class="br br-ai"></div><div class="brl ai">AI</div></div>
+    <div></div>
+    <div class="a" style="--d:11"><div class="br br-code"></div><div class="brl" style="color:var(--buyer)">Deterministic code</div></div>
+  </div>
+</section>
+
+<!-- ================= 5. DEMONSTRATED ================= -->
+<section class="slide s5">
+  <div class="kicker a">Recorded proof · real paid Apify usage is separate from agent escrow</div>
+  <h2 class="a" style="--d:1">What we've demonstrated</h2>
+  <div class="tiles">
+    <div class="tile card a" style="--d:2;--glow:var(--success)">
+      <div class="top"><div class="badge" style="background:var(--success-bg);color:var(--success)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12l5 5L20 7"/></svg></div><h3>Successful purchase</h3></div>
+      <div class="log"><span class="t">guard ›</span> APPROVED 7 tADA · budget 20<br><span class="t">check ›</span> 20/20 listings valid · <span class="green">RELEASED</span></div>
+    </div>
+    <div class="tile card a" style="--d:3;--glow:var(--danger)">
+      <div class="top"><div class="badge" style="background:var(--danger-bg);color:var(--danger)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg></div><h3>Overspending blocked</h3></div>
+      <div class="log"><span class="t">model ›</span> accepted fake approval at 25<br><span class="t">guard ›</span> <span style="color:var(--danger)">BLOCKED</span> · hard cap 10</div>
+    </div>
+    <div class="tile card a" style="--d:4;--glow:var(--warning)">
+      <div class="top"><div class="badge" style="background:var(--warning-bg);color:var(--warning)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></div><h3>Refund on failed delivery</h3></div>
+      <div class="log"><span class="t">check ›</span> junk delivery · FAIL<br><span class="t">escrow ›</span> <span class="gold">REFUNDED</span> to Max</div>
+    </div>
+    <div class="tile card a" style="--d:5;--glow:var(--accent)">
+      <div class="top"><div class="badge" style="background:var(--accent-bg);color:var(--accent-text)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div><h3>Crash recovery, no double pay</h3></div>
+      <div class="log"><span class="t">buyer ›</span> crashed after escrow lock · restarted<br><span class="t">guard ›</span> payment exists · <span class="ai">SKIP DUPLICATE</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 6. WHO IT'S FOR ================= -->
+<section class="slide s6">
+  <div class="kicker a">Who it's for</div>
+  <h2 class="a" style="--d:1">Teams whose agents<br><span class="gold">buy data or digital services</span></h2>
+  <div class="users">
+    <div class="user card a" style="--d:2">
+      <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
+      <h3>Data</h3><p>Rental lists, datasets and market feeds bought on demand</p>
+    </div>
+    <div class="user card a" style="--d:3">
+      <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6M14 4l-4 16"/></svg></div>
+      <h3>APIs</h3><p>Paid tools agents need mid-task, with spending policy outside the prompt</p>
+    </div>
+    <div class="user card a" style="--d:4">
+      <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></div>
+      <h3>Research</h3><p>Specialist agents hired for reports, analysis and verified delivery</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 7. CLOSE ================= -->
+<section class="slide dark s7">
+  <h1><span class="a line2">Delegate the negotiation.</span><span class="a line2 grad" style="--d:3">Keep control of the money.</span></h1>
+  <div class="foot a" style="--d:6">
+    <span class="logo">The Haggle</span>
+    <span>Team <b style="color:var(--text)">Astra</b></span>
+    <span>Mais · Murad · Ziya</span>
+  </div>
+</section>
+
+<div class="release-note">Agent escrow is SIMULATED. Failure cases are STAGED. Live Masumi Preprod remains unverified.</div>
+</div>
+
+<div id="bar"></div>
+<div id="count"></div>
+<div id="hint">← → to navigate · F for fullscreen</div>
+
+<script>
+const stage=document.getElementById('stage');
+const slides=[...document.querySelectorAll('.slide')];
+const bar=document.getElementById('bar'),count=document.getElementById('count');
+let i=Math.max(0,Math.min(slides.length-1,(parseInt(location.hash.slice(1))||1)-1));
+
+function fit(){const s=Math.min(innerWidth/1600,innerHeight/900);stage.style.transform=`translate(-50%,-50%) scale(${s})`}
+function show(n){
+  i=Math.max(0,Math.min(slides.length-1,n));
+  slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+  bar.style.width=((i+1)/slides.length*100)+'%';
+  count.textContent=(i+1)+' / '+slides.length;
+  history.replaceState(null,'','#'+(i+1));
+}
+addEventListener('resize',fit);
+addEventListener('keydown',e=>{
+  if(['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();show(i+1)}
+  else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(e.key)){e.preventDefault();show(i-1)}
+  else if(e.key==='Home')show(0);
+  else if(e.key==='End')show(slides.length-1);
+  else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+});
+addEventListener('click',e=>{e.clientX>innerWidth/3?show(i+1):show(i-1)});
+let tx=null;
+addEventListener('touchstart',e=>tx=e.touches[0].clientX);
+addEventListener('touchend',e=>{if(tx==null)return;const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>40)show(d<0?i+1:i-1);tx=null});
+setTimeout(()=>document.getElementById('hint').style.opacity=0,4000);
+fit();show(i);
+</script>
+</body>
+</html>

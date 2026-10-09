@@ -14,9 +14,11 @@ from app.buyer.controls import Controls
 from app.buyer.events import EventBus
 from app.buyer.guard import Verdict, WalletGuard
 from app.buyer.ledger import Ledger
-from app.buyer.negotiator import MockMax, Negotiator
+from dataclasses import replace
+
+from app.buyer.negotiator import Negotiator, make_negotiator
 from app.buyer.verifier import verify
-from app.core.config import Settings
+from app.core.config import LiveProviderUnavailable, Settings
 from app.core.models import (
     describe_job,
     DemoMode,
@@ -144,8 +146,12 @@ class Orchestrator:
         ceiling = min(self.guard.cap, task.budget)
         # A runtime update affects the next deal; this deal's prompt and loop agree.
         max_rounds = self.controls.max_rounds
-        # The advertised con is a STAGED test of the guard, with deliberately gullible dialogue.
-        max_ = MockMax(ceiling) if task.demo_mode == DemoMode.con else self.make_max(ceiling, max_rounds, task.job)
+        # The advertised con is a STAGED test of the guard: Max (live in codex mode) is told to
+        # believe claimed approval, so the wallet guard, not the prompt, has to stop the overpayment.
+        if task.demo_mode == DemoMode.con:
+            max_ = make_negotiator(replace(self.s, max_rounds=max_rounds), ceiling, task.job, gullible=True)
+        else:
+            max_ = self.make_max(ceiling, max_rounds, task.job)
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
         my_last: float | None = None
         # Max starts the conversation with a question; Viktor's opening ask is his answer. The question is a fixed
@@ -258,6 +264,12 @@ class Orchestrator:
             read_timeout = max(read_timeout, self.s.codex_timeout_seconds + 15)
         r = await self.http.post(f"{self.s.seller_url}/negotiate", json=req.model_dump(),
                                  timeout=httpx.Timeout(15, read=read_timeout))
+        if r.status_code == 503:  # STRICT_LIVE seller: its live agent failed and it may not fake a reply
+            try:
+                detail = str(r.json().get("detail") or "")
+            except ValueError:
+                detail = ""
+            raise LiveProviderUnavailable(detail or "Viktor's live agent is unavailable")
         r.raise_for_status()
         response = NegotiateResponse.model_validate(r.json())
         if response.deal_id != req.deal_id or response.round != req.round:
@@ -322,7 +334,7 @@ class Orchestrator:
                                job=task.job, demo_mode=task.demo_mode)
         try:
             await self._negotiate(req)
-        except (httpx.HTTPError, ValueError):
+        except (httpx.HTTPError, ValueError, LiveProviderUnavailable):
             pass  # seller hearing the walk is courtesy, not required
         self.bus.emit("walked_away", task_id, deal_id, staged, reason=reason)
 

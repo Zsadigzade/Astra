@@ -1,0 +1,19 @@
+Suggested title:
+Astra: The Haggle | Agents negotiate. Code controls the wallet.
+
+Suggested description:
+A purchasing-agent demo for Agents007: Max and Viktor negotiate for Prague rental data while a separate code guard controls simulated escrow.
+
+The edited 89-second recording shows a successful delivery, a staged overpriced deal blocked before funding, an actual buyer-process crash and recovery without double payment, and a staged bad delivery that triggers a simulated refund.
+
+Two live Codex subscription agents, live Apify rental data and ElevenLabs speech. Opening greeting and guard notices are code-generated. Apify reports real paid API usage, separate from SIMULATED agent escrow. Live Masumi Preprod escrow is unverified; simulated refunds do not refund provider charges. Listing checks do not prove property authenticity or availability. Waits and some dialogue are omitted.
+
+Source and recording evidence: https://github.com/Zsadigzade/Astra
+
+Upload checklist (not part of the description):
+- Use backend/data/video/the-haggle-final.mp4; duration 89.021333 seconds.
+- Watch once with sound before uploading.
+- Set visibility to Unlisted. HQ requires a YouTube URL.
+- Wait until the upload can play, then send the exact watch/share URL.
+- Verify the link signed out, including sound and readable labels/captions.
+- The stage pitch is a separate 60-second presentation.

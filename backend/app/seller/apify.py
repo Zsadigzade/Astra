@@ -365,6 +365,9 @@ async def rental_result(job: JobSpec, settings: Settings) -> JobResult:
     try:
         result = await scrape(job, settings)
     except ApifyError as exc:
+        if settings.strict_live:
+            raise ApifyError(f"{exc}; STRICT_LIVE allows no cached substitute",
+                             run_id=exc.run_id, dataset_id=exc.dataset_id) from None
         try:
             result = load_cache(job, settings)
         except ApifyError:

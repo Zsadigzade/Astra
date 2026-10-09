@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
                 print("\n[STAGED] BUYER DIED mid-deal. Restarting buyer in 3s (no crash flag)...")
                 time.sleep(3)
                 if procs["seller"].poll() is not None:
-                    print("seller stopped during recovery; cannot resume its in-memory job.")
+                    print("seller stopped during recovery; restart both (seller jobs persist in SELLER_STORE_PATH).")
                     return 1
                 procs["buyer"] = start("buyer", {**os.environ, "CRASH_AFTER_LOCK": "0"})
                 if not wait_healthy(buyer_port, procs["buyer"]):

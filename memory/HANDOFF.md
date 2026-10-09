@@ -1,8 +1,50 @@
+# Current submission handoff - 9 October 2026
 
+- **05:28:** friend owns UI/UX, expected around 05:50; preserve the accepted MP4 while
+  checking that handoff. No UI edits in this presentation pass. Remaining operator
+  controls passed in isolated services without provider calls; copied ledger reset
+  preserved bytes. Presenter HTML/timer and offline PDF/PNG/ZIP are ready; see [production](../video/production.md).
+- User explicitly opted into **Best ElevenLabs Use**; saved HQ checkbox reload verified.
+  All prepared fields persist. Submit remains disabled without the YouTube URL.
+  Speaker choice, human listening/timed pitch, final UI acceptance and submission remain open.
+
+- Recording code `1d9173c`; full live-provider capture passes all four acts plus approve/decline with SIMULATED escrow. 579 backend / 63 frontend tests and build pass. Nonsecret results: [video/evidence.json](../video/evidence.json).
+- HQ now requires **90 seconds**, not two minutes; **Unlisted YouTube** is mandatory. The approximately 89-second export is `backend/data/video/the-haggle-final.mp4`. User will upload and send the link; HQ project draft is saved, not submitted.
+- **60-second stage pitch**, presentations **09:30**, target submit **07:00**, close **07:14**, Prague/Budapest. [Pitch and jury answers](../video/script.md), [operator runbook and take index](../video/production.md).
+- Apify reports real paid provider usage (Act 1 USD 0.110573). Keep this distinct from SIMULATED agent escrow; no actual Masumi transfer, settlement or provider refund is claimed.
+- Current local services are healthy with live providers and authenticated buyer access. No public hosting is required for the HQ form or prepared here. Do not expose the dev dashboard/token.
+- Earlier handoffs below are historical, including references to cached data, scripted con, in-memory seller jobs, old test counts and a two-minute edit.
 
 # Handoff — integrated main
 
-updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
+## Merge integration (2026-10-09 04:27 +02:00)
+
+- Merged remote dashboard/conversation changes with local authentication, durable seller state
+  and live-con changes. Preserved the new ghost stage and API token on voice playback; frontend
+  test command includes both eye-tracking and authentication suites (63 tests and build pass).
+- Max's fixed opening question remains labelled scripted. Rehearsal excludes only that
+  non-fallback greeting from live-decision counts; strict-live failures still cannot produce
+  scripted offers. Browser rehearsal opens the Wallet tab before checking policy framing.
+- Final merged validation: 579 backend tests, 63 frontend tests and production build passed.
+  No new live-provider or browser rehearsal was run for this merge.
+- Older entries below describe their historical snapshots, including their then-uncommitted state.
+
+updated: 2026-10-09 03:11 +02:00 · everything live except payments
+
+## Everything live except payments + hardening (2026-10-09 03:11 +02:00)
+
+- Root `.env` now `STRICT_LIVE=1` with `API_TOKEN`, `SELLER_API_TOKEN`, `RATE_LIMIT_PER_MINUTE=60`
+  (values private). Startup refuses any non-live provider; Codex/Apify failures error/refund
+  instead of scripted lines or cached listings; voice alone degrades to text. Payments SIMULATED.
+- Act 2 con is live (dedicated gullible-Max prompt + live Viktor con line; code fixes 25) and the guard
+  blocks. Act 4 junk scrapes live then ships 3 sabotaged listings, refund. All Viktor lines live.
+- Auth (header or `?token=` for SSE/audio), per-client rate limit, SQLite seller store
+  (`SELLER_STORE_PATH`) with job resume. Launcher EXE rebuilt; Sample profile forces STRICT_LIVE=0.
+- Evidence: 575 backend / 54 frontend tests, build; live rehearsal `backend/data/r-rehearsal-965ff982`
+  passed all 4 acts + approve/decline (live Apify runs incl. junk, zero fallbacks, 45 clips, 77/23/0).
+  First attempt `r-rehearsal-8336dcfa` failed Act 2 (live Max refused the con) — see TRAPS (con prompt entry).
+- Services restarted via `npm start` on 8000/8001/5173 with live modes (old up.py + vite session stopped
+  with no open deals). Not committed. Still not public hosting (Codex local sign-in, dev token in bundle).
 
 ## Page fill, flat chat, new logo (2026-10-09, samir/claude; uncommitted)
 - Layout is full-bleed (no 1600px cap, rails 260/320, 290/370 on very wide screens). Nothing floats in the middle: the stage is a full-width tinted band with Max at the left edge, Viktor at the right and the price coin + offer ladder between them. The left rail spreads its cards through the height (Request, Recent, Mode, Usage, options); on short screens the examples/recent rows compact so no rail needs a scrollbar at 1366x768.

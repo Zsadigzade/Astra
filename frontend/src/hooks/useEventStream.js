@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BUYER } from "../api.js";
+import { API_TOKEN, BUYER } from "../api.js";
+import { withToken } from "../lib/auth.js";
 import { appendEvent } from "../eventIdentity.js";
 
 const GIVE_UP_AFTER = 3; // consecutive failed reconnects before the UI calls the buyer offline
@@ -14,7 +15,7 @@ export default function useEventStream() {
 
   useEffect(() => {
     let failures = 0;
-    const es = new EventSource(`${BUYER}/events`);
+    const es = new EventSource(withToken(`${BUYER}/events`, API_TOKEN));
     es.onopen = () => { failures = 0; everLive.current = true; setStatus("live"); };
     es.onerror = () => {
       failures += 1;

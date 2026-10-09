@@ -59,13 +59,29 @@ def speech_lines(events):
 def check_seller_lines(speech, mode, act):
     lines = [line for line in speech if line["speaker"] == "viktor"]
     require(lines and not any(line.get("fallback_reason") for line in lines), "seller fallback occurred")
-    if mode == "mock" or act == 2:
-        require(all(line.get("backend") == "mock" for line in lines), "unexpected seller mode")
-    else:
-        # Acceptance/walk acknowledgements are intentionally scripted; offers must be live.
-        offers = [line for line in lines if line.get("action") == "counter"]
-        require(offers and all(line.get("backend") == "codex" for line in offers),
-                "seller offers were not live Codex turns")
+    # Codex Viktor speaks every line live (staged con and accept/walk acknowledgements included;
+    # code still owns those prices). Scripted Viktor never claims a live turn.
+    want = "codex" if mode == "codex" else "mock"
+    require(all(line.get("backend") == want for line in lines),
+            f"act {act}: every seller line must be {want}")
+
+
+def check_max_lines(speech):
+    """Check live decisions; guard notices and the fixed opening question are code."""
+    lines = [line for line in speech if line["speaker"] == "max" and line.get("backend") != "guard"
+             and not (line.get("action") == "open" and line.get("backend") == "mock"
+                      and not line.get("fallback_reason"))]
+    require(lines and all(line.get("backend") == "codex" and not line.get("fallback_reason") for line in lines),
+            "Codex fallback occurred")
+    return lines
+
+
+def service_env(settings, artifact, seller_mode, data_mode):
+    """Child services inherit access tokens, keep seller state private and run STRICT_LIVE only when fully live."""
+    strict = seller_mode == "codex" and data_mode == "apify"
+    return {"API_TOKEN": settings.api_token, "SELLER_API_TOKEN": settings.seller_api_token,
+            "VITE_API_TOKEN": settings.api_token, "SELLER_STORE_PATH": str(artifact / "seller.db"),
+            "STRICT_LIVE": "1" if strict else "0"}
 
 
 class Rehearsal:
@@ -98,6 +114,9 @@ class Rehearsal:
                     "AUDIO_DIR": str(self.artifact / "audio"),
                     "GUARD_CAP": "10", "GUARD_APPROVAL_OVER": "8", "MAX_ROUNDS": "6",
                     "SELLER_FLOOR": "7", "SELLER_OPENING_ASK": "18"}
+        self.settings = get_settings()
+        self.env.update(service_env(self.settings, self.artifact, seller_mode, data_mode))
+        self.headers = {"X-API-Token": self.settings.api_token} if self.settings.api_token else {}
         self.env["SELLER_URL"] = self.url("seller")
         self.env["VITE_BUYER_URL"] = self.url("buyer")
         self.env["VITE_SELLER_URL"] = self.url("seller")
@@ -153,6 +172,8 @@ class Rehearsal:
             return
         page = self.page
         page.wait_for_function("id => window.rehearsalEvents.some(e => e.deal_id === id)", arg=deal_id)
+        # Wallet policy moved out of the right rail into its own tab in the new dashboard.
+        page.get_by_role("tab", name="Wallet", exact=True).click()
         page.wait_for_timeout(500)
         require(page.get_by_text("SIMULATED MONEY", exact=True).is_visible(), "simulation label missing")
         require(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "horizontal overflow")
@@ -181,7 +202,7 @@ class Rehearsal:
         restarted, answered = False, False
         label = f"act-{act}-run-{repeat}" if approval is None else f"approval-{'accept' if approval else 'decline'}"
         print(f"Starting {label}", flush=True)
-        with httpx.Client(base_url=self.url("buyer"), timeout=10, trust_env=False) as client:
+        with httpx.Client(base_url=self.url("buyer"), timeout=10, trust_env=False, headers=self.headers) as client:
             if self.page:
                 self.page.get_by_role("radio").nth(act - 1).click()
             if self.page and not crash:
@@ -231,9 +252,7 @@ class Rehearsal:
             require(all(e["simulated"] for e in events), "non-simulated event")
             require(expected in types, f"{label}: missing {expected}")
             speech = speech_lines(events)
-            max_lines = [e for e in speech if e["speaker"] == "max" and e.get("backend") != "guard"]
-            require(max_lines and all(e.get("backend") == ("mock" if act == 2 else "codex")
-                                     and not e.get("fallback_reason") for e in max_lines), "Codex fallback occurred")
+            max_lines = check_max_lines(speech)
             check_seller_lines(speech, self.seller_mode, act)
             interrupted = [e for e in speech if not e.get("audio_url")
                            and e.get("audio_reason") == "buyer_restarted" and crash and restarted]
@@ -251,10 +270,11 @@ class Rehearsal:
                 delivery = next(e["data"] for e in events if e["type"] == "delivered")
                 verified = next(e["data"]["ok"] for e in events if e["type"] == "verified")
                 require(verified == (expected == "released"), "wrong verification decision")
-                if expected == "released":
-                    source = "apify" if self.data_mode == "apify" else "apify_cached"
-                    require(delivery["source"] == source and delivery["items"] == 20,
-                            f"expected {source} delivery; fallback is not live acceptance")
+                # Act 4 junk sabotages a real scrape (3 items); fallback data is never acceptance.
+                source = "apify" if self.data_mode == "apify" else "apify_cached"
+                items = 20 if expected == "released" else 3
+                require(delivery["source"] == source and delivery["items"] == items,
+                        f"expected {items}-item {source} delivery; fallback is not live acceptance")
             if crash:
                 require(restarted and counts["already_paid"] == 1, "crash did not recover exactly once")
                 require(self.processes["seller"].pid == seller_pid and self.processes["seller"].poll() is None,
@@ -344,7 +364,7 @@ def main():
         load_cache(JobSpec(), settings)
     else:
         require(settings.apify_token, "Configure APIFY_TOKEN first")
-        print(f"Live data: up to {2 * args.repeats + 1} paid scrapes, each requesting a $1.10 cap.", flush=True)
+        print(f"Live data: up to {3 * args.repeats + 1} paid scrapes, each requesting a $1.10 cap.", flush=True)
     Rehearsal(args.browser, seller_mode=args.seller_mode, data_mode=args.data_mode, repeats=args.repeats).run()
 
 

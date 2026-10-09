@@ -1,17 +1,54 @@
 import pytest
 
-from scripts.rehearse import check_seller_lines, speech_lines
+from scripts.rehearse import check_max_lines, check_seller_lines, service_env, speech_lines
 
 
-def test_live_seller_acceptance_allows_scripted_ack_but_rejects_fallback():
+def test_live_seller_acceptance_requires_every_line_live_and_rejects_fallback():
     offer = {"speaker": "viktor", "action": "counter", "backend": "codex"}
-    ack = {"speaker": "viktor", "action": "accept", "backend": "mock"}
-    check_seller_lines([offer, ack], "codex", 1)
+    ack = {"speaker": "viktor", "action": "accept", "backend": "codex"}
+    for act in (1, 2, 3, 4):
+        check_seller_lines([offer, ack], "codex", act)
     with pytest.raises(RuntimeError, match="fallback"):
         check_seller_lines([offer, {**ack, "fallback_reason": "TimeoutError"}], "codex", 1)
-    with pytest.raises(RuntimeError, match="not live"):
-        check_seller_lines([{**offer, "backend": "mock"}, ack], "codex", 1)
-    check_seller_lines([{**offer, "backend": "mock"}, ack], "codex", 2)
+    with pytest.raises(RuntimeError, match="codex"):
+        check_seller_lines([offer, {**ack, "backend": "mock"}], "codex", 1)  # scripted ack is not live
+    with pytest.raises(RuntimeError, match="codex"):
+        check_seller_lines([{**offer, "backend": "mock"}, ack], "codex", 2)  # staged con is live too
+    scripted = [{**offer, "backend": "mock"}, {**ack, "backend": "mock"}]
+    check_seller_lines(scripted, "mock", 2)
+    with pytest.raises(RuntimeError, match="mock"):
+        check_seller_lines([offer, scripted[1]], "mock", 1)
+
+
+def test_max_lines_must_all_be_codex_except_guard_notices():
+    max_line = {"speaker": "max", "backend": "codex"}
+    guard = {"speaker": "max", "backend": "guard"}
+    assert check_max_lines([max_line, guard, {"speaker": "viktor", "backend": "mock"}]) == [max_line]
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([max_line, {**max_line, "backend": "mock"}])
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([{**max_line, "fallback_reason": "TimeoutError"}])
+
+
+def test_max_opening_template_is_not_counted_as_live_or_as_provider_fallback():
+    opening = {"speaker": "max", "action": "open", "backend": "mock"}
+    decision = {"speaker": "max", "action": "counter", "backend": "codex"}
+    assert check_max_lines([opening, decision]) == [decision]
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([opening])  # a template alone cannot prove live negotiation
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([{**opening, "fallback_reason": "TimeoutError"}, decision])
+
+
+def test_rehearsal_services_inherit_tokens_and_isolate_seller_state(tmp_path):
+    from app.core.config import Settings
+    s = Settings(api_token="buyer-token", seller_api_token="seller-token")
+    env = service_env(s, tmp_path, "codex", "apify")
+    assert env["API_TOKEN"] == env["VITE_API_TOKEN"] == "buyer-token"
+    assert env["SELLER_API_TOKEN"] == "seller-token" and env["STRICT_LIVE"] == "1"
+    assert env["SELLER_STORE_PATH"] == str(tmp_path / "seller.db")
+    assert service_env(s, tmp_path, "mock", "apify")["STRICT_LIVE"] == "0"
+    assert service_env(s, tmp_path, "codex", "cached")["STRICT_LIVE"] == "0"
 
 
 def test_rehearsal_resolves_audio_by_full_message_identity():
