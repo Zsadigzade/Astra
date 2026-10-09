@@ -2,6 +2,10 @@
 
 The current HQ requires a **90-second demo video** and a separate **60-second stage pitch**. The final edit is approximately 89 seconds and shows the real dashboard: a successful deal, a blocked con, actual buyer crash recovery and a refund.
 
+Public recording and existing presentation: **https://astra-haggle-judges.vercel.app**.
+This is a recorded-demo page; interactive live access is unavailable. The required
+Unlisted YouTube upload remains separate.
+
 - [Final script, pitch and jury questions](script.md)
 - [Final narration and dialogue captions](narration-final.srt)
 - [Export, take index, operator runbook and submission handoff](production.md)

@@ -63,6 +63,32 @@ async def test_crash_between_intent_and_record_does_not_double_pay():
     assert (await payments.balances())["buyer"] == 93
 
 
+@pytest.mark.anyio
+async def test_funded_paying_deal_is_recorded_even_under_a_lower_cap():
+    # The lock moved money under the old limits, then its reply was lost. A lower cap now must
+    # not block the deal: that would strand escrow the ledger no longer knows about.
+    guard, ledger, payments = make_guard()
+    await payments.lock("d-1", 7, "seller", START)
+    ledger.update("d-1", status="paying", price=7)
+    guard.cap = 5
+    out = await guard.pay("d-1", 7, "t-1", 20, "seller", START)
+    assert (out.kind, out.ref) == ("already_paid", "SIM-d-1")
+    deal = ledger.get("d-1")
+    assert (deal["status"], deal["escrow_ref"]) == ("locked", "SIM-d-1")
+    assert ledger.spent("t-1") == 7
+    assert (await payments.balances())["buyer"] == 93
+
+
+@pytest.mark.anyio
+async def test_unfunded_paying_deal_obeys_the_current_cap():
+    guard, ledger, payments = make_guard()
+    ledger.update("d-1", status="paying", price=7)  # intent recorded, lock never reached the wallet
+    guard.cap = 5
+    out = await guard.pay("d-1", 7, "t-1", 20, "seller", START)
+    assert out.kind == "blocked"
+    assert (await payments.balances())["buyer"] == 100
+
+
 @pytest.fixture
 def anyio_backend():
     return "asyncio"

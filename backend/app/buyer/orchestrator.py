@@ -20,7 +20,6 @@ from app.buyer.negotiator import Negotiator, make_negotiator
 from app.buyer.verifier import verify
 from app.core.config import LiveProviderUnavailable, Settings
 from app.core.models import (
-    describe_job,
     DemoMode,
     NegotiateRequest,
     NegotiateResponse,
@@ -155,12 +154,13 @@ class Orchestrator:
         begin = getattr(max_, "begin", None)
         if callable(begin):  # cost-based pricing: this deal gets its own numbers and manner
             begin(deal_id)
-        req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
+        opening = await max_.opening()
+        req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job,
+                               demo_mode=task.demo_mode, message=opening)
         my_last: float | None = None
-        # Max starts the conversation with a question; Viktor's opening ask is his answer. The question is a fixed
-        # template, not a model call, so it is labelled scripted (backend="mock") in every mode and costs nothing.
-        await self._say(task_id, deal_id, "max", f"Hi Viktor. Can you get me {describe_job(task.job)}? What is your price?",
-                        0, "open", staged, backend="mock")
+        await self._say(task_id, deal_id, "max", opening,
+                        0, "open", staged, backend=getattr(max_, "last_backend", "mock"),
+                        fallback_reason=getattr(max_, "fallback_reason", None))
         for rnd in range(max_rounds):
             resp = await self._negotiate(req)
             await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged,
@@ -197,7 +197,14 @@ class Orchestrator:
         deal = self.ledger.get(deal_id)
         seller = deal["seller_url"]
 
-        if not deal["escrow_ref"]:
+        # A lost lock reply may hide money that already moved: record it before checking today's limits.
+        recovered = None
+        if deal["status"] == "paying" and not deal["escrow_ref"] and deal["start_json"]:
+            start = StartJobResponse.model_validate_json(deal["start_json"])
+            self._validate_start(start, price)
+            recovered = await self.guard.recover(deal_id, start)
+
+        if not deal["escrow_ref"] and not recovered:
             # Guard runs BEFORE the seller is even asked to start: a blocked deal costs nothing.
             d = self.guard.evaluate(price, task_id, task.budget, deal_id)
             if d.verdict is Verdict.block:
@@ -215,7 +222,8 @@ class Orchestrator:
         else:
             start = await self._start_job(seller, deal_id, price, task)
             self.ledger.update(deal_id, job_id=start.job_id, start_json=start.model_dump_json())
-        out = await self.guard.pay(deal_id, price, task_id, task.budget, seller, start, approved=approved)
+        out = recovered or await self.guard.pay(deal_id, price, task_id, task.budget, seller, start,
+                                                approved=approved)
         if out.kind == "blocked":
             return await self._blocked(task_id, deal_id, task, price, out.reason, staged)
         if out.kind == "needs_approval":  # should not happen: approval handled above

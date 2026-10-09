@@ -135,6 +135,36 @@ async def test_lost_lock_reply_keeps_intent_and_restart_pays_only_once(tmp_path,
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("limits", [{"guard_cap": 5, "guard_approval_over": 4}, {"guard_approval_over": 5}],
+                         ids=["lower-cap", "lower-approval-line"])
+async def test_funded_paying_deal_settles_after_restart_with_lower_limits(tmp_path, limits):
+    # Money moved before the lock reply was lost; the operator then lowered the limits.
+    # Restart must record and settle that escrow, not block (or re-ask about) a paid deal.
+    ledger = seed(settings(tmp_path), "d1", "paying", price=7, job_id="j-old",
+                  start_json=OLD_START.model_dump_json())
+    await SimulatedPayments(ledger).lock("d1", 7, "http://seller", OLD_START)
+    seller = FakeSeller()
+    buyer, bal = await restart(settings(tmp_path, **limits), seller,
+                               {"released", "refunded", "blocked", "needs_approval", "error"})
+    types = [e.type for e in buyer.state.bus.history]
+    assert "already_paid" in types and "released" in types
+    assert not {"blocked", "needs_approval", "escrow_locked"} & set(types)
+    assert "/start_job" not in seller.paths()
+    deal = buyer.state.ledger.get("d1")
+    assert (deal["status"], deal["escrow_ref"]) == ("released", "SIM-d1")
+    assert (bal["buyer"], bal["seller"], bal["escrow"]) == (93, 7, 0)
+
+
+@pytest.mark.anyio
+async def test_unfunded_paying_deal_is_blocked_by_lower_cap_after_restart(tmp_path):
+    seed(settings(tmp_path), "d1", "paying", price=7, job_id="j-old", start_json=OLD_START.model_dump_json())
+    buyer, bal = await restart(settings(tmp_path, guard_cap=5, guard_approval_over=4), FakeSeller(),
+                               {"walked_away", "released", "error"})
+    assert buyer.state.ledger.get("d1")["status"] == "blocked"
+    assert (bal["buyer"], bal["escrow"]) == (100, 0)
+
+
+@pytest.mark.anyio
 async def test_legacy_invalid_task_does_not_block_other_funded_recovery(tmp_path, caplog):
     s = settings(tmp_path)
     ledger = seed(s, "legacy", "locked", price=7, escrow_ref="SIM-legacy", job_id="j-legacy",

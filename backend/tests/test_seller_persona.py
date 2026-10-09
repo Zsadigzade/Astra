@@ -195,8 +195,54 @@ async def test_cancelled_turn_leaves_no_agreement_and_retry_is_allowed(monkeypat
     agent = seller()
     with pytest.raises(asyncio.CancelledError):
         await agent.respond_async(request())
-    assert agent.deals == {} and agent._last == {}
+    assert agent.deals == {} and agent._last == {} and agent._history == {}
     assert (await agent.respond_async(request())).backend == "codex"
+
+
+@pytest.mark.anyio
+async def test_conversation_includes_actual_fallback_lines_and_isolates_deals(monkeypatch):
+    calls = fake_runner(monkeypatch, [
+        move(message="The district filter is the work here."),
+        TimeoutError(),
+        {"message": "Agreed. Fund the escrow for the district search."},
+        move(message="A separate job."),
+    ])
+    agent = seller()
+    opening_request = request(message="I need flats in Praha 7. What's your fee?")
+    opening = await agent.respond_async(opening_request)
+    counter_request = request("counter", 5, 1, message="Only matches under my rental limit, please.")
+    counter = await agent.respond_async(counter_request)
+    assert counter.backend == "mock"
+    assert await agent.respond_async(counter_request) == counter  # replay isn't a new turn
+    accepted = await agent.respond_async(request("accept", counter.price, 2, message="That works."))
+    assert accepted.backend == "codex"
+    context = json.loads(calls[2][0].split("Context (JSON):\n")[1])
+    assert [turn["message"] for turn in context["conversation"]] == [
+        opening_request.message, opening.message, counter_request.message, counter.message,
+    ]
+    assert context["request"]["message"] == "That works."
+    await agent.respond_async(NegotiateRequest(deal_id="another-deal", action="open", round=0))
+    other = json.loads(calls[3][0].split("Context (JSON):\n")[1])
+    assert other["conversation"] == []
+    assert "district filter" not in calls[3][0]
+
+
+@pytest.mark.anyio
+async def test_general_request_and_facts_reach_closing_turn_without_rental_defaults(monkeypatch):
+    from app.core.models import BoundedJobSpec
+
+    prompt = "Compare repairable laptops for travel. " * 4 + "Must support Linux and weigh under 1.3 kg."
+    job = BoundedJobSpec(kind="general", prompt=prompt)
+    calls = fake_runner(monkeypatch, [move(), {"message": "Agreed, 18 tADA. Fund the escrow."}])
+    agent = seller()
+    await agent.respond_async(request(job=job))
+    facts = {"options_found": 2, "examples": ["Candidate A"]}
+    await agent.respond_async(request("accept", 18, 1, job=job), facts)
+    for call in calls:
+        context = json.loads(call[0].split("Context (JSON):\n")[1])
+        assert context["request"]["job"] == {"kind": "general", "prompt": prompt}
+        assert "Praha" not in call[0]
+    assert context["what_you_have_found_so_far"] == facts
 
 
 @pytest.mark.anyio

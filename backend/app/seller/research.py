@@ -81,6 +81,8 @@ class Progress:
     pages_read: int = 0
     titles: list[str] = field(default_factory=list)
     options_found: int = 0
+    findings: list = field(default_factory=list)  # the first few real findings: title, detail, url
+    source: str | None = None
     usd: float = 0.0
 
     def reset(self) -> None:
@@ -95,7 +97,10 @@ class Progress:
 
     def facts(self) -> dict | None:
         if self.options_found:
-            return {"options_found": self.options_found, "examples": self.titles[:2]}
+            facts = {"options_found": self.options_found, "examples": self.titles[:2]}
+            if self.findings:  # real titles and details Viktor may discuss (never URLs aloud)
+                facts["findings"], facts["source"] = self.findings, self.source
+            return facts
         if self.pages_read:
             return {"pages_read": self.pages_read, "examples": self.titles[:2]}
         if self.results_seen:
@@ -295,6 +300,8 @@ async def _shopping(prompt: str, settings: Settings, progress: Progress, planned
                       "image": c["image"], "site": c["merchant"] or None})
     progress.options_found = len(items)
     progress.titles = [i["title"][:90] for i in items]
+    progress.findings = [{"title": i["title"], "detail": i["detail"], "url": i["url"]} for i in items[:3]]
+    progress.source = "apify"
     progress.stage = "done"
     return answer.strip(), items[:8], queries, progress.usd
 
@@ -389,5 +396,7 @@ async def _web(prompt: str, settings: Settings, progress: Progress, planned: dic
                           "site": _host(c["url"]) or None})
     progress.options_found = len(items)
     progress.titles = [i["title"][:90] for i in items]
+    progress.findings = [{"title": i["title"], "detail": i["detail"], "url": i["url"]} for i in items[:3]]
+    progress.source = "apify"
     progress.stage = "done"
     return answer.strip(), items[:8], queries, progress.usd

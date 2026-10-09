@@ -77,7 +77,7 @@ def test_guard_uses_actual_rules_without_payment_calls(monkeypatch):
     async def forbidden(*args, **kwargs):
         pytest.fail("Readiness check must never call a payment method")
 
-    for method in ("lock", "release", "refund"):
+    for method in ("find", "lock", "release", "refund"):
         monkeypatch.setattr(llm_check.SimulatedPayments, method, forbidden)
     assert llm_check.check_guard()
 

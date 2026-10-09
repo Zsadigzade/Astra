@@ -210,12 +210,12 @@ def test_viktor_gets_a_different_manner_per_deal():
 
 
 def test_the_buyer_prompts_are_cost_aware_and_free_in_voice():
-    assert "speak freely in your own words" in MAX_INSTRUCTIONS
-    assert "Start at 5" in MAX_INSTRUCTIONS  # fixed pricing keeps its old, documented instructions
+    assert "speak freely in your own words" in " ".join(MAX_INSTRUCTIONS.lower().split())
+    assert "Open around 5" in MAX_INSTRUCTIONS  # fixed pricing keeps its simple opening guidance
     for needle in ("{fair:g}", "{reservation:g}", "{opening:g}", "{style}", "never reuse the wording of lines you already said",
                    "Never invent facts about what Viktor has"):
         assert needle in MAX_COST_INSTRUCTIONS
-    assert "raise your offers by amounts that fit the gap" in MAX_COST_INSTRUCTIONS and "Start at 5" not in MAX_COST_INSTRUCTIONS
+    assert "raise your offers by amounts that fit the gap" in MAX_COST_INSTRUCTIONS and "Open around 5" not in MAX_COST_INSTRUCTIONS
 
 
 # ---------------- progress while Viktor works ----------------
@@ -339,3 +339,9 @@ async def test_an_early_search_that_fails_is_logged_not_swallowed(monkeypatch, c
             await c.post("/negotiate", json=neg("l1", 0, "open"))
             await asyncio.sleep(0.1)
     assert any("early work for deal l1 failed: RuntimeError: Apify request failed (TimeoutError)" in r.message for r in caplog.records)
+
+
+def test_max_is_told_to_speak_freely_and_react_to_what_viktor_really_says():
+    normalized = " ".join(MAX_INSTRUCTIONS.lower().split())
+    assert "speak freely in your own words" in normalized and "any number of options he says he already has" in normalized
+    assert "Never invent facts about what Viktor has" in MAX_INSTRUCTIONS

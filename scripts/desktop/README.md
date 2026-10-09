@@ -1,5 +1,23 @@
 # Windows launcher
 
+## Astra.exe: just run the project
+
+Double-click `Astra.exe` in the repository root. It runs `npm start` (buyer :8000, seller
+:8001, dashboard :5173, browser opens) in its console window; close the window or press
+Ctrl+C to stop everything. It uses the root `.env` as the source of truth (terminal
+variables for the same keys are ignored and named), offers to restart an Astra session
+that is already running (it keeps the code it started with, so restart after pulling),
+refuses to touch a port held by another program, and installs `backend/.venv` if missing.
+Needs Node.js and uv. Rebuild after editing `scripts/desktop/start.py`:
+
+```powershell
+uv run --no-project --with 'pyinstaller==6.22.3' python scripts/desktop/build.py start
+```
+
+`Astra.exe` is a local build (git-ignored), like `dist/`.
+
+## AstraLauncher.exe: checks, rehearsals and profiles
+
 Double-click `dist/AstraLauncher.exe`. Keep the repository: this executable launches its
 existing code, dependencies and development tests. It can discover the checkout above
 the executable, or you can select it with **Browse** after moving the EXE elsewhere.

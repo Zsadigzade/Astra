@@ -1,5 +1,10 @@
 # Current submission handoff - 9 October 2026
 
+- **05:42:** double-payment audit: no double-pay path found. Fixed one recovery gap (funded
+  `paying` deal blocked and its escrow stranded when limits were lowered before restart); see
+  TRAPS 05:42. Uncommitted: `backend/app/buyer/{guard,orchestrator,payments}.py` + tests
+  (test_guard, test_resume, test_masumi, test_llm_check). After merging origin/main (`cc10f94`)
+  685 backend and 63 frontend tests plus build pass. Recording code `1d9173c` unaffected.
 - **05:28:** friend owns UI/UX, expected around 05:50; preserve the accepted MP4 while
   checking that handoff. No UI edits in this presentation pass. Remaining operator
   controls passed in isolated services without provider calls; copied ledger reset

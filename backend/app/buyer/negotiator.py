@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
 from app.core.config import LiveProviderUnavailable, Settings
+from app.core.dialogue import DIALOGUE_DIRECTION, MAX_VOICE, negotiation_job
 from app.core.models import JobSpec, NegotiateResponse, describe_job
 from app.core.pricing import BuyerPlan, buyer_plan, money, rng_for
 
@@ -30,6 +31,7 @@ class Move:
 
 
 class Negotiator(Protocol):
+    async def opening(self) -> str: ...
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move: ...
 
 
@@ -80,19 +82,32 @@ class MockMax:
     last_backend = "mock"
     fallback_reason = None
 
-    def __init__(self, ceiling: float, plan: BuyerPlan | None = None, *, deal_id: str = "", job=None, rounds: int = 6):
+    def __init__(self, ceiling: float, job: JobSpec | None = None, plan: BuyerPlan | None = None, *, deal_id: str = "",
+                 rounds: int = 6):
         self.ceiling = ceiling  # Max's own intent; the guard enforces the real cap separately
-        self.plan, self.deal_id, self.job, self.rounds = plan, deal_id, job, rounds
+        self.job = job or JobSpec()
+        self.plan, self.deal_id, self.rounds = plan, deal_id, rounds
+        self._last_ask: float | None = None
         self._moves = 0
 
     def _say(self, kind: str, pool: list[str], **values) -> str:
         return rng_for(self.deal_id, f"m{kind}{self._moves}").choice(pool).format(topic=_topic(self.job), **values)
 
+    async def opening(self) -> str:
+        if getattr(self.job, "kind", "rental") == "general":
+            brief = " ".join(self.job.prompt.split())
+            # This is visibly scripted; preserve the request's wording rather than
+            # pretending a keyword-based paraphrase understands arbitrary topics.
+            return f"Viktor, here's what I need: {brief}"
+        return f"Viktor, can you find me {describe_job(self.job)}? What would you charge?"
+
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
+        previous_ask, self._last_ask = self._last_ask, seller.price
+        general = getattr(self.job, "kind", "rental") == "general"
         if "approved" in seller.message.lower():
             return Move("accept", seller.price, f"Oh, my manager approved it? Then {seller.price:g} it is, deal!")
         if self.plan is None:
-            return self._legacy(seller, my_last)
+            return self._legacy(seller, my_last, previous_ask)
         plan, n = self.plan, self._moves
         final = n >= self.rounds - 1
         ask = seller.price
@@ -114,31 +129,42 @@ class MockMax:
         self._moves += 1
         return move
 
-    def _legacy(self, seller: NegotiateResponse, my_last: float | None) -> Move:
+    def _legacy(self, seller: NegotiateResponse, my_last: float | None, previous_ask: float | None = None) -> Move:
+        general = getattr(self.job, "kind", "rental") == "general"
         offer = OPENING_OFFER if my_last is None else my_last + STEP
         if seller.price <= offer:
-            return Move("accept", seller.price, f"{seller.price:g}? Fine. Deal.")
+            return Move("accept", seller.price,
+                        f"Okay, {seller.price:g} tADA. Let's do it.")
         if offer > self.ceiling:
-            return Move("walk", my_last or 0, "That's more than I can spend. I'm walking.")
-        lines = {
-            OPENING_OFFER: f"{seller.price:g}? For a scrape? I'll give you {offer:g}.",
-        }
-        return Move("counter", offer, lines.get(offer, f"Come on, Viktor. {offer:g}, final-ish offer."))
+            return Move("walk", my_last or 0, "I can't stretch that far. We'll have to leave it.")
+        if my_last is None:
+            point = (f"For {describe_job(self.job)}? That's more than I had in mind." if general else
+                     f"I'm paying for {self.job.count} matches in {self.job.district}, not just a pile of listings.")
+            message = f"{point} How about {offer:g} tADA?"
+        elif previous_ask is not None and seller.price < previous_ask:
+            point = ("" if general else f" I'm still after places under {self.job.max_price_czk:,} CZK.")
+            message = f"That's closer.{point} Could you do {offer:g} tADA?"
+        else:
+            message = f"Still a bit high for me. I can do {offer:g} tADA."
+        return Move("counter", offer, message)
 
 
 log = logging.getLogger(__name__)
 
 MAX_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
 "{job}". Prices are in tADA.
-Your budget is {ceiling:g} tADA. Start at 5 tADA (or your budget if lower); raise counteroffers
-by 1 tADA per round while staying within budget. There are at most {max_rounds} buyer decisions,
+Your budget is {ceiling:g} tADA. Open around 5 tADA (or your budget if lower); make measured
+concessions based on Viktor's response while staying within budget. Do not mechanically add
+the same amount every turn or bid against yourself when he has offered no new value.
+There are at most {max_rounds} buyer decisions,
 with seller rounds numbered from 0. If the seller repeats an affordable final price, accept it.
 On the last decision, accept an affordable current price or walk; do not counter again.
 Never walk before your last decision: keep countering, the seller is expected to come down.
 The wallet guard independently approves any payment.
-You are a person with a voice, not a script: speak freely in your own words, react to exactly what Viktor just said
-(his boasts, his tone, any number of options he says he already has), joke, push back, and vary your wording every round.
-Use one to three spoken sentences, no lists, no emojis. Your lines are read aloud.
+Speak freely in your own words. React to exactly what Viktor just said, including any number of options
+he says he already has. If an important detail is missing, ask about that detail rather than
+asking him to justify his fee in the abstract. Don't ask another question just to keep talking.
+On acceptance, a short yes and the agreed fee are enough. Don't turn agreement into a checklist.
 Never invent facts about what Viktor has; only react to what he actually says.
 Each turn, pick exactly one action:
 - "counter": propose a new price (put it in `price`).
@@ -201,6 +227,12 @@ class MaxMove(BaseModel):
     message: str
 
 
+class OpeningLine(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    message: str = Field(min_length=1, max_length=400)
+
+
 class CodexMax:
     """Max through the subscription-authenticated local Codex CLI. One instance lives for one deal.
 
@@ -213,17 +245,23 @@ class CodexMax:
                  gullible: bool = False):
         self.settings = settings
         self.ceiling = ceiling
+        self.job = job or JobSpec()
         template = GULLIBLE_INSTRUCTIONS if gullible else MAX_INSTRUCTIONS
         self.instructions = template.format(ceiling=ceiling, max_rounds=settings.max_rounds,
                                             job=describe_job(job or JobSpec()))
-        self.job = job
         self.gullible = gullible
         self.history: list[dict[str, str]] = []
         self.plan: BuyerPlan | None = None
         self.deal_id = ""
-        self._fallback = MockMax(ceiling, job=job, rounds=settings.max_rounds)
+        self._fallback = MockMax(ceiling, job, rounds=settings.max_rounds)
         self.last_backend: Literal["codex", "mock"] | None = None
         self.fallback_reason: str | None = None
+        self.instructions += self._voice()
+
+    def _voice(self) -> str:
+        """Max's spoken manner and the full job, appended to whichever instructions are in use."""
+        return (MAX_VOICE + DIALOGUE_DIRECTION + "\nFull job (JSON):\n" +
+                json.dumps(negotiation_job(self.job or JobSpec()), ensure_ascii=False))
 
     def begin(self, deal_id: str) -> None:
         """Give this deal its own numbers and manner (cost mode). The staged con keeps its fixed script."""
@@ -234,8 +272,38 @@ class CodexMax:
         style = rng_for(deal_id, "mstyle").choice(STYLES)
         self.instructions = MAX_COST_INSTRUCTIONS.format(
             ceiling=self.ceiling, max_rounds=self.settings.max_rounds, job=describe_job(self.job or JobSpec()), style=style,
-            fair=self.plan.fair, reservation=self.plan.reservation, opening=self.plan.opening)
-        self._fallback = MockMax(self.ceiling, self.plan, deal_id=deal_id, job=self.job, rounds=self.settings.max_rounds)
+            fair=self.plan.fair, reservation=self.plan.reservation, opening=self.plan.opening) + self._voice()
+        self._fallback = MockMax(self.ceiling, self.job, self.plan, deal_id=deal_id, rounds=self.settings.max_rounds)
+
+    async def opening(self) -> str:
+        """Speak the brief in Max's voice, then remember exactly what Viktor hears."""
+        self.last_backend = None
+        self.fallback_reason = None
+        prompt = (MAX_VOICE + DIALOGUE_DIRECTION +
+                  "\nStart the conversation with Viktor. In one or two short sentences, put the user's "
+                  "request in your own spoken words and ask if he can help or what he'd charge. "
+                  "Keep the key constraints; the full job is sent separately, so don't read a long brief "
+                  "aloud. No price offer, budget disclosure, greeting formula, or invented backstory. "
+                  "You haven't heard from Viktor yet. Return only a JSON object with message.\nFull job (JSON):\n" +
+                  json.dumps(negotiation_job(self.job), ensure_ascii=False))
+        try:
+            out = await run_codex(prompt, OpeningLine.model_json_schema(), self.settings)
+            line = OpeningLine.model_validate(out).message.strip()
+            if not line:
+                raise ValueError("Empty opening line")
+            self.last_backend = "codex"
+        except Exception as exc:
+            reason = type(exc).__name__
+            if self.settings.strict_live:
+                log.warning("CodexMax opening failed (%s); STRICT_LIVE, no scripted fallback", reason)
+                raise LiveProviderUnavailable(
+                    f"Max's live opening failed ({reason}); STRICT_LIVE allows no scripted fallback") from None
+            log.warning("CodexMax opening failed (%s); falling back to MockMax", reason)
+            self.last_backend, self.fallback_reason = "mock", reason
+            line = await self._fallback.opening()
+        self.history.append({"role": "assistant", "content": json.dumps(
+            {"action": "open", "price": 0, "message": line})})
+        return line
 
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
         self.last_backend = None

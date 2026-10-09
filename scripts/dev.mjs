@@ -50,7 +50,7 @@ if (wantWeb && !existsSync(join(root, "frontend", "node_modules"))) {
 const children = new Map();
 let stopping = false;
 
-function start(tag, cmd, cmdArgs, cwd, env = {}) {
+function start(tag, cmd, cmdArgs, cwd, env = {}, onLine = () => {}) {
   // One command string on Windows (needed for .cmd shims) avoids Node's args-with-shell deprecation warning.
   const child = (isWin ? spawn(`${cmd} ${cmdArgs.join(" ")}`, { cwd, shell: true, env: { ...process.env, PYTHONUNBUFFERED: "1", FORCE_COLOR: "1", ...env } })
     : spawn(cmd, cmdArgs, { cwd, env: { ...process.env, PYTHONUNBUFFERED: "1", FORCE_COLOR: "1", ...env } }));
@@ -61,13 +61,17 @@ function start(tag, cmd, cmdArgs, cwd, env = {}) {
       buf += d.toString();
       const lines = buf.split(/\r?\n/);
       buf = lines.pop();
-      lines.filter((l) => l.trim()).forEach((l) => log(tag, l));
+      lines.filter((l) => l.trim()).forEach((l) => { log(tag, l); onLine(l); });
     });
   }
   child.on("exit", (code) => {
     children.delete(tag);
     if (!stopping) {
       log("dev", `${tag} exited${code ? ` with code ${code}` : ""}; stopping the rest.`);
+      if (tag === "api" && !apiReady) {
+        log("dev", "backend never came up. If a port is unavailable, an earlier session still runs (with the code it "
+          + "started with): stop it, then run npm start again.");
+      }
       stop(code ?? 0);
     }
   });
@@ -87,12 +91,25 @@ function stop(code = 0) {
 
 process.on("SIGINT", () => stop(0));
 process.on("SIGTERM", () => stop(0));
+process.on("SIGHUP", () => stop(0)); // Windows: the console window was closed
 
-if (wantApi) start("api", "uv", ["run", "python", "scripts/up.py"], join(root, "backend"));
-if (wantWeb) {
+function startWeb() {
+  if (stopping || children.has("web")) return;
   const webArgs = ["run", "dev"];
   if (!process.env.NO_OPEN) webArgs.push("--", "--open");
   // The dashboard sends the buyer token as X-API-Token (and ?token= for SSE/audio).
   start("web", "npm", webArgs, join(root, "frontend"), { VITE_API_TOKEN: process.env.VITE_API_TOKEN ?? apiToken });
 }
-log("dev", `starting ${[wantApi && "backend (:8000 buyer, :8001 seller)", wantWeb && "dashboard (:5173)"].filter(Boolean).join(" + ")}. Ctrl+C stops everything.`);
+
+// The dashboard starts only after up.py reports both services healthy ("UP  buyer ..."). Starting it
+// alongside a backend that fails fast (busy port, ledger safety) left an orphaned Vite on Windows.
+let apiReady = false;
+if (wantApi) {
+  start("api", "uv", ["run", "python", "scripts/up.py"], join(root, "backend"), {}, (line) => {
+    if (!apiReady && /^UP\s/.test(line.trim())) {
+      apiReady = true;
+      if (wantWeb) startWeb();
+    }
+  });
+} else if (wantWeb) startWeb();
+log("dev", `starting ${[wantApi && "backend (:8000 buyer, :8001 seller)", wantWeb && (wantApi ? "dashboard (:5173, once the backend is up)" : "dashboard (:5173)")].filter(Boolean).join(" + ")}. Ctrl+C stops everything.`);
