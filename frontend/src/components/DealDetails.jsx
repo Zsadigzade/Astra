@@ -21,7 +21,7 @@ export default function DealDetails({ view }) {
       {delivery && (
         <>
           <div className="detail-line">
-            <span>{delivery.items} listings{delivery.result?.fetched_at ? <small className="muted"> · fetched {delivery.result.fetched_at.slice(0, 16).replace("T", " ")}</small> : null}</span>
+            <span>{delivery.result?.kind === "general" ? `AI answer · ${(delivery.result.answer ?? "").length.toLocaleString("en-US")} characters` : `${delivery.items} listings`}{delivery.result?.fetched_at ? <small className="muted"> · fetched {delivery.result.fetched_at.slice(0, 16).replace("T", " ")}</small> : null}</span>
             {src && <StatusBadge tone={src.tone} icon={null} title={src.hint}>{src.label}</StatusBadge>}
           </div>
           {delivery.result?.cache_stale === true && <p className="note note-warning" role="status">

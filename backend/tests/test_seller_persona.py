@@ -104,6 +104,7 @@ async def test_low_or_wrong_buyer_acceptance_cannot_reach_fallback(monkeypatch, 
         with pytest.raises(NegotiationConflict):
             await agent.respond_async(request("accept", offer, 1))
         assert agent.deals["seller-test"].agreed is None
+    assert len(calls) == (1 if kind == "codex" else 0)  # rejected acceptances never reach the model
     accepted = await agent.respond_async(request("accept", 18, 1))
     # Code confirms the price; in codex mode the live model only voices the confirmation.
     assert accepted.action == "accept" and accepted.backend == ("codex" if kind == "codex" else "mock")

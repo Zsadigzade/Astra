@@ -237,7 +237,7 @@ class Orchestrator:
         self.ledger.update(deal_id, status="delivered")
         # A failed job cannot turn into successful delivery by including stale results.
         result = status.result if status.status == "completed" else None
-        n = len(result.flats) if result else 0
+        n = (1 if result.answer else 0) if result and result.kind == "general" else (len(result.flats) if result else 0)
         self.bus.emit("delivered", task_id, deal_id, staged, job_status=status.status, items=n,
                       source=result.source if result else None,
                       result=result.model_dump() if result else None)

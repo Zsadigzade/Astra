@@ -87,7 +87,7 @@ def create_app(settings: Settings | None = None, http: httpx.AsyncClient | None 
     @app.post("/requests/parse", dependencies=[Depends(limiter.dependency("parse"))])
     async def parse(body: RequestText):
         """Preview only: what Max would buy for this text. Creates nothing, spends nothing."""
-        return parse_request(body.text).public()
+        return parse_request(body.text, general=s.answers_enabled).public()
 
     @app.post("/tasks", response_model=TaskCreated, dependencies=[Depends(limiter.dependency("tasks"))])
     async def create_task(task: TaskCreate, request: Request):

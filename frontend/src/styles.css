@@ -36,19 +36,19 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0c1117;
-  --surface: #0c1117;
-  --surface-2: #121923;
-  --border: #273142;
-  --text: #e7ecf3;
-  --text-2: #9aa6b6;
-  --text-3: #75849a;
+  --bg: #0a0a0a;
+  --surface: #0a0a0a;
+  --surface-2: #141414;
+  --border: #2a2a2a;
+  --text: #ededed;
+  --text-2: #a3a3a3;
+  --text-3: #808080;
 
-  --accent: #818cf8;
-  --accent-hover: #a5b4fc;
-  --accent-bg: rgba(129, 140, 248, .12);
-  --accent-text: #a5b4fc;
-  --on-accent: #09090b;
+  --accent: #e5e5e5;
+  --accent-hover: #ffffff;
+  --accent-bg: rgba(255, 255, 255, .08);
+  --accent-text: #e5e5e5;
+  --on-accent: #0a0a0a;
 
   --buyer: #38bdf8;
   --seller: #a78bfa;
@@ -747,3 +747,181 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .chat-card .bubble-foot { gap: 2px 8px; }
 .chat-card .bubble-meta { margin-left: 0; width: 100%; }
 @media (max-height: 820px) { .chat-card { min-height: 200px; } }
+
+/* ===================== fill the page: full-bleed, no floating islands ===================== */
+.header-inner, .layout { max-width: none; }
+.layout { grid-template-columns: 260px minmax(0, 1fr) 320px; }
+@media (min-width: 1600px) { .layout { grid-template-columns: 290px minmax(0, 1fr) 370px; } }
+@media (max-width: 1180px) and (min-width: 1021px) { .layout { grid-template-columns: 240px minmax(0, 1fr) 290px; } }
+
+/* left rail: the request box takes whatever height is left, so the rail never ends in blank space */
+.rail-left > .card:first-child { flex: 1 1 auto; min-height: 260px; }
+.rail-left > .card:first-child .request-text { flex: 1 1 auto; resize: none; min-height: 110px; }
+
+/* the stage is a full-width band: Max hugs the left edge, Viktor the right, offers and price between them */
+.stage { display: grid; grid-template-columns: minmax(230px, 1.15fr) minmax(210px, 1fr) minmax(230px, 1.15fr); align-items: end; gap: 20px;
+  padding: 14px 28px 12px; background: var(--surface-2); }
+.ghost-side-max { align-items: flex-start; }
+.ghost-side-viktor { align-items: flex-end; }
+.ghost-side-max .ghost-above { justify-content: flex-start; }
+.ghost-side-viktor .ghost-above { justify-content: flex-end; }
+.ghost-above { height: 58px; }
+.speech { max-width: min(360px, 100%); }
+.ghost-side-max .speech::after { left: 28px; }
+.ghost-side-viktor .speech::after { right: 28px; }
+.stage-mid { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; }
+.stage-mid .coin { margin-bottom: 0; }
+.stage-mid .ladder { justify-content: center; }
+.stage .ghost-name { margin-top: 4px; }
+
+/* empty state: same band, then two columns that use the width */
+.empty-page { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.stage-hero { flex: none; padding-top: 28px; padding-bottom: 20px; }
+.hero-mid { gap: 8px; text-align: center; }
+.hero-mid h2 { font-size: 20px; font-weight: 650; letter-spacing: -.015em; }
+.hero-mid .guard-ico { width: 40px; height: 40px; margin-bottom: 2px; animation: bob 3.2s ease-in-out infinite; }
+.empty-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; padding: 28px 28px 32px; align-content: start; }
+.steps { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+.steps li { display: flex; gap: 14px; }
+.step-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 650; color: var(--accent-text); background: var(--accent-bg); }
+.steps b { font-size: 14px; }
+.steps p { font-size: 13px; color: var(--text-2); margin-top: 1px; }
+.try { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 18px; }
+.try button { width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: 13.5px; cursor: pointer; transition: background var(--t), color var(--t); }
+.try button:hover { background: var(--accent-bg); color: var(--accent-text); }
+
+/* ===================== chat: flat rows, not boxes ===================== */
+.chat-card { padding-left: 14px; padding-right: 10px; }
+.chat-card .feed { padding: 2px 4px 12px 0; }
+.chat-card .thread { gap: 2px; }
+.msg { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; padding: 8px 8px 8px 4px; border-radius: var(--radius-sm); transition: background var(--t); }
+.msg:hover { background: var(--surface-2); }
+.msg-avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 650; }
+.msg-max .msg-avatar { color: var(--buyer); background: color-mix(in srgb, var(--buyer) 14%, transparent); }
+.msg-viktor .msg-avatar { color: var(--seller); background: color-mix(in srgb, var(--seller) 14%, transparent); }
+.msg-body { min-width: 0; }
+.msg-head { display: flex; align-items: baseline; gap: 8px; font-size: 11px; color: var(--text-3); }
+.msg-head b { font-size: 13px; font-weight: 650; }
+.msg-max .msg-head b { color: var(--buyer); }
+.msg-viktor .msg-head b { color: var(--seller); }
+.msg-head time { font-variant-numeric: tabular-nums; margin-left: auto; }
+.msg-text { margin-top: 1px; font-size: 13.5px; line-height: 1.5; color: var(--text); word-break: break-word; }
+.msg-quote { display: flex; align-items: baseline; gap: 8px; margin-top: 3px; font-size: 12px; color: var(--text-3); }
+.msg-quote b { font-family: var(--mono); font-weight: 650; }
+.msg-max .msg-quote b { color: var(--buyer); }
+.msg-viktor .msg-quote b { color: var(--seller); }
+.msg-typing { opacity: .9; }
+.typing { display: inline-flex; align-items: center; gap: 4px; height: 26px; }
+.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); animation: think 1.2s ease-in-out infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; }
+.typing i:nth-child(3) { animation-delay: .3s; }
+
+@media (max-width: 1020px) {
+  .stage { grid-template-columns: 1fr 1fr; padding: 12px 16px; }
+  .stage-mid { grid-column: 1 / -1; order: 3; }
+  .empty-body { grid-template-columns: 1fr; gap: 24px; padding: 20px 16px 28px; }
+}
+@media (max-height: 820px) { .stage { padding-top: 8px; padding-bottom: 8px; } .ghost-above { height: 46px; } }
+
+/* ---- left rail: content, not a giant empty box. Cards spread to use the height when there is room ---- */
+.rail-left { justify-content: space-between; }
+.rail-left > .card:first-child { flex: none; min-height: 0; }
+.rail-left > .card:first-child .request-text { flex: none; min-height: 150px; resize: vertical; }
+.recent { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.recent-row { width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); text-align: left; cursor: pointer; transition: background var(--t); }
+.recent-row:hover { background: var(--surface-2); }
+.recent-row.is-on { background: var(--accent-bg); }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+.dot-success { background: var(--success); } .dot-warning { background: var(--warning); } .dot-danger { background: var(--danger); } .dot-info { background: var(--accent); }
+.recent-text { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent-price { font-size: 12px; color: var(--text-3); }
+
+/* ---- empty page: the tinted band grows to fill, the how-to sits underneath ---- */
+.stage-hero { flex: 1 1 auto; align-items: center; padding-top: 24px; padding-bottom: 24px; min-height: 260px; }
+.stage-hero .ghost-above { height: 24px; }
+.empty-body { flex: none; }
+
+/* ---- right rail before any chat: cards spread through the height instead of leaving one big blank ---- */
+.rail-right.is-spread { justify-content: space-between; }
+
+/* ---- shorter screens: compact the left rail so it still fits without a scrollbar ---- */
+@media (max-height: 940px) {
+  .rail-left > .card:first-child .request-text { min-height: 96px; }
+  .chips .chip-btn:nth-child(n+3) { display: none; }
+  .recent li:nth-child(n+4) { display: none; }
+}
+@media (max-height: 800px) {
+  .rail-left > .card:first-child .request-text { min-height: 80px; }
+  .recent li:nth-child(n+3) { display: none; }
+  .chips { display: none; }
+  .card { padding-top: 8px; padding-bottom: 8px; }
+}
+
+/* ===================== bigger ghosts, closer together ===================== */
+/* the drawing is unchanged; only its size and position move. Max sits just left of the price, Viktor just right. */
+.ghost { width: 140px; height: 175px; }
+.stage { grid-template-columns: 1fr minmax(230px, 340px) 1fr; gap: 12px; padding-left: 20px; padding-right: 20px; }
+.ghost-side-max { align-items: flex-end; }
+.ghost-side-viktor { align-items: flex-start; }
+.ghost-side-max .ghost-above { justify-content: flex-end; }
+.ghost-side-viktor .ghost-above { justify-content: flex-start; }
+.ghost-side-max .speech::after { left: auto; right: 44px; }
+.ghost-side-viktor .speech::after { right: auto; left: 44px; }
+.ghost-above { height: 64px; }
+.speech { max-width: min(380px, 100%); }
+.ghost-name { font-size: 14px; }
+.ghost-name .ghost-offer { font-size: 14px; }
+.coin { width: 78px; height: 78px; }
+.coin-face { font-size: 22px; }
+
+@media (max-height: 940px) { .ghost { width: 124px; height: 155px; } .ghost-above { height: 56px; } }
+@media (max-height: 820px) { .ghost { width: 108px; height: 135px; } .ghost-above { height: 48px; } .coin { width: 66px; height: 66px; } }
+@media (max-width: 1020px) { .ghost { width: 112px; height: 140px; } .ghost-side-max, .ghost-side-viktor { align-items: center; } .ghost-side-max .ghost-above, .ghost-side-viktor .ghost-above { justify-content: center; } }
+@media (max-width: 640px) { .ghost { width: 92px; height: 115px; transform: none; } }
+
+@media (min-width: 1700px) and (min-height: 980px) { .ghost { width: 164px; height: 205px; } .ghost-above { height: 70px; } .coin { width: 88px; height: 88px; } .coin-face { font-size: 25px; } .stage { grid-template-columns: 1fr minmax(260px, 400px) 1fr; } }
+
+/* ---------- delivered answer (general requests) ---------- */
+.answer { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px 24px 20px; gap: 12px; overflow-y: auto; }
+.answer-in { animation: answer-in .5s ease-out both; }
+@keyframes answer-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.answer-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.answer-meta { margin-left: auto; font-size: 12px; color: var(--text-3); }
+.answer-text { font-size: 15px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-width: 78ch; }
+.answer-note { font-size: 12px; color: var(--text-3); }
+.answer-sources h4 { margin: 4px 0 6px; font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; }
+.answer-sources ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.answer-sources a { display: flex; gap: 10px; align-items: baseline; color: var(--accent-text); text-decoration: none; font-size: 13px; min-width: 0; }
+.answer-sources a:hover { text-decoration: underline; }
+.answer-sources a span { color: var(--text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- findings: clickable cards, two per row ---------- */
+.findings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .findings { grid-template-columns: 1fr; } }
+.finding { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: inherit; text-decoration: none; overflow: hidden; transition: border-color .15s ease, transform .15s ease, background .15s ease; }
+.finding:hover, .finding:focus-visible { border-color: var(--text-3); background: var(--surface-2); transform: translateY(-1px); outline: none; }
+.finding:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.finding-in { animation: answer-in .45s ease-out both; }
+.finding-photo { display: block; aspect-ratio: 5 / 2; background: var(--surface-2); border-bottom: 1px solid var(--border); overflow: hidden; }
+.finding-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.finding-initial { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 28px; font-weight: 600; color: var(--text-3); }
+.finding-body { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px 12px; min-width: 0; }
+.finding-title { font-size: 14px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.finding-detail { font-size: 13px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.finding-site { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .finding, .finding-in { animation: none; transition: none; transform: none; } }
+
+/* ---------- right rail 50% wider (chat gets room to breathe) ---------- */
+.layout { grid-template-columns: 260px minmax(0, 1fr) 480px; }
+@media (min-width: 1600px) { .layout { grid-template-columns: 290px minmax(0, 1fr) 555px; } }
+@media (max-width: 1180px) and (min-width: 1021px) { .layout { grid-template-columns: 240px minmax(0, 1fr) 435px; } }
+
+/* ---------- empty page: one big box, one button ---------- */
+.hero-ask { flex: none; width: min(760px, 100%); margin: 0 auto; padding: 4px 28px 40px; display: flex; flex-direction: column; gap: 14px; }
+.hero-text { width: 100%; min-height: 150px; resize: vertical; padding: 18px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 17px; line-height: 1.55; }
+.hero-text::placeholder { color: var(--text-3); }
+.hero-text:focus { outline: none; border-color: var(--text-3); box-shadow: 0 0 0 3px var(--accent-bg); }
+.hero-run { align-self: stretch; justify-content: center; padding: 14px 20px; font-size: 16px; border-radius: 12px; }
+.hero-hint { text-align: center; margin: 0; }
+.rail-left > .card:first-child .request-text { min-height: 230px; font-size: 15px; resize: vertical; }
+@media (max-height: 820px) { .rail-left > .card:first-child .request-text { min-height: 150px; } }

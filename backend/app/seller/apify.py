@@ -41,6 +41,11 @@ class ApifyError(RuntimeError):
         self.dataset_id = dataset_id if isinstance(dataset_id, str) and re.fullmatch(r"[a-zA-Z0-9_-]+", dataset_id) else None
 
 
+def _job_key(job: JobSpec) -> dict:
+    """The rental fields only: a general-question job never touches the rental cache."""
+    return {"count": job.count, "district": job.district, "max_price_czk": job.max_price_czk}
+
+
 def district_number(job: JobSpec) -> int:
     """Explicit Prague district number (Praha 1-22). A bare neighbourhood name is ambiguous and rejected."""
     m = re.fullmatch(r"(?:praha|prague)\s*(\d{1,2})", job.district.strip(), re.IGNORECASE)
@@ -267,7 +272,7 @@ async def recover_run(job: JobSpec, settings: Settings, run_id: str, *, report: 
 def cache_path(job: JobSpec, settings: Settings) -> Path:
     """One atomic file per exact job; the original single-file cache stays readable."""
     _validate_job(job)
-    key = hashlib.sha256(json.dumps(job.model_dump(), sort_keys=True,
+    key = hashlib.sha256(json.dumps(_job_key(job), sort_keys=True,
                                     separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
     legacy = Path(settings.apify_cache_path)
     return legacy.with_name(legacy.name + ".entries") / f"{key}.json"
@@ -281,7 +286,7 @@ def save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
 def _save_cache(job: JobSpec, result: JobResult, settings: Settings) -> None:
     path = cache_path(job, settings)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"version": 1, "job": job.model_dump(), "result": result.model_dump()}
+    payload = {"version": 1, "job": _job_key(job), "result": result.model_dump()}
     _validated_cache(payload, job, settings)
     temp = None
     try:
@@ -301,7 +306,7 @@ def _validated_cache(payload: object, job: JobSpec, settings: Settings) -> JobRe
         if (settings.apify_actor_id != ACTOR_ID
                 or not isinstance(payload, dict) or type(payload.get("version")) is not int
                 or payload["version"] != 1
-                or payload.get("job") != job.model_dump()):
+                or payload.get("job") != _job_key(job)):
             raise ValueError("wrong cache job")
         # Disk corruption must not turn booleans or numeric strings into valid
         # rents/counts through Pydantic's normal request coercion.

@@ -22,7 +22,7 @@ export default function DealsPanel({ view, selected, onSelect }) {
                 onClick={() => onSelect(d.dealId === view.deals[0].dealId ? null : d.dealId)}>
                 <span className="deal-main">
                   <span className="deal-text">{d.text ?? "Request"}</span>
-                  <span className="deal-meta">{clock(d.ts)} · {SCENARIOS[d.scenario]?.name ?? d.scenario}{d.items != null ? ` · ${d.items} listings` : ""}</span>
+                  <span className="deal-meta">{clock(d.ts)} · {SCENARIOS[d.scenario]?.name ?? d.scenario}{d.items != null ? (d.kind === "general" ? " · AI answer" : ` · ${d.items} listings`) : ""}</span>
                 </span>
                 <span className="deal-price num">{d.price != null ? tada(d.price, 1) : ""}</span>
                 <StatusBadge tone={tone} icon={null}>{label}</StatusBadge>
