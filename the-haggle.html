@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Haggle</title>
+<title>Haggle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
@@ -162,18 +162,18 @@ h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;le
 <section class="slide dark s1">
   <div class="kicker a">The agent marketplace problem</div>
   <h1 class="a">When AI agents <span class="gold">hire</span><br>other AI agents,<br>who decides when money moves?</h1>
-  <p class="sub a" style="--d:1">The Haggle is a control layer for agent-to-agent commerce: agents negotiate, code enforces payment.</p>
+  <p class="sub a" style="--d:1">Haggle is a payment-control layer for agent-to-agent work: agents negotiate the task, code decides whether money moves.</p>
   <div class="scene">
     <div class="simple-node ai-buy a" style="--d:3">
-      <div><strong>Buyer agent</strong><span>asks for work</span></div>
+      <div><strong>Work request</strong><span>one concrete job</span></div>
     </div>
     <div class="simple-arrow a" style="--d:4"></div>
     <div class="simple-node ai-sell a" style="--d:5">
-      <div><strong>Seller agent</strong><span>delivers work</span></div>
+      <div><strong>Negotiated quote</strong><span>agent to agent</span></div>
     </div>
     <div class="simple-arrow a" style="--d:6"></div>
     <div class="simple-node money a" style="--d:7">
-      <div><strong>Payment rules</strong><span>move or block money</span></div>
+      <div><strong>Payment rules</strong><span>pay, block, or refund</span></div>
     </div>
   </div>
 </section>
@@ -181,7 +181,7 @@ h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;le
 <!-- ================= 2. THE HAGGLE ================= -->
 <section class="slide s2">
   <div class="kicker a">Introducing</div>
-  <h2 class="a" style="--d:1"><span class="grad">The Haggle</span></h2>
+  <h2 class="a" style="--d:1"><span class="grad">Haggle</span></h2>
   <div class="diagram">
     <div class="agent card a" style="--d:2">
       <div class="ic" style="background:color-mix(in srgb,var(--buyer) 14%,transparent);color:var(--buyer)">M</div>
@@ -209,7 +209,7 @@ h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;le
 
 <!-- ================= 3. EXAMPLE ================= -->
 <section class="slide s3">
-  <div class="kicker a">Example · simplified negotiation</div>
+  <div class="kicker a">Concrete workload</div>
   <h2 class="a" style="--d:1">Rental research in Praha 7</h2>
   <div class="grid">
     <div class="map card a" style="--d:2">
@@ -312,20 +312,20 @@ h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;le
 
 <!-- ================= 6. WHO IT'S FOR ================= -->
 <section class="slide s6">
-  <div class="kicker a">Who it's for</div>
-  <h2 class="a" style="--d:1">Teams whose agents<br><span class="gold">buy data or digital services</span></h2>
+  <div class="kicker a">Reusable primitive</div>
+  <h2 class="a" style="--d:1">Not a search agent.<br><span class="gold">A payment guard for agent work.</span></h2>
   <div class="users">
     <div class="user card a" style="--d:2">
       <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></div>
-      <h3>Data</h3><p>Rental lists, datasets and market feeds bought on demand</p>
+      <h3>Data jobs</h3><p>Rental lists, lead lists and market feeds bought on demand</p>
     </div>
     <div class="user card a" style="--d:3">
       <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6 2 12l6 6M16 6l6 6-6 6M14 4l-4 16"/></svg></div>
-      <h3>APIs</h3><p>Paid tools agents need mid-task, with spending policy outside the prompt</p>
+      <h3>Paid tools</h3><p>Costly API calls with spending policy outside the prompt</p>
     </div>
     <div class="user card a" style="--d:4">
       <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></div>
-      <h3>Research</h3><p>Specialist agents hired for reports, analysis and verified delivery</p>
+      <h3>Specialists</h3><p>Agents hired for bounded work, verified delivery and accountable payment</p>
     </div>
   </div>
 </section>
@@ -334,8 +334,7 @@ h2{font-family:var(--display);font-weight:700;font-size:62px;line-height:1.06;le
 <section class="slide dark s7">
   <h1><span class="a line2">Delegate the negotiation.</span><span class="a line2 grad" style="--d:3">Keep control of the money.</span></h1>
   <div class="foot a" style="--d:6">
-    <span class="logo">The Haggle</span>
-    <span>Team <b style="color:var(--text)">Astra</b></span>
+    <span class="logo">Haggle</span>
     <span>Mais · Murad · Ziya</span>
   </div>
 </section>
