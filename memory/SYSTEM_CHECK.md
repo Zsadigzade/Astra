@@ -172,3 +172,11 @@ system-runner-audit-6872233b/ (crash/reset report), system-live-ca49c10c/ (fresh
 system-check-20261008/ (recovered data and voice samples), and i-path-smoke-d2448b5d/ (latest UI subscription/audio replay). These paths are relative to backend/data/.
 Earlier isolated attempts retained their own ledgers: an intermediate verifier rejected valid suffixes;
 the final corrected code passes both sample and genuine cached data. Only final runs are counted above.
+
+## Windows repository launcher - 2026-10-09 02:27 +02:00
+
+- User chose a launcher for the existing repository and development tests. Built dist/AstraLauncher.exe using PyInstaller 6.22.3, Windows x64/Python 3.13; no credentials or application data bundled. Source, rebuild command and operator guide: scripts/desktop/README.md.
+- Actual windowed EXE, invoked from outside the root with an explicit repository path: local readiness, 540 backend tests (33.21s), 50 frontend tests and production build passed. Real private-port buyer/seller/dashboard smoke released honest data, blocked the con, refunded junk and conserved balances at 93/7/0. Report: backend/data/launcher-bbb78291a3/report.json; aggregate copy data/launcher-exe-all.json.
+- Thirteen launcher regressions cover isolated environments, provider opt-in, failure aggregation and actual Windows descendant cleanup while preserving an unrelated process. Suspended creation addresses the venv redirector race.
+- Final GUI-only layout adjustment rebuilt; final EXE readiness succeeded, occupied interactive ports failed safely, live probes without opt-in failed safely. GUI opened and closed with exit 0; screenshot data/launcher-window.png reviewed. Existing listeners 8000/8001/5173 retained their original PIDs.
+- No new Codex/ElevenLabs/Apify calls or real payments in this task. The existing live rehearsal is exposed as an opt-in command, not rerun here. Manual audible playback, dashboard interaction and actual Masumi escrow remain separate acceptance scopes.

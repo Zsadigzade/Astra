@@ -5,6 +5,7 @@ owner-reported snapshots: check their timestamps before assuming someone has cla
 DECISIONS and TRAPS preserve history; later entries may supersede earlier ones.
 
 - [HANDOFF.md](HANDOFF.md) — integrated baseline, current working-tree changes and validation limits. Read first.
+- [status/production-readiness.md](status/production-readiness.md) — latest local live-profile activation, six browser scenarios, dependency/secret audits and public-deployment blockers.
 - [DECISIONS.md](DECISIONS.md) — append-only decision log (what, why, who, when).
 - [INTERFACES.md](INTERFACES.md) — contracts between components: endpoints, payloads, env vars, ports.
 - [TRAPS.md](TRAPS.md) — append-only: what broke and how to avoid it.

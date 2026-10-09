@@ -33,3 +33,21 @@ Also scan a snapshot of `git ls-files --cached --others --exclude-standard` and 
 Review each new finding; do not suppress a whole file to hide a false positive. If a real credential is found, stop release, revoke/rotate it and coordinate history cleanup with its owner. A scanner cannot prove absence of every possible secret. This audit does not cover deleted remote branches, inaccessible host-side refs, issue attachments or a future video export.
 
 Before upload, inspect the actual footage for account details/credentials and check the final repository and video links without signing in. The repository check here completes V06 for this snapshot; the final video and S02 link acceptance remain pending.
+
+## Local release recheck — 2026-10-09 02:40 +02:00
+
+Base HEAD `f355fccd33a31b54261ad1babc2a5d9b62966a0a` plus the local release-check edits:
+62 reachable commits and 674 blobs inspected. Gitleaks Git scan reported one historical
+finding; the full object scan reported nine occurrences. Each source line was inspected
+and contains the already-documented nonsecret Apify run reference. Five configured secret
+values had zero source/history matches. The final 197-file working-source scan reported one
+generic-key finding on the new report's three Apify run IDs; those IDs were checked against
+the actual delivery provenance and are nonsecret references. No suppressions were added.
+Remote `main` matches HEAD; `feat-mais-masumi-payments` is `4f1db10c517456b252c7cc510319f0e43d5a996f`.
+Unauthenticated GitHub API check again returned HTTP 200 and `private: false`.
+
+Dependency audits: frontend zero known vulnerabilities after Vite 6.4.4 update; production
+Python lock export audited 22 packages with zero known vulnerabilities. Live provider and
+browser evidence, configuration changes and deployment limits are in the
+[local release check](../memory/status/production-readiness.md).
+No final media inspection, commit, push or deployment is claimed. Rescan after further edits.
