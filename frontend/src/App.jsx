@@ -7,7 +7,6 @@ import AppHeader from "./components/AppHeader.jsx";
 import ConnectionAlert from "./components/ConnectionAlert.jsx";
 import DealDetails from "./components/DealDetails.jsx";
 import EmptyDealState from "./components/EmptyDealState.jsx";
-import EventTimeline from "./components/EventTimeline.jsx";
 import NegotiationWorkspace from "./components/NegotiationWorkspace.jsx";
 import RequestComposer from "./components/RequestComposer.jsx";
 import ScenarioSelector from "./components/ScenarioSelector.jsx";
@@ -26,7 +25,10 @@ export default function App() {
   const { events, status, retry } = useEventStream();
   const { controls, refresh } = useControls(events, status);
   const sellerState = useServiceHealth(SELLER);
-  const view = useDealState(events);
+  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [syncTick, setSyncTick] = useState(0);
+  const selectDeal = (id) => { setSelectedDeal(id); setSyncTick((t) => t + 1); };
+  const view = useDealState(events, selectedDeal);
 
   const [scenario, setScenario] = useState("honest");
   const [options, setOptions] = useState({ budget: 20 });
@@ -35,6 +37,13 @@ export default function App() {
   const [launchError, setLaunchError] = useState(null);
   const [pauseBusy, setPauseBusy] = useState(false);
   const [pauseError, setPauseError] = useState(null);
+
+  // The request and mode shown on the left always describe the deal on screen: opening a past deal (or loading the
+  // page with history) loads that deal's request. Typing afterwards edits a new request without touching the deal.
+  useEffect(() => {
+    if (view.task?.text) setRequestText(view.task.text);
+    if (view.scenario && SCENARIOS[view.scenario]) setScenario(view.scenario);
+  }, [view.dealId, syncTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const offline = status !== "live";
   const parse = useRequestParse(requestText, !offline);
@@ -53,6 +62,7 @@ export default function App() {
   const run = async () => {
     if (launching || disabledReason || !parse.parsed?.ok) return;
     baseline.current = events.length;
+    setSelectedDeal(null); // follow the new deal
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -99,14 +109,13 @@ export default function App() {
 
           <div className="center">
             {view.dealId
-              ? <NegotiationWorkspace view={view} events={events} controls={controls} />
+              ? <NegotiationWorkspace view={view} events={events} controls={controls} selected={selectedDeal} onSelect={selectDeal} />
               : <EmptyDealState scenario={scenario} summary={parse.parsed?.ok ? parse.parsed.summary : null} onRun={run} launching={launching} disabledReason={disabledReason || (!parse.parsed?.ok ? "Fix the request first." : null)} />}
           </div>
 
           <aside className="rail rail-right" aria-label="Deal safety">
             <WalletGuardCard view={view} controls={controls} />
             <DealDetails view={view} />
-            <EventTimeline rows={view.timeline} />
           </aside>
       </main>
     </div>

@@ -65,7 +65,7 @@ export function pendingApprovals(events) {
 // The wallet guard's plain-language state for the current deal.
 // status: ready | checking | safe | approval | blocked | escrow | verify_failed | release_scheduled | released | refunded | no_payment
 export function guardOf(deal, stages, outcome) {
-  if (!deal.length) return { status: "ready", tone: "neutral", title: "Ready", message: "Every agreed price is checked by the wallet guard before any money moves." };
+  if (!deal.length) return { status: "ready", tone: "neutral", title: "Ready", message: "Every price is checked before any payment." };
   const blocked = last(deal, "blocked");
   const paid = has(deal, "escrow_locked", "already_paid");
   if (blocked && !paid) return { status: "blocked", tone: "danger", title: "Payment blocked", message: `Blocked before payment: ${blocked.data.reason}.` };
@@ -81,12 +81,12 @@ export function guardOf(deal, stages, outcome) {
   if (ver && !ver.data.ok) return { status: "verify_failed", tone: "danger", title: "Verification failed", message: "The delivery did not pass the checks. Escrow is being refunded." };
   const ask = pendingApprovals(deal)[0];
   if (ask) return { status: "approval", tone: "warning", title: "Human approval required", message: `${ask.data.reason}. Payment proceeds only if you approve.` };
-  if (paid) return { status: "escrow", tone: "success", title: "Escrow locked", message: "Funds are held in escrow until the delivery is verified." };
-  if (stages.guard === "done") return { status: "safe", tone: "success", title: "Safe to pay", message: "Within the hard cap, budget and approval line." };
-  if (stages.guard === "active") return { status: "checking", tone: "info", title: "Checking", message: "The wallet guard is evaluating the agreed price." };
+  if (paid) return { status: "escrow", tone: "success", title: "Escrow locked", message: "Held until the delivery is verified." };
+  if (stages.guard === "done") return { status: "safe", tone: "success", title: "Safe to pay", message: "Within cap, budget and approval line." };
+  if (stages.guard === "active") return { status: "checking", tone: "info", title: "Checking", message: "Checking the agreed price." };
   if (outcome === "walked") return { status: "no_payment", tone: "neutral", title: "No payment made", message: last(deal, "walked_away")?.data.reason ?? "The negotiation ended without a deal." };
   if (outcome === "error") return { status: "no_payment", tone: "danger", title: "No payment made", message: last(deal, "error")?.data.message ?? "The deal failed." };
-  return { status: "ready", tone: "neutral", title: "Ready", message: "Waiting for an agreed price. The guard checks it before any money moves." };
+  return { status: "ready", tone: "neutral", title: "Ready", message: "Waiting for an agreed price." };
 }
 
 export function terminalOf(outcome, guard) {
@@ -149,8 +149,25 @@ export function timelineOf(events) {
   return rows.reverse();
 }
 
-export function deriveDealState(events) {
-  const current = [...events].reverse().find((e) => e.deal_id)?.deal_id ?? null;
+// One row per deal, newest first: what the Deals tab lists.
+export function dealsOf(events) {
+  const ids = [...new Set(events.filter((e) => e.deal_id).map((e) => e.deal_id))];
+  return ids.map((id) => {
+    const d = byDeal(events, id);
+    const created = d.find((e) => e.type === "task_created");
+    const delivered = last(d, "delivered");
+    return {
+      dealId: id, ts: created?.ts ?? d[0].ts, text: created?.data.text ?? null, scenario: created?.data.demo_mode ?? null,
+      staged: d.some((e) => e.staged), outcome: outcomeOf(d), price: last(d, "quote")?.data.price ?? null,
+      items: delivered?.data.items ?? null, source: delivered?.data.source ?? null,
+    };
+  }).reverse();
+}
+
+// dealId picks a past deal to look at; without it (or if unknown) the latest deal is shown.
+export function deriveDealState(events, dealId = null) {
+  const latestId = [...events].reverse().find((e) => e.deal_id)?.deal_id ?? null;
+  const current = dealId && events.some((e) => e.deal_id === dealId) ? dealId : latestId;
   const deal = current ? byDeal(events, current) : [];
   const created = deal.find((e) => e.type === "task_created");
   const chat = deal.filter((e) => e.type === "negotiation").map((e) => ({ ...e, provenance: provenanceOf(e) }));
@@ -187,5 +204,7 @@ export function deriveDealState(events) {
     finished: has(deal, ...TERMINAL),
     usage: usageOf(events),
     timeline: timelineOf(events),
+    deals: dealsOf(events),
+    isLatest: current === latestId,
   };
 }

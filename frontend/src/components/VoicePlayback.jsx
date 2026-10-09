@@ -22,19 +22,16 @@ export default function VoicePlayback({ events, buyerUrl }) {
     : state.enabled ? "Ready for the next voice line."
     : "Voices off. The transcript is always available.";
 
+  const note = `${message}${state.queued > 0 ? ` ${state.queued} queued.` : ""}${state.skipped > 0 ? ` ${state.skipped} clip${state.skipped > 1 ? "s" : ""} unavailable, skipped.` : ""}`;
   return (
-    <div className="voice" role="group" aria-label="Conversation audio">
-      <div className="row">
-        <button type="button" className="btn btn-sm" onClick={() => queue.current?.play()}
-          disabled={state.enabled && !state.muted}><Icon name="play" size={13} /> Play voices</button>
-        <button type="button" className="btn btn-sm" onClick={() => queue.current?.stop()}><Icon name="stop" size={13} /> Stop</button>
-        <button type="button" className="btn btn-sm" aria-pressed={state.muted}
-          onClick={() => queue.current?.setMuted(!state.muted)}>
-          <Icon name={state.muted ? "volume-off" : "volume"} size={13} /> {state.muted ? "Unmute" : "Mute"}</button>
-      </div>
-      <p role="status" className="voice-state">{message}
-        {state.queued > 0 && ` ${state.queued} queued.`}
-        {state.skipped > 0 && ` ${state.skipped} clip${state.skipped > 1 ? "s" : ""} unavailable, skipped.`}</p>
+    <div className="voice" role="group" aria-label="Conversation audio" title={note}>
+      <button type="button" className="icon-btn" onClick={() => queue.current?.play()} disabled={state.enabled && !state.muted}
+        aria-label="Play voices" title="Play voices"><Icon name="play" size={14} /></button>
+      <button type="button" className="icon-btn" onClick={() => queue.current?.stop()} aria-label="Stop voices" title="Stop"><Icon name="stop" size={14} /></button>
+      <button type="button" className="icon-btn" aria-pressed={state.muted} onClick={() => queue.current?.setMuted(!state.muted)}
+        aria-label={state.muted ? "Unmute" : "Mute"} title={state.muted ? "Unmute" : "Mute"}><Icon name={state.muted ? "volume-off" : "volume"} size={14} /></button>
+      {state.skipped > 0 && <span className="voice-warn">{state.skipped} skipped</span>}
+      <span className="sr-only" role="status">{note}</span>
     </div>
   );
 }

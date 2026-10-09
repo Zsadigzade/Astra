@@ -19,6 +19,17 @@ updated: 2026-10-09 01:30 · active plan and completed archive reconciled
 - Live-verified here: "4 flats in Prague 2 under 30k" -> parsed, real Apify scrape for Praha 2 (LIVE APIFY), real Codex Max, all 4 checks passed, released (SIMULATED money).
 - `.env` on this laptop: LLM_MODE=codex, APIFY_MODE=apify, TTS_MODE=elevenlabs, PAYMENTS_MODE=simulated. A live scrape for a different request does NOT overwrite the saved demo cache.
 
+## Ghost stage (2026-10-09, samir/claude; uncommitted)
+- Chat tab opens with two animated SVG ghosts (`Ghost.jsx`, `GhostStage.jsx`): levitate, blink, thinking (dots, eyes up, sway), speaking (mouth, lean, speech bubble), plus a coin with the price on the table. Pure CSS, no new dependency; all motion off under `prefers-reduced-motion`.
+- `hooks/usePacedChat.js` + `lib/pacing.js`: live lines get a thinking beat (~0.7-1.5s) before they appear. COSMETIC pacing: only for lines younger than 8s on the latest deal; history, reloads, past deals and reduced motion show everything at once. The pipeline/guard/result update in real time and can be ahead of the chat by a few seconds.
+- `useRequestParse` now retries a failed preview itself (the composer used to stick after one failed call).
+- README sections "Making requests" and "Going live" were lost in the last merge and are restored.
+
+## Dashboard restructure (2026-10-09, samir/claude; uncommitted)
+- Centre column is now tabbed: **Chat** (narrow 580px column, bubbles, round dividers), **Delivery** (sortable/filterable listings table, CSV export), **Timeline**, **Deals** (history; click a deal to inspect it, "Back to latest" returns). Audio controls are icon buttons in the tab bar.
+- Left rail: Request (one-line "understood" preview), Mode (segmented control), Usage, run options. Right rail: wallet guard, escrow/verification.
+- State: `deriveDealState(events, dealId)` + `dealsOf(events)` in `lib/eventReducer.js`; `lib/csv.js` (formula-injection-safe export). Tests: `npm test` (38).
+
 ## Current verification
 - R02/R05 complete: three consecutive runs per act plus approval/decline, 35 Codex turns and 100 speech clips with no fallback; three actual buyer crashes recover with one payment each. Sixteen 1920×1080 screenshots pass framing checks and representative visual review. Final simulated balances 49/51/0; all owned services stopped. Evidence: backend/data/r-rehearsal-29b87432/. Reproduce with backend/scripts/rehearse.py; profile remains subscription Max / scripted Viktor / cached Apify / ElevenLabs / SIMULATED.
 - I04: optional SELLER_LLM_MODE=codex uses the existing isolated CLI for Viktor, with floor/offer checks, retry/cancellation protection and honest fallback labels. Live Act 1: three Max + four Viktor Codex turns, 20 real cached flats, seven speech clips, no fallback, SIMULATED release in 42.2s. Default seller stays mock for the current rehearsal profile.

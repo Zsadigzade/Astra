@@ -32,7 +32,7 @@ function PriceRail({ price, approval, cap }) {
         {price != null && <span className={`rail-dot rail-dot-${zone}`} style={{ left: pos(price) }} />}
       </div>
       <div className="rail-legend">
-        <span>Auto up to <b className="num">{approval}</b></span>
+        <span>Auto to <b className="num">{approval}</b></span>
         <span>Human to <b className="num">{cap}</b></span>
         <span>Blocked above</span>
       </div>
@@ -40,6 +40,8 @@ function PriceRail({ price, approval, cap }) {
   );
 }
 
+// Two sections: Wallet policy (what the guard enforces and its current verdict) and Balances.
+// The verdict sentence is left to the deal header once a deal has ended, so the same result is not said twice.
 export default function WalletGuardCard({ view, controls }) {
   const g = view.guard;
   const cap = controls?.guard.cap;
@@ -48,35 +50,34 @@ export default function WalletGuardCard({ view, controls }) {
   const price = view.agreed ?? view.prices.current;
 
   return (
-    <section className="card guard" aria-labelledby="guard-h">
-      <h2 id="guard-h" className="card-title">Wallet guard</h2>
-
-      <div className={`guard-status guard-${g.tone}`} role="status">
-        <span className="guard-ico"><Icon name={ICON[g.status]} size={20} /></span>
-        <div>
-          <strong>{g.title}</strong>
-          <p>{g.message}</p>
+    <>
+      <section className="card guard" aria-labelledby="guard-h">
+        <h2 id="guard-h" className="card-title">Wallet policy</h2>
+        <div className={`guard-status guard-${g.tone}`} role="status">
+          <span className="guard-ico"><Icon name={ICON[g.status]} size={18} /></span>
+          <div>
+            <strong>{g.title}</strong>
+            {!view.terminal && <p>{g.message}</p>}
+          </div>
         </div>
-      </div>
-
-      <PriceRail price={price} approval={approval} cap={cap} />
-
-      <dl className="rows">
-        <div><dt>Current offer</dt><dd className="num">{tada(view.prices.current, 1)}</dd></div>
-        <div><dt>Agreed price</dt><dd className="num">{tada(view.agreed, 1)}</dd></div>
-        <div><dt>Task budget</dt><dd className="num">{tada(view.task?.budget, 1)}</dd></div>
-        <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Automatic approval</Tip></dt><dd className="num">{tada(approval, 1)}</dd></div>
-        <div><dt><Tip text="No price above this is ever paid, whatever the AI agreed to. Enforced in code.">Hard spending cap</Tip></dt><dd className="num">{tada(cap, 1)}</dd></div>
-      </dl>
-
-      <h3 className="sub-title">Balances</h3>
-      {b ? (
+        <PriceRail price={price} approval={approval} cap={cap} />
         <dl className="rows">
-          <div><dt>Buyer (Max)</dt><dd className="num">{tada(b.buyer, 1)}</dd></div>
-          <div><dt><Tip text="Funds locked until the delivery is verified.">Escrow</Tip></dt><dd className="num">{tada(b.escrow, 1)}</dd></div>
-          <div><dt>Seller (Viktor)</dt><dd className="num">{tada(b.seller, 1)}</dd></div>
+          <div><dt><Tip text="No price above this is ever paid, whatever the AI agreed to. Enforced in code.">Hard cap</Tip></dt><dd className="num">{tada(cap, 1)}</dd></div>
+          <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Auto-approve to</Tip></dt><dd className="num">{tada(approval, 1)}</dd></div>
+          <div><dt>Task budget</dt><dd className="num">{tada(view.task?.budget, 1)}</dd></div>
         </dl>
-      ) : <p className="muted">Balances appear after the first payment step.</p>}
-    </section>
+      </section>
+
+      <section className="card" aria-labelledby="bal-h">
+        <h2 id="bal-h" className="card-title">Balances</h2>
+        {b ? (
+          <dl className="rows">
+            <div><dt>Max</dt><dd className="num">{tada(b.buyer, 1)}</dd></div>
+            <div><dt><Tip text="Funds locked until the delivery is verified.">Escrow</Tip></dt><dd className="num">{tada(b.escrow, 1)}</dd></div>
+            <div><dt>Viktor</dt><dd className="num">{tada(b.seller, 1)}</dd></div>
+          </dl>
+        ) : <p className="hint">Appear after the first payment step.</p>}
+      </section>
+    </>
   );
 }

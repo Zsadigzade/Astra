@@ -198,6 +198,41 @@ audio and a fresh ledger stay under `backend/data/r-rehearsal-*/`. Only its own 
 are stopped; existing ledgers and services are preserved. Act 3 restarts only the buyer.
 Review screenshots before recording; changing the agent/payment profile requires another rehearsal.
 
+## Making requests
+
+Type what you want in the **Request** box, for example `10 flats in Praha 2 under 30,000 CZK` or `5 cheap apartments in Prague 5, max 18k`.
+The dashboard shows what Max understood before anything runs (defaults it filled in are counted), and refuses requests Viktor
+cannot fill, such as other cities or things that are not rentals. Viktor sells one thing: Prague rental listings (Praha 1 to 22,
+1 to 100 flats). **Mode** picks normal behaviour or a staged demo act.
+
+Max and Viktor appear as two floating ghosts. The one whose turn it is shows a thinking animation, then speaks. In scripted mode the
+backend answers instantly, so live lines are revealed with a short thinking pause. That pause is cosmetic pacing: it is never
+applied to history, past deals or reduced-motion users, and the guard, pipeline and result still update in real time.
+
+The center of the dashboard has tabs: **Chat**, **Delivery** (the actual listings, sortable, CSV export), **Timeline** and **Deals**
+(every deal in the ledger; click one to inspect it).
+
+## Going live (real services)
+
+Out of the box everything runs offline and is labelled SIMULATED / SAMPLE / SCRIPTED. To move each part to a real service:
+
+```bash
+npm run setup          # creates .env from .env.example (never overwrites)
+npm run doctor         # what is ready, what is missing, and the next action per integration (no secrets printed)
+npm run doctor:live    # adds read-only live checks: Masumi node, ElevenLabs voices (or a tiny speech probe), one Codex round
+```
+
+| Part | Switch | Needs | Verify |
+|---|---|---|---|
+| Max / Viktor, real AI | `LLM_MODE=codex`, `SELLER_LLM_MODE=codex` | Codex CLI signed in (`codex login`), no API key | `doctor:live` or `scripts/llm_check.py` |
+| Flats, real data | `APIFY_MODE=apify` (or `cached`) | `APIFY_TOKEN`; run `scripts/scrape_flats.py` once to save the labelled fallback (costs Apify credits) | doctor |
+| Voices | `TTS_MODE=elevenlabs` | `ELEVENLABS_API_KEY`, `VOICE_MAX`, `VOICE_VIKTOR` | `doctor:live` |
+| Real money | `PAYMENTS_MODE=masumi` | Masumi node, funded wallets, Viktor registered (Dynamic pricing), `MASUMI_*`, `SELLER_VKEY`, and a **separate** `LEDGER_PATH` | `scripts/masumi_check.py` |
+
+Order that fails safest: Max (Codex) first, then data, then voice, then Masumi last. Restart `npm start` after editing `.env`.
+With `APIFY_MODE=apify`, a live scrape for a request other than the saved one costs credits each time and never overwrites the saved demo cache.
+The staged "con" act always uses a scripted, foolable Max so the guard has something to stop.
+
 ## Layout
 
 ```

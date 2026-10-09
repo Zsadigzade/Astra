@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { appendEvent } from "../eventIdentity.js";
 import { PROVENANCE } from "./eventLabels.js";
-import { deriveDealState, stagesOf, usageOf, pendingApprovals, guardOf, timelineOf } from "./eventReducer.js";
+import { dealsOf, deriveDealState, stagesOf, usageOf, pendingApprovals, guardOf, timelineOf } from "./eventReducer.js";
 
 let n = 0;
 const ev = (type, data = {}, o = {}) => ({ id: ++n, ts: n, deal_id: "d1", task_id: "t1", simulated: true, staged: false, type, data, ...o });
@@ -156,4 +156,25 @@ test("reset with reused event IDs selects the new deal and preserves Codex prove
   assert.equal(view.usage.codex, 1);
   assert.equal(view.usage.scripted, 1);
   assert.equal(view.timeline.length, 2);
+});
+
+
+const second = (type, data = {}) => ev(type, data, { deal_id: "d2", task_id: "t2" });
+
+test("deals are listed newest first with outcome, price and delivery", () => {
+  const events = [...honest(), second("task_created", { text: "4 flats in Praha 2", demo_mode: "con" }), second("quote", { price: 25 }), second("blocked", { reason: "cap" })];
+  const rows = dealsOf(events);
+  assert.deepEqual(rows.map((r) => r.dealId), ["d2", "d1"]);
+  assert.deepEqual([rows[0].outcome, rows[0].scenario, rows[0].price, rows[0].text], ["blocked", "con", 25, "4 flats in Praha 2"]);
+  assert.deepEqual([rows[1].outcome, rows[1].price, rows[1].items, rows[1].source], ["released", 7, 20, "sample"]);
+});
+
+test("a past deal can be selected, unknown ids fall back to the latest, isLatest says which", () => {
+  const events = [...honest(), second("task_created", { demo_mode: "junk" }), second("quote", { price: 7 })];
+  assert.equal(deriveDealState(events).dealId, "d2");
+  assert.equal(deriveDealState(events).isLatest, true);
+  const past = deriveDealState(events, "d1");
+  assert.deepEqual([past.dealId, past.outcome, past.isLatest], ["d1", "released", false]);
+  assert.equal(deriveDealState(events, "nope").dealId, "d2");
+  assert.deepEqual(dealsOf([]), []);
 });

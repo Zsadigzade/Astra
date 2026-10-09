@@ -29,7 +29,7 @@ export default function CopyButton({ text, label = "Copy", className = "", showL
     <button type="button" className={`icon-btn ${className}`} onClick={copy} aria-label={copied ? "Copied" : label}
       title={copied ? "Copied" : label}>
       <Icon name={copied ? "check" : "copy"} size={14} />
-      {showLabel && <span>{copied ? "Copied" : label}</span>}
+      {showLabel ? <span>{copied ? "Copied" : label}</span> : copied && <span className="copied-note">Copied</span>}
       <span className="sr-only" role="status">{copied ? "Copied to clipboard" : ""}</span>
     </button>
   );
