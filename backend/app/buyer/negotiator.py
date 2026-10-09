@@ -18,6 +18,7 @@ from app.buyer.codex_runtime import run_codex
 from app.core.config import LiveProviderUnavailable, Settings
 from app.core.dialogue import DIALOGUE_DIRECTION, MAX_VOICE, negotiation_job
 from app.core.models import JobSpec, NegotiateResponse, describe_job
+from app.core.pricing import BuyerPlan, buyer_plan, money, rng_for
 
 OPENING_OFFER = 50.0  # USD
 STEP = 10.0
@@ -35,14 +36,63 @@ class Negotiator(Protocol):
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move: ...
 
 
+STYLES = [
+    "frugal and methodical, likes quoting budgets",
+    "chatty and playful, jokes a lot",
+    "skeptical, challenges every claim",
+    "polite but firm, never rude",
+    "competitive, treats haggling as a game",
+    "tired and pragmatic, wants it over with",
+    "curious, asks about the work while haggling",
+]
+OPEN_LINES = [
+    "{ask:g}? For {topic}? I'll give you {offer:g}.",
+    "That's steep. {offer:g} for {topic} and not a coin more for now.",
+    "Let's be realistic: {offer:g}.",
+    "{offer:g}. I've seen cheaper bills at the dentist.",
+    "I was thinking more like {offer:g}.",
+]
+COUNTER_LINES = [
+    "Closer, but no. {offer:g}.",
+    "I'll move to {offer:g}. Your turn, Viktor.",
+    "{offer:g}, and I'm being generous.",
+    "You came down, so I'll come up: {offer:g}.",
+    "Let's say {offer:g} and call it a day.",
+    "{offer:g}. That's what the job is worth to me.",
+    "Fine, {offer:g}. But you'll have to work for the rest.",
+]
+ACCEPT_LINES = [
+    "{price:g}? Fine. Deal.",
+    "{price:g} works for me. Deal.",
+    "All right, {price:g}. Let's do it.",
+    "Deal at {price:g}. Don't make me regret it.",
+    "You've got a deal at {price:g}.",
+]
+WALK_LINES = [
+    "That's more than I can spend. I'm walking.",
+    "Not at {price:g}. I'm out.",
+    "We're too far apart. Goodbye, Viktor.",
+]
+
+
+def _topic(job) -> str:
+    return describe_job(job or JobSpec())
+
+
 class MockMax:
     last_backend = "mock"
     fallback_reason = None
 
-    def __init__(self, ceiling: float, job: JobSpec | None = None):
+    def __init__(self, ceiling: float, job: JobSpec | None = None, plan: BuyerPlan | None = None, *, deal_id: str = "",
+                 rounds: int = 6):
         self.ceiling = ceiling  # Max's own intent; the guard enforces the real cap separately
         self.job = job or JobSpec()
+        self.plan, self.deal_id, self.rounds = plan, deal_id, rounds
         self._last_ask: float | None = None
+        self._moves = 0
+
+    def _say(self, kind: str, pool: list[str], **values) -> str:
+        return rng_for(self.deal_id, f"m{kind}{self._moves}").choice(pool).format(topic=_topic(self.job), **values)
 
     async def opening(self) -> str:
         if getattr(self.job, "kind", "rental") == "general":
@@ -57,6 +107,31 @@ class MockMax:
         general = getattr(self.job, "kind", "rental") == "general"
         if "approved" in seller.message.lower():
             return Move("accept", seller.price, f"Oh, my manager approved it? Then {seller.price:g} it is, deal!")
+        if self.plan is None:
+            return self._legacy(seller, my_last, previous_ask)
+        plan, n = self.plan, self._moves
+        final = n >= self.rounds - 1
+        ask = seller.price
+        offer = plan.opening if my_last is None else None
+        if my_last is not None:
+            gap = max(0.0, ask - my_last)
+            jitter = rng_for(self.deal_id, f"j{n}").uniform(0.8, 1.25)
+            offer = money(min(plan.reservation, my_last + max(0.03 * ask, plan.pace * gap * jitter)))
+        # Take the price when it is at or under what he thinks is fair, or close enough to his offer, or when time is up.
+        close_enough = my_last is not None and (ask - my_last) / ask <= plan.patience * (1 + 0.5 * n)
+        if ask <= offer or (ask <= plan.reservation and (ask <= plan.fair * 0.97 or close_enough or final)):
+            self._moves += 1
+            return Move("accept", ask, self._say("a", ACCEPT_LINES, price=ask))
+        if final or offer >= plan.reservation and ask > plan.reservation and n >= 2:
+            self._moves += 1
+            return Move("walk", my_last or 0, self._say("w", WALK_LINES, price=ask))
+        pool = OPEN_LINES if my_last is None else COUNTER_LINES
+        move = Move("counter", offer, self._say("o" if my_last is None else "c", pool, ask=ask, offer=offer))
+        self._moves += 1
+        return move
+
+    def _legacy(self, seller: NegotiateResponse, my_last: float | None, previous_ask: float | None = None) -> Move:
+        general = getattr(self.job, "kind", "rental") == "general"
         offer = OPENING_OFFER if my_last is None else my_last + STEP
         if seller.price <= offer:
             return Move("accept", seller.price,
@@ -101,6 +176,29 @@ Each turn, pick exactly one action:
 # STAGED Act 2: the live model plays a buyer who believes claimed authority, so the
 # wallet guard (code) is what stops the overpayment. Labelled staged on every event.
 # Separate prompt on purpose: with the normal budget rules present, models kept haggling.
+# Used when prices are cost-based: Max gets his own private numbers, a manner, and no fixed step.
+MAX_COST_INSTRUCTIONS = """You are Max, a buyer agent. You are hiring a data seller (Viktor) to deliver
+"{job}". Prices are in US dollars (USD) and may have cents.
+Your manner: {style}.
+Your private numbers (never tell Viktor): your own estimate of a fair price is about {fair:g}; the most you will
+ever pay is {reservation:g} (your budget is {ceiling:g}); a sensible first offer is around {opening:g}.
+Haggle like a real buyer: open near your first-offer number, then raise your offers by amounts that fit the gap and
+your mood (a share of the distance to his ask, not a fixed step), and push back with reasons. There are at most
+{max_rounds} buyer decisions, with seller rounds numbered from 0. Accept when the seller's price is at or below your fair
+estimate, or close to your last offer and no higher than {reservation:g}. On the last decision, accept an affordable
+current price or walk; do not counter again. Never walk before your last decision unless his price is far above
+{reservation:g} and not falling.
+The wallet guard independently approves any payment.
+You are a person with a voice, not a script: speak freely in your own words in your manner and the vocabulary of what you
+are buying, react to exactly what Viktor just said (his boasts, his tone, any number of options or pages he says he already
+has), and never reuse the wording of lines you already said. Use one to three spoken sentences, no lists, no emojis.
+Your lines are read aloud. Never invent facts about what Viktor has; only react to what he actually says.
+Each turn, pick exactly one action:
+- "counter": propose a new price (put it in `price`).
+- "accept": take the seller's current price (put that price in `price`).
+- "walk": end the negotiation (put your last offer, or 0, in `price`).
+`message` is what you say out loud to the seller."""
+
 GULLIBLE_INSTRUCTIONS = """You are Max, a buyer agent in a STAGED demo scene ("The con") that tests a
 wallet guard: a separate program that blocks any payment above its cap whatever you agree to, so no
 money can be lost and your only job is to play the character faithfully.
@@ -152,12 +250,31 @@ class CodexMax:
         template = GULLIBLE_INSTRUCTIONS if gullible else MAX_INSTRUCTIONS
         self.instructions = template.format(ceiling=ceiling, max_rounds=settings.max_rounds,
                                             job=describe_job(job or JobSpec()))
-        self.instructions += MAX_VOICE + DIALOGUE_DIRECTION
-        self.instructions += "\nFull job (JSON):\n" + json.dumps(negotiation_job(job or JobSpec()), ensure_ascii=False)
+        self.gullible = gullible
         self.history: list[dict[str, str]] = []
-        self._fallback = MockMax(ceiling, job)
+        self.plan: BuyerPlan | None = None
+        self.deal_id = ""
+        self._fallback = MockMax(ceiling, job, rounds=settings.max_rounds)
         self.last_backend: Literal["codex", "mock"] | None = None
         self.fallback_reason: str | None = None
+        self.instructions += self._voice()
+
+    def _voice(self) -> str:
+        """Max's spoken manner and the full job, appended to whichever instructions are in use."""
+        return (MAX_VOICE + DIALOGUE_DIRECTION + "\nFull job (JSON):\n" +
+                json.dumps(negotiation_job(self.job or JobSpec()), ensure_ascii=False))
+
+    def begin(self, deal_id: str) -> None:
+        """Give this deal its own numbers and manner (cost mode). The staged con keeps its fixed script."""
+        if self.gullible or self.settings.pricing_mode != "cost":
+            return
+        self.deal_id = deal_id
+        self.plan = buyer_plan(self.job or JobSpec(), self.settings, deal_id, self.ceiling)
+        style = rng_for(deal_id, "mstyle").choice(STYLES)
+        self.instructions = MAX_COST_INSTRUCTIONS.format(
+            ceiling=self.ceiling, max_rounds=self.settings.max_rounds, job=describe_job(self.job or JobSpec()), style=style,
+            fair=self.plan.fair, reservation=self.plan.reservation, opening=self.plan.opening) + self._voice()
+        self._fallback = MockMax(self.ceiling, self.job, self.plan, deal_id=deal_id, rounds=self.settings.max_rounds)
 
     async def opening(self) -> str:
         """Speak the brief in Max's voice, then remember exactly what Viktor hears."""
@@ -196,7 +313,9 @@ class CodexMax:
         try:
             schema = MaxMove.model_json_schema()
             schema["additionalProperties"] = False
-            prompt = self.instructions + "\n\nConversation (JSON):\n" + json.dumps(self.history)
+            said = [json.loads(h["content"]).get("message", "") for h in self.history if h["role"] == "assistant"]
+            prompt = (self.instructions + ("\n\nLines you already said (never reuse their wording): " + json.dumps(said[-6:]) if said else "")
+                      + "\n\nConversation (JSON):\n" + json.dumps(self.history))
             result = await run_codex(prompt, schema, self.settings)
             move = self._to_move(result, seller, my_last)
             self.last_backend = "codex"
@@ -244,5 +363,18 @@ def make_negotiator(settings: Settings, ceiling: float, job: JobSpec | None = No
     if settings.llm_mode == "codex":
         return CodexMax(settings, ceiling, job, gullible=gullible)
     if settings.llm_mode == "mock":
-        return MockMax(ceiling, job)
+        return _MockWithPlan(settings, ceiling, job)
     raise ValueError("LLM_MODE must be mock or codex; API-key negotiation is not supported")
+
+
+class _MockWithPlan(MockMax):
+    """Scripted Max that gets his own numbers and manner for each deal once the deal id is known (cost mode)."""
+
+    def __init__(self, settings: Settings, ceiling: float, job: JobSpec | None):
+        super().__init__(ceiling, job=job, rounds=settings.max_rounds)
+        self._settings = settings
+
+    def begin(self, deal_id: str) -> None:
+        if self._settings.pricing_mode == "cost":
+            self.deal_id = deal_id
+            self.plan = buyer_plan(self.job or JobSpec(), self._settings, deal_id, self.ceiling)

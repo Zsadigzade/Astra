@@ -1,6 +1,8 @@
 import { isLive } from "../lib/pacing.js";
 import AnswerPanel from "./AnswerPanel.jsx";
 import DeliveryPanel from "./DeliveryPanel.jsx";
+import NotDelivered from "./NotDelivered.jsx";
+import WorkingCard from "./WorkingCard.jsx";
 
 // The listings Viktor delivers appear one by one and are marked accepted by Max. They wait until the conversation
 // above has finished, so the story reads in order. (The offers themselves build up in the stage band.)
@@ -14,6 +16,10 @@ export default function ResultsBoard({ view, paced, live }) {
       <section className="board-results" aria-label="Delivered listings">
         {delivered && !paced.caughtUp
           ? <p className="tab-empty">Viktor is still talking...</p>
+          : !delivered && view.stages.delivery === "active"
+          ? <WorkingCard progress={view.progress} />
+          : !delivered && view.delivery && view.outcome === "refunded"
+          ? <NotDelivered view={view} />
           : isAnswer ? <AnswerPanel view={view} animate={fresh} /> : <DeliveryPanel view={view} animate={fresh} />}
       </section>
     </div>

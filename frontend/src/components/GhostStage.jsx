@@ -27,7 +27,7 @@ function Side({ who, thinking, speaking, offer, prov, track }) {
       </div>
       <Ghost who={who} mood={mood} tracking={track} />
       <div className="ghost-name"><b>{WHO[who].name}</b><span>{WHO[who].role}</span>
-        <span className="num ghost-offer">{offer != null ? usd(offer, 1) : ""}</span></div>
+        <span className="num ghost-offer">{offer != null ? usd(offer, 2) : ""}</span></div>
       {prov && <span className={`ghost-prov prov-${prov[1]}`} title="What writes this agent's lines">{prov[0]}</span>}
     </div>
   );
@@ -42,8 +42,8 @@ export default function GhostStage({ chat, thinking, speaking, caughtUp, agreed,
     <div className="stage" role="group" aria-label="Max and Viktor">
       <Side who="max" thinking={thinking} speaking={speaking} offer={lastOf("max")} prov={provenance(chat, "max", modes)} track={trackEyes} />
       <div className="stage-mid">
-        <div className={`coin ${settled ? "is-agreed" : ""}`} aria-label={onTable != null ? `Price on the table: ${usd(onTable, 1)}` : "No price yet"}>
-          <span className="coin-face num">{onTable != null ? onTable.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "–"}</span>
+        <div className={`coin ${settled ? "is-agreed" : ""}`} aria-label={onTable != null ? `Price on the table: ${usd(onTable, 2)}` : "No price yet"}>
+          <span className="coin-face num">{onTable != null ? onTable.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "–"}</span>
           <span className="coin-label">{settled ? "agreed" : "USD"}</span>
         </div>
         <OfferLadder chat={chat} agreed={agreed} caughtUp={caughtUp} />

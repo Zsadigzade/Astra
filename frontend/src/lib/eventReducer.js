@@ -202,6 +202,8 @@ export function deriveDealState(events, dealId = null) {
     release: last(deal, "released")?.data ?? null,
     refund: last(deal, "refunded")?.data ?? null,
     delivery: delivered ? { items: delivered.data.items, source: delivered.data.source, result: delivered.data.result, ts: delivered.ts } : null,
+    // What Viktor has really done so far while he works (searches back, pages read); gone once he delivers.
+    progress: delivered ? null : (last(deal, "job_progress")?.data ?? null),
     verified: last(deal, "verified")?.data ?? null,
     finished: has(deal, ...TERMINAL),
     usage: usageOf(events),

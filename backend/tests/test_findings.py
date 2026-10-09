@@ -1,18 +1,16 @@
-"""Findings as cards: structured items, safe preview photos, and Viktor scouting while he haggles."""
+"""Findings as cards, Viktor scouting while he haggles, and the varied speech of both agents."""
 
 import asyncio
 
 import httpx
 import pytest
 
-from app.buyer.negotiator import MAX_INSTRUCTIONS
+from app.buyer.negotiator import MAX_COST_INSTRUCTIONS, MAX_INSTRUCTIONS
 from app.buyer.verifier import verify_answer
 from app.core.config import Settings
 from app.core.models import BoundedJobSpec, Finding, JobResult, NegotiateRequest
-from app.seller import preview
 from app.seller.app import create_app as create_seller
-from app.seller.job import answer_result, clean_items, clean_sources
-from app.seller.persona import CodexViktor, DealState, Viktor
+from app.seller.persona import CodexViktor, DealState, Viktor, brag_of
 
 
 @pytest.fixture
@@ -24,284 +22,136 @@ def general(prompt="Find me 3 used cars in Prague"):
     return BoundedJobSpec(kind="general", prompt=prompt)
 
 
-# ---------------- cleaning what the model returns ----------------
-def test_items_keep_only_real_https_pages_and_are_bounded():
-    items = clean_items([
-        {"title": "  Skoda   Rapid ", "url": "https://www.sauto.cz/a", "detail": " 138 000 Kč,  101 000 km "},
-        {"title": "dupe", "url": "https://www.sauto.cz/a", "detail": ""},
-        {"title": "insecure", "url": "http://x.example/a", "detail": ""},
-        {"title": "script", "url": "javascript:alert(1)", "detail": ""},
-        {"title": "creds", "url": "https://user:pw@evil.example/", "detail": ""},
-        {"title": "space", "url": "https://a.example/a b", "detail": ""},
-        {"title": "", "url": "https://empty.example/", "detail": ""},
-        {"title": "no detail", "url": "https://b.example/", "detail": None},
-        "junk", 5, {"url": "https://nt.example/"},
-    ] + [{"title": f"n{i}", "url": f"https://many.example/{i}", "detail": ""} for i in range(20)])
-    assert items[0] == Finding(title="Skoda Rapid", url="https://www.sauto.cz/a", detail="138 000 Kč, 101 000 km")
-    assert items[1].title == "no detail" and items[1].detail == ""
-    assert len(items) == 8 and len({i.url for i in items}) == 8
-    assert all(i.image is None for i in items)
-    assert clean_items(None) == [] and clean_items("x") == []
-
-
-def test_sources_are_deduplicated_https_links():
-    assert clean_sources(["https://a.example/", "https://a.example/", "http://b.example", None]) == ["https://a.example/"]
-
-
+# ---------------- verification ----------------
 def test_a_finding_with_a_non_https_link_fails_verification():
-    r = JobResult(kind="general", source="codex", answer="Found two cars.", items=[Finding(title="x", url="http://x.example")])
+    r = JobResult(kind="general", source="apify", answer="Found two cars.", items=[Finding(title="x", url="http://x.example")])
     assert verify_answer(r)[1]["sources_valid"] is False
-    ok = JobResult(kind="general", source="codex", answer="Found two cars.", items=[Finding(title="x", url="https://x.example")])
+    ok = JobResult(kind="general", source="apify", answer="Found two cars.", items=[Finding(title="x", url="https://x.example")])
     assert verify_answer(ok)[0] is True
 
 
-# ---------------- preview photos: parsing ----------------
-@pytest.mark.parametrize("markup,expected", [
-    ('<meta property="og:image" content="https://cdn.example/a.jpg">', "https://cdn.example/a.jpg"),
-    ("<meta content='https://cdn.example/b.jpg' property='og:image'>", "https://cdn.example/b.jpg"),
-    ('<meta name="twitter:image" content="/img/c.jpg">', "https://page.example/img/c.jpg"),
-    ('<meta property="og:image" content="//cdn.example/d.jpg">', "https://cdn.example/d.jpg"),
-    ('<meta property="og:image" content="https://cdn.example/a.jpg?x=1&amp;y=2">', "https://cdn.example/a.jpg?x=1&y=2"),
-    ('<meta property="og:image" content="http://cdn.example/e.jpg">', None),
-    ('<meta property="og:image" content="data:image/png;base64,AAAA">', None),
-    ('<meta property="og:image" content="javascript:alert(1)">', None),
-    ('<meta property="og:title" content="no image here">', None),
-    ('<meta property="og:image" content="">', None),
-    ("<p>not even meta</p>", None),
+# ---------------- what Viktor may say about his progress ----------------
+@pytest.mark.parametrize("facts,expected", [
+    (None, ""), ({}, ""),
+    ({"options_found": 3, "examples": ["Dacia Sandero"]}, "I already have 3 options lined up, like Dacia Sandero."),
+    ({"options_found": 1}, "I already have 1 option lined up."),
+    ({"pages_read": 5, "examples": ["Skoda Rapid"]}, "I've already read 5 pages for you, starting with Skoda Rapid."),
+    ({"search_results_seen": 17, "sites": ["sauto.cz", "tipcars.com"]}, "17 results are already on my screen, from sauto.cz, tipcars.com."),
+    ({"flats_ready": 12, "cheapest_czk": 14500}, "I have 12 flats ready, the cheapest at 14,500 CZK."),
+    ({"unknown_fact": 9}, ""),
 ])
-def test_image_from_html(markup, expected):
-    assert preview.image_from_html(markup, "https://page.example/p/1") == expected
-
-
-def test_secure_url_wins_over_plain_and_overlong_images_are_dropped():
-    both = '<meta property="og:image" content="https://x/1.jpg"><meta property="og:image:secure_url" content="https://x/2.jpg">'
-    assert preview.image_from_html(both, "https://page.example/") == "https://x/2.jpg"
-    assert preview.image_from_html(f'<meta property="og:image" content="https://x/{"a" * 600}">', "https://page.example/") is None
-
-
-# ---------------- preview photos: which pages the server may fetch ----------------
-@pytest.mark.anyio
-@pytest.mark.parametrize("url,ok", [
-    ("https://93.184.216.34/p", True),
-    ("http://93.184.216.34/p", False),
-    ("https://127.0.0.1/p", False), ("https://localhost/p", False), ("https://10.0.0.5/p", False),
-    ("https://192.168.1.1/p", False), ("https://169.254.169.254/latest/meta-data", False), ("https://[::1]/p", False),
-    ("https://0.0.0.0/p", False), ("https://93.184.216.34:8443/p", False), ("https://user:pw@93.184.216.34/p", False),
-    ("ftp://93.184.216.34/p", False), ("file:///C:/secret", False), ("https:///nohost", False), ("not a url", False),
-])
-async def test_only_public_https_hosts_are_fetched(url, ok):
-    assert await preview._allowed(url) is ok
-
-
-def client_for(handler):
-    return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False)
-
-
-def public_only(monkeypatch):
-    async def fake(host):
-        return host.endswith(".example")
-
-    monkeypatch.setattr(preview, "_public_host", fake)
-
-
-@pytest.mark.anyio
-async def test_photos_are_attached_and_failures_just_mean_no_photo(monkeypatch):
-    public_only(monkeypatch)
-    html_ok = '<html><meta property="og:image" content="https://cdn.example/photo.jpg"></html>'
-
-    def handler(request):
-        if request.url.host == "ok.example":
-            return httpx.Response(200, text=html_ok, headers={"content-type": "text/html; charset=utf-8"})
-        if request.url.host == "pdf.example":
-            return httpx.Response(200, content=b"%PDF", headers={"content-type": "application/pdf"})
-        if request.url.host == "boom.example":
-            raise httpx.ConnectError("down")
-        return httpx.Response(404)
-
-    async with client_for(handler) as c:
-        found = await preview.attach_images(["https://ok.example/a", "https://ok.example/a", "https://pdf.example/b",
-                                             "https://boom.example/c", "https://gone.example/d", "https://private.test/e"], c)
-    assert found == {"https://ok.example/a": "https://cdn.example/photo.jpg"}
-
-
-@pytest.mark.anyio
-async def test_a_redirect_to_a_private_host_is_never_followed(monkeypatch):
-    public_only(monkeypatch)
-    seen = []
-
-    def handler(request):
-        seen.append(str(request.url))
-        if request.url.host == "start.example":
-            return httpx.Response(302, headers={"location": "https://169.254.169.254/latest/meta-data"})
-        return httpx.Response(200, text='<meta property="og:image" content="https://cdn.example/x.jpg">',
-                              headers={"content-type": "text/html"})
-
-    async with client_for(handler) as c:
-        assert await preview.attach_images(["https://start.example/a"], c) == {}
-    assert seen == ["https://start.example/a"]
-
-
-@pytest.mark.anyio
-async def test_a_public_redirect_is_followed_a_limited_number_of_times(monkeypatch):
-    public_only(monkeypatch)
-
-    def handler(request):
-        n = int(request.url.path.strip("/") or 0)
-        if n < 2:
-            return httpx.Response(302, headers={"location": f"https://hop.example/{n + 1}"})
-        return httpx.Response(200, text='<meta property="og:image" content="https://cdn.example/x.jpg">', headers={"content-type": "text/html"})
-
-    async with client_for(handler) as c:
-        assert await preview.attach_images(["https://hop.example/0"], c) == {"https://hop.example/0": "https://cdn.example/x.jpg"}
-
-    def loop(request):
-        return httpx.Response(302, headers={"location": "https://hop.example/again"})
-
-    async with client_for(loop) as c:
-        assert await preview.attach_images(["https://hop.example/0"], c) == {}
-
-
-@pytest.mark.anyio
-async def test_only_the_start_of_a_huge_page_is_read(monkeypatch):
-    public_only(monkeypatch)
-    big = '<meta property="og:image" content="https://cdn.example/early.jpg">' + "x" * 5_000_000
-
-    def handler(request):
-        return httpx.Response(200, content=big.encode(), headers={"content-type": "text/html"})
-
-    async with client_for(handler) as c:
-        assert await preview.attach_images(["https://big.example/a"], c) == {"https://big.example/a": "https://cdn.example/early.jpg"}
-    late = "x" * (preview.MAX_PAGE_BYTES + 10) + '<meta property="og:image" content="https://cdn.example/late.jpg">'
-
-    def handler2(request):
-        return httpx.Response(200, content=late.encode(), headers={"content-type": "text/html"})
-
-    async with client_for(handler2) as c:
-        assert await preview.attach_images(["https://big.example/a"], c) == {}
-
-
-# ---------------- answer worker with items ----------------
-@pytest.mark.anyio
-async def test_the_worker_returns_cleaned_items_with_photos(monkeypatch):
-    import app.buyer.codex_runtime as rt
-
-    async def fake(prompt, schema, settings, **kw):
-        assert schema["required"] == ["answer", "items", "sources"]
-        assert "never invent one" in prompt
-        return {"answer": "Found two cars.", "sources": [], "items": [
-            {"title": "Rapid", "url": "https://a.example/1", "detail": "138 000 Kč"},
-            {"title": "bad", "url": "http://a.example/2", "detail": ""}]}
-
-    async def photos(urls):
-        assert urls == ["https://a.example/1"]
-        return {"https://a.example/1": "https://cdn.example/1.jpg"}
-
-    monkeypatch.setattr(rt, "run_codex", fake)
-    monkeypatch.setattr(preview, "attach_images", photos)
-    r = await answer_result(general(), Settings(answer_mode="codex"))
-    assert [(i.title, i.url, i.detail, i.image) for i in r.items] == [("Rapid", "https://a.example/1", "138 000 Kč", "https://cdn.example/1.jpg")]
-
-
-@pytest.mark.anyio
-async def test_a_photo_failure_never_fails_the_delivery_and_previews_can_be_off(monkeypatch):
-    import app.buyer.codex_runtime as rt
-
-    async def fake(prompt, schema, settings, **kw):
-        return {"answer": "Found one.", "sources": [], "items": [{"title": "Rapid", "url": "https://a.example/1", "detail": ""}]}
-
-    async def explode(urls):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(rt, "run_codex", fake)
-    monkeypatch.setattr(preview, "attach_images", explode)
-    r = await answer_result(general(), Settings(answer_mode="codex"))
-    assert len(r.items) == 1 and r.items[0].image is None
-    monkeypatch.setattr(preview, "attach_images", lambda urls: (_ for _ in ()).throw(AssertionError("must not fetch")))
-    r = await answer_result(general(), Settings(answer_mode="codex", answer_previews=False))
-    assert len(r.items) == 1
+def test_he_brags_only_with_what_the_facts_contain(facts, expected):
+    assert brag_of(facts).strip() == expected
 
 
 # ---------------- Viktor scouts while he haggles ----------------
-def seller_with(monkeypatch, tmp_path, responses, delay=0.0, **settings):
-    import app.buyer.codex_runtime as rt
+FOUND = [Finding(title="Skoda Rapid 1.0 TSI", url="https://a.example/1", detail="138 000 Kč"),
+         Finding(title="Dacia Sandero", url="https://a.example/2", detail="120 000 Kč")]
+
+
+def seller_with(monkeypatch, work, **settings):
+    """A seller whose research is `work(progress)`; returns the app and the list of research calls."""
     import app.seller.app as seller_module
+    import app.seller.job as job_module
 
     calls = []
 
-    async def fake(prompt, schema, settings_, **kw):
-        calls.append(prompt)
-        await asyncio.sleep(delay)
-        return responses
+    async def fake(job, settings_, progress=None):
+        calls.append(job)
+        return await work(progress)
 
-    monkeypatch.setattr(rt, "run_codex", fake)
+    monkeypatch.setattr(seller_module, "answer_result", fake)
+    monkeypatch.setattr(job_module, "answer_result", fake)  # the fresh search at delivery goes through run_job
     monkeypatch.setattr(seller_module, "JOB_SECONDS", 0)
-    s = Settings(answer_mode="codex", llm_mode="mock", seller_llm_mode="mock", answer_previews=False, **settings)
+    settings.setdefault("pricing_mode", "cost")
+    s = Settings(answer_mode="codex", llm_mode="mock", seller_llm_mode="mock", **settings)
     return create_seller(s), calls
 
 
 def neg(deal, round_, action, offer=None, job=None, mode="honest"):
-    body = {"deal_id": deal, "round": round_, "action": action, "offer": offer, "job": (job or general()).model_dump(), "demo_mode": mode}
-    return body
+    return {"deal_id": deal, "round": round_, "action": action, "offer": offer, "job": (job or general()).model_dump(), "demo_mode": mode}
 
 
-FOUND = {"answer": "Two cars.", "sources": [], "items": [{"title": "Skoda Rapid 1.0 TSI", "url": "https://a.example/1", "detail": "138 000 Kč"},
-                                                          {"title": "Dacia Sandero", "url": "https://a.example/2", "detail": "120 000 Kč"}]}
+async def status_of(c, started):
+    for _ in range(300):
+        st = (await c.get("/status", params={"job_id": started["job_id"]})).json()
+        if st["status"] in {"completed", "failed"}:
+            return st
+        await asyncio.sleep(0.01)
+    raise AssertionError("job never finished")
+
+
+async def agree_and_start(c, deal, job=None):
+    """Offer far too little, take his counter, accept it, start the job."""
+    r1 = (await c.post("/negotiate", json=neg(deal, 1, "counter", offer=0.01, job=job))).json()
+    assert r1["action"] == "counter"
+    r2 = (await c.post("/negotiate", json=neg(deal, 2, "accept", offer=r1["price"], job=job))).json()
+    assert r2["action"] == "accept"
+    started = (await c.post("/start_job", json={"identifier_from_purchaser": deal, "input_data": {
+        "deal_id": deal, "agreed_price": r2["price"], "job": (job or general()).model_dump(), "demo_mode": "honest"}})).json()
+    return r1, started
 
 
 @pytest.mark.anyio
-async def test_viktor_brags_about_what_he_really_found_and_the_search_is_the_delivery(monkeypatch, tmp_path):
-    app, calls = seller_with(monkeypatch, tmp_path, FOUND)
-    facts_seen = []
-    original_respond = app.state.viktor.respond_async
+async def test_viktor_mentions_real_progress_and_the_early_search_is_the_delivery(monkeypatch):
+    gate = asyncio.Event()
 
-    async def capture(req, facts=None):
-        facts_seen.append(facts)
-        return await original_respond(req, facts)
+    async def work(progress):
+        progress.stage, progress.pages_read, progress.titles = "reading", 3, ["Dacia Sandero 1.2"]
+        await gate.wait()
+        progress.options_found = 2
+        return JobResult(kind="general", source="apify", answer="Two cars.", items=FOUND)
 
-    monkeypatch.setattr(app.state.viktor, "respond_async", capture)
+    app, calls = seller_with(monkeypatch, work)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
         r0 = (await c.post("/negotiate", json=neg("d1", 0, "open"))).json()
-        assert "found" not in r0["message"]  # at the opening nothing is known yet
-        for _ in range(100):  # let the early search finish
-            await asyncio.sleep(0.01)
-            if calls and len(calls) == 1:
-                await asyncio.sleep(0.05)
-                break
-        r1 = (await c.post("/negotiate", json=neg("d1", 1, "counter", offer=5))).json()
-        assert "I already have 2 options lined up" in r1["message"]
-        r2 = (await c.post("/negotiate", json=neg("d1", 2, "counter", offer=r1["price"]))).json()
-        assert r2["action"] == "accept"
+        assert "already" not in r0["message"]  # nothing is known yet at the opening
+        await asyncio.sleep(0.05)
+        r1 = (await c.post("/negotiate", json=neg("d1", 1, "counter", offer=0.01))).json()
+        assert "I've already read 3 pages for you, starting with Dacia Sandero 1.2." in r1["message"]
+        gate.set()
+        await asyncio.sleep(0.05)
+        r2 = (await c.post("/negotiate", json=neg("d1", 2, "counter", offer=0.02))).json()
+        assert "I already have 2 options lined up, like Dacia Sandero 1.2." in r2["message"]
+        r3 = (await c.post("/negotiate", json=neg("d1", 3, "accept", offer=r2["price"]))).json()
         started = (await c.post("/start_job", json={"identifier_from_purchaser": "d1", "input_data": {
-            "deal_id": "d1", "agreed_price": r2["price"], "job": general().model_dump(), "demo_mode": "honest"}})).json()
-        for _ in range(200):
-            st = (await c.get("/status", params={"job_id": started["job_id"]})).json()
-            if st["status"] in {"completed", "failed"}:
-                break
-            await asyncio.sleep(0.01)
+            "deal_id": "d1", "agreed_price": r3["price"], "job": general().model_dump(), "demo_mode": "honest"}})).json()
+        st = await status_of(c, started)
     assert st["status"] == "completed" and [i["title"] for i in st["result"]["items"]] == ["Skoda Rapid 1.0 TSI", "Dacia Sandero"]
-    assert len(calls) == 1  # one model call served both the brag and the delivery
-    assert facts_seen[0] is None
-    assert facts_seen[1]["findings"] == FOUND["items"]
-    assert facts_seen[1]["source"] == "codex"
+    assert len(calls) == 1  # one research run served both the talk and the delivery
 
 
 @pytest.mark.anyio
-async def test_a_buyer_who_walks_cancels_the_early_search(monkeypatch, tmp_path):
-    app, calls = seller_with(monkeypatch, tmp_path, FOUND, delay=5)
+async def test_a_buyer_who_walks_cancels_the_early_search(monkeypatch):
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def work(progress):
+        started.set()
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            cancelled.set()  # the runner's own cleanup aborts the Apify run when this happens
+            raise
+
+    app, calls = seller_with(monkeypatch, work)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
         await c.post("/negotiate", json=neg("d2", 0, "open"))
-        await asyncio.sleep(0.05)
+        await asyncio.wait_for(started.wait(), 2)
         r = (await c.post("/negotiate", json=neg("d2", 1, "walk"))).json()
         assert r["action"] == "walk"
-        await asyncio.sleep(0.05)
+        await asyncio.wait_for(cancelled.wait(), 2)
     assert len(calls) == 1
-    assert not [t for t in asyncio.all_tasks() if "answer_result" in repr(t.get_coro()) and not t.done()]
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("kw,job,mode", [({"answer_scout": False}, None, "honest"), ({}, BoundedJobSpec(count=3), "honest"), ({}, None, "junk")])
-async def test_no_early_search_when_off_for_rentals_or_for_the_staged_junk_act(monkeypatch, tmp_path, kw, job, mode):
-    app, calls = seller_with(monkeypatch, tmp_path, FOUND, **kw)
+@pytest.mark.parametrize("kw,job,mode", [({"answer_scout": False}, None, "honest"), ({}, BoundedJobSpec(count=3), "honest"),
+                                        ({}, None, "junk")])
+async def test_no_early_search_when_off_for_live_rentals_or_for_the_staged_junk_act(monkeypatch, kw, job, mode):
+    async def work(progress):
+        raise AssertionError("must not start")
+
+    app, calls = seller_with(monkeypatch, work, apify_mode="apify", **kw)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
         await c.post("/negotiate", json=neg("d3", 0, "open", job=job, mode=mode))
         await asyncio.sleep(0.1)
@@ -309,56 +159,186 @@ async def test_no_early_search_when_off_for_rentals_or_for_the_staged_junk_act(m
 
 
 @pytest.mark.anyio
-async def test_a_failed_early_search_falls_back_to_a_fresh_search_at_delivery(monkeypatch, tmp_path):
-    import app.buyer.codex_runtime as rt
-    import app.seller.app as seller_module
+async def test_a_failed_early_search_falls_back_to_a_fresh_one_at_delivery(monkeypatch):
+    n = []
 
-    calls = []
-
-    async def flaky(prompt, schema, settings_, **kw):
-        calls.append(1)
-        if len(calls) == 1:
+    async def work(progress):
+        n.append(1)
+        if len(n) == 1:
             raise RuntimeError("scout blew up")
-        return FOUND
+        return JobResult(kind="general", source="apify", answer="Two cars.", items=FOUND)
 
-    monkeypatch.setattr(rt, "run_codex", flaky)
-    monkeypatch.setattr(seller_module, "JOB_SECONDS", 0)
-    app = create_seller(Settings(answer_mode="codex", llm_mode="mock", seller_llm_mode="mock", answer_previews=False))
+    app, calls = seller_with(monkeypatch, work)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
         await c.post("/negotiate", json=neg("d4", 0, "open"))
         await asyncio.sleep(0.05)
-        r1 = (await c.post("/negotiate", json=neg("d4", 1, "counter", offer=5))).json()
-        assert "lined up" not in r1["message"]  # nothing was found, so nothing is claimed
-        r2 = (await c.post("/negotiate", json=neg("d4", 2, "counter", offer=r1["price"]))).json()
-        started = (await c.post("/start_job", json={"identifier_from_purchaser": "d4", "input_data": {
-            "deal_id": "d4", "agreed_price": r2["price"], "job": general().model_dump(), "demo_mode": "honest"}})).json()
-        for _ in range(200):
-            st = (await c.get("/status", params={"job_id": started["job_id"]})).json()
-            if st["status"] in {"completed", "failed"}:
-                break
-            await asyncio.sleep(0.01)
-    assert st["status"] == "completed" and len(calls) == 2
+        r1, started = await agree_and_start(c, "d4")
+        assert "already" not in r1["message"]  # nothing was found, so nothing is claimed
+        st = await status_of(c, started)
+    assert st["status"] == "completed" and len(calls) == 2 and len(n) == 2
 
 
-# ---------------- freer dialogue ----------------
-def test_the_scripted_seller_only_brags_with_real_facts():
-    v = Viktor()
-    req = NegotiateRequest(deal_id="x", round=0, action="open", job=general())
-    v.respond(req)
-    counter = NegotiateRequest(deal_id="x", round=1, action="counter", offer=5, job=general())
-    assert "lined up" not in Viktor().respond(NegotiateRequest(deal_id="z", round=0, action="open", job=general())).message
-    msg = v.respond(counter, {"options_found": 1}).message
-    assert "I already have 1 option lined up." in msg
+# ---------------- rentals: scouted for free from the cache ----------------
+@pytest.mark.anyio
+async def test_viktor_knows_how_many_flats_he_has_ready():
+    app = create_seller(Settings(llm_mode="mock", seller_llm_mode="mock", pricing_mode="cost", apify_mode="sample"))
+    job = BoundedJobSpec(count=4, district="Praha 3")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
+        await c.post("/negotiate", json=neg("r1", 0, "open", job=job))
+        await asyncio.sleep(0.2)
+        r1 = (await c.post("/negotiate", json=neg("r1", 1, "counter", offer=0.01, job=job))).json()
+    assert "I have 4 flats ready, the cheapest at" in r1["message"]
 
 
-def test_the_ai_seller_is_told_to_speak_freely_but_only_state_real_facts():
-    v = CodexViktor(Settings(llm_mode="mock"))
-    req = NegotiateRequest(deal_id="y", round=1, action="counter", offer=5, job=general())
-    prompt = v._prompt(req, DealState(ask=18), {"options_found": 4, "examples": ["Rapid"]})
-    assert "in your own words" in prompt and "avoid repeating your sales pitch" in prompt
-    assert "what_you_have_found_so_far" in prompt and '"options_found": 4' in prompt
-    assert "never invent findings" in prompt and "untrusted data" in prompt
-    assert '"what_you_have_found_so_far":' not in v._prompt(req, DealState(ask=18))  # no facts, no claims in the context
+# ---------------- varied speech ----------------
+def test_the_ai_seller_gets_his_own_style_numbers_and_memory_without_giving_away_his_floor():
+    v = CodexViktor(Settings(llm_mode="mock", pricing_mode="cost"))
+    req = NegotiateRequest(deal_id="y", round=1, action="counter", offer=1, job=general("cheap laptops in Prague"))
+    q = v.quote(req)
+    v.said["y"] = ["Earlier line one.", "Earlier line two."]
+    prompt = v._prompt(req, DealState(ask=q.opening), {"pages_read": 4, "examples": ["Lenovo V15"]})
+    assert "in your own words" in prompt and "never reuse the wording of `lines_you_already_said`" in prompt
+    assert "vocabulary of what is being sold" in prompt and "never state your exact cost or your floor" in prompt
+    assert '"what_you_have_found_so_far": {"pages_read": 4' in prompt and "Earlier line two." in prompt
+    assert f'"floor": {q.floor}' in prompt and '"your_style":' in prompt and "never invent any other fact" in prompt
+    assert '"what_you_have_found_so_far":' not in v._prompt(req, DealState(ask=q.opening))
+
+
+def test_viktor_gets_a_different_manner_per_deal():
+    v = Viktor(pricing=Settings(pricing_mode="cost"))
+    assert len({v.style(f"deal{i}") for i in range(40)}) >= 5
+
+
+def test_the_buyer_prompts_are_cost_aware_and_free_in_voice():
+    assert "speak freely in your own words" in " ".join(MAX_INSTRUCTIONS.lower().split())
+    assert "Open around $50" in MAX_INSTRUCTIONS  # fixed pricing keeps its simple opening guidance
+    for needle in ("{fair:g}", "{reservation:g}", "{opening:g}", "{style}", "never reuse the wording of lines you already said",
+                   "Never invent facts about what Viktor has"):
+        assert needle in MAX_COST_INSTRUCTIONS
+    assert "raise your offers by amounts that fit the gap" in MAX_COST_INSTRUCTIONS and "Open around" not in MAX_COST_INSTRUCTIONS
+
+
+# ---------------- progress while Viktor works ----------------
+@pytest.mark.anyio
+async def test_status_reports_real_progress_while_running_and_not_after(monkeypatch):
+    gate = asyncio.Event()
+
+    async def work(progress):
+        progress.stage, progress.results_seen, progress.sites, progress.queries = "searching", 12, ["alza.cz"], ["standing desks"]
+        await gate.wait()
+        return JobResult(kind="general", source="apify", answer="Two cars.", items=FOUND)
+
+    app, calls = seller_with(monkeypatch, work)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
+        await c.post("/negotiate", json=neg("p1", 0, "open"))
+        await asyncio.sleep(0.05)
+        r1, started = await agree_and_start(c, "p1")
+        await asyncio.sleep(0.05)
+        st = (await c.get("/status", params={"job_id": started["job_id"]})).json()
+        assert st["status"] == "running" and st["result"] is None
+        assert st["progress"]["stage"] == "searching" and st["progress"]["results_seen"] == 12 and st["progress"]["sites"] == ["alza.cz"]
+        gate.set()
+        done = await status_of(c, started)
+    assert done["status"] == "completed" and done["progress"] is None
+
+
+@pytest.mark.anyio
+async def test_research_does_not_wait_out_the_simulated_work_time_and_unscouted_jobs_still_report_progress(monkeypatch):
+    import app.seller.app as seller_module
+
+    async def work(progress):
+        progress.stage, progress.pages_read = "reading", 4
+        await asyncio.sleep(0.05)
+        return JobResult(kind="general", source="apify", answer="Two cars.", items=FOUND)
+
+    app, calls = seller_with(monkeypatch, work, answer_scout=False)
+    monkeypatch.setattr(seller_module, "JOB_SECONDS", 30)  # a rental-style fake wait would make this test time out
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
+        await c.post("/negotiate", json=neg("p2", 0, "open"))
+        r1, started = await agree_and_start(c, "p2")
+        await asyncio.sleep(0.02)
+        mid = (await c.get("/status", params={"job_id": started["job_id"]})).json()
+        assert mid["progress"] is not None and mid["progress"]["pages_read"] == 4
+        done = await asyncio.wait_for(status_of(c, started), 5)
+    assert done["status"] == "completed" and len(calls) == 1
+
+
+@pytest.mark.anyio
+async def test_the_buyer_relays_progress_as_clean_deduplicated_events_before_the_delivery(monkeypatch, tmp_path):
+    import app.seller.job as job_module
+    from app.buyer.app import create_app as create_buyer
+
+    async def work(progress):
+        progress.stage, progress.results_seen = "searching", 7
+        await asyncio.sleep(0.15)
+        progress.stage, progress.pages_read, progress.reads_total, progress.sites = "reading", 3, 8, ["alza.cz", "kaufland.cz"]
+        await asyncio.sleep(0.15)
+        return JobResult(kind="general", source="apify", answer="Two cars found for you.", items=FOUND)
+
+    seller_app, _ = seller_with(monkeypatch, work)
+    monkeypatch.setattr(job_module, "answer_result", lambda *a, **k: work(a[2] if len(a) > 2 else k.get("progress")))
+    s = Settings(ledger_path=str(tmp_path / "b.db"), audio_dir=str(tmp_path / "a"), seller_url="http://seller", answer_mode="codex",
+                 llm_mode="mock", seller_llm_mode="mock", pricing_mode="cost")
+    seller_http = httpx.AsyncClient(transport=httpx.ASGITransport(app=seller_app), base_url="http://seller")
+    buyer = create_buyer(s, http=seller_http)
+    async with buyer.router.lifespan_context(buyer):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=buyer), base_url="http://buyer") as c:
+            q = "Find me 2 used cars in Prague"
+            parsed = (await c.post("/requests/parse", json={"text": q})).json()
+            await c.post("/tasks", json={"text": q, "job": parsed["job"], "demo_mode": "honest"})
+            for _ in range(600):
+                if {"released", "refunded", "error"} & {e.type for e in buyer.state.bus.history}:
+                    break
+                await asyncio.sleep(0.01)
+    await seller_http.aclose()
+    events = buyer.state.bus.history
+    types = [e.type for e in events]
+    progress = [e for e in events if e.type == "job_progress"]
+    assert progress and types.index("job_progress") > types.index("escrow_locked") and types.index("job_progress") < types.index("delivered")
+    assert len({str(e.data) for e in progress}) == len(progress)  # an unchanged report is not repeated
+    assert any(e.data["stage"] == "reading" and e.data["pages_read"] == 3 and e.data["sites"] == ["alza.cz", "kaufland.cz"] for e in progress)
+
+
+def test_progress_from_the_seller_is_cleaned_before_it_reaches_the_dashboard():
+    from app.buyer.orchestrator import Orchestrator
+
+    clean = Orchestrator._clean_progress
+    assert clean(None) is None and clean("x") is None and clean([1]) is None
+    got = clean({"stage": "<script>", "queries": ["a" * 500, 5, "b", "c", "d", "e"], "results_seen": -3, "sites": ["x"] * 20,
+                 "pages_done": True, "pages_total": 10**9, "pages_read": "7", "reads_total": 8, "options_found": 2.5, "evil": "<img onerror=1>"})
+    assert got["stage"] == "starting" and len(got["queries"]) == 4 and len(got["queries"][0]) == 80 and len(got["sites"]) == 5
+    assert (got["results_seen"], got["pages_done"], got["pages_total"], got["pages_read"], got["options_found"]) == (0, 0, 0, 0, 0)
+    assert got["reads_total"] == 8 and "evil" not in got
+
+
+@pytest.mark.anyio
+async def test_an_early_search_that_found_nothing_is_not_run_a_second_time(monkeypatch):
+    n = []
+
+    async def work(progress):
+        n.append(1)
+        raise ValueError("The research found nothing that matches the request")
+
+    app, calls = seller_with(monkeypatch, work)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
+        await c.post("/negotiate", json=neg("n1", 0, "open"))
+        await asyncio.sleep(0.05)
+        r1, started = await agree_and_start(c, "n1")
+        st = await status_of(c, started)
+    assert st["status"] == "failed" and len(n) == 1  # one attempt: repeating it would only double the wait and the cost
+
+
+@pytest.mark.anyio
+async def test_an_early_search_that_fails_is_logged_not_swallowed(monkeypatch, caplog):
+    async def work(progress):
+        raise RuntimeError("Apify request failed (TimeoutError)")
+
+    app, calls = seller_with(monkeypatch, work)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
+        with caplog.at_level("WARNING", logger="astra.seller"):
+            await c.post("/negotiate", json=neg("l1", 0, "open"))
+            await asyncio.sleep(0.1)
+    assert any("early work for deal l1 failed: RuntimeError: Apify request failed (TimeoutError)" in r.message for r in caplog.records)
 
 
 def test_max_is_told_to_speak_freely_and_react_to_what_viktor_really_says():

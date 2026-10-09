@@ -143,6 +143,7 @@ class Finding(BaseModel):
     url: str = Field(max_length=500)
     detail: str = Field(default="", max_length=240)  # price / key facts
     image: str | None = Field(default=None, max_length=500)  # preview photo, https only
+    site: str | None = Field(default=None, max_length=120)  # merchant or website the finding comes from
 
 
 class JobResult(BaseModel):
@@ -150,6 +151,8 @@ class JobResult(BaseModel):
     source: Literal["sample", "apify", "apify_cached", "codex"]  # provenance must be labelled in UI
     kind: Literal["rental", "general"] = "rental"
     items: list[Finding] = Field(default_factory=list)  # kind == "general": structured findings, shown as cards
+    queries: list[str] = Field(default_factory=list)  # kind == "general": what was searched
+    cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)  # provider spend reported by Apify
     sources: list[str] = Field(default_factory=list)  # kind == "general": pages the writer says it used
     answer: str | None = None  # kind == "general": the delivered text, written by the model, not live data
     fetched_at: str | None = None
@@ -164,6 +167,7 @@ class StatusResponse(BaseModel):
     job_id: str
     status: JobStatus
     result: JobResult | None = None
+    progress: dict | None = None  # while running: what the seller has really done so far (never persisted)
 
 
 # ---------- buyer -> dashboard: SSE event ----------
@@ -178,6 +182,7 @@ EventType = Literal[
     "blocked",  # data: reason
     "escrow_locked",
     "already_paid",  # Act 3: restart found deal paid, did not pay twice
+    "job_progress",  # data: stage, queries, results_seen, sites, pages_done, pages_total, pages_read, reads_total, options_found
     "delivered",
     "verified",  # data: ok, checks
     "released",

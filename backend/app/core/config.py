@@ -33,10 +33,17 @@ class Settings:
     # Let the answer writer use Codex's live web search (needs current info: prices, listings, news).
     answer_search: bool = field(default_factory=lambda: os.getenv("ANSWER_SEARCH", "on").strip().lower() not in {"off", "0", "false", "no"})
     answer_timeout_seconds: float = field(default_factory=lambda: _f("ANSWER_TIMEOUT_SECONDS", 120))
+    # Web research for general answers goes through the Apify API: a search actor, then a page-preview actor.
+    apify_search_actor: str = field(default_factory=lambda: os.getenv("APIFY_SEARCH_ACTOR", "apify/google-search-scraper"))
+    apify_preview_actor: str = field(default_factory=lambda: os.getenv("APIFY_PREVIEW_ACTOR", "jtpalms/link-preview-metadata"))
+    apify_shopping_actor: str = field(default_factory=lambda: os.getenv("APIFY_SHOPPING_ACTOR", "damilo/google-shopping-apify"))
+    research_timeout_seconds: float = field(default_factory=lambda: _f("RESEARCH_TIMEOUT_SECONDS", 90))
+    # Where negotiation numbers come from: "cost" = Viktor's real provider cost + margin, "fixed" = the old constants.
+    pricing_mode: str = field(default_factory=lambda: os.getenv("PRICING_MODE", "cost"))
+    tada_per_usd: float = field(default_factory=lambda: _f("TADA_PER_USD", 40))
+    seller_overhead_tada: float = field(default_factory=lambda: _f("SELLER_OVERHEAD_TADA", 1.0))
     # Viktor starts looking while he haggles (so he can say what he already found) and reuses it as the delivery.
     answer_scout: bool = field(default_factory=lambda: os.getenv("ANSWER_SCOUT", "on").strip().lower() not in {"off", "0", "false", "no"})
-    # Read each finding's page for its preview photo (og:image).
-    answer_previews: bool = field(default_factory=lambda: os.getenv("ANSWER_PREVIEWS", "on").strip().lower() not in {"off", "0", "false", "no"})
 
     def __post_init__(self):
         if self.llm_mode not in {"mock", "codex"}:
@@ -47,6 +54,11 @@ class Settings:
             raise ValueError("ANSWER_MODE must be auto, codex or off")
         if not (0 < self.answer_timeout_seconds < float("inf")):
             raise ValueError("ANSWER_TIMEOUT_SECONDS must be finite and positive")
+        if self.pricing_mode not in {"cost", "fixed"}:
+            raise ValueError("PRICING_MODE must be cost or fixed")
+        for name in ("research_timeout_seconds", "tada_per_usd", "seller_overhead_tada"):
+            if not (0 < getattr(self, name) < float("inf")):
+                raise ValueError(f"{name.upper()} must be finite and positive")
 
     # Payments: "simulated" = local SQLite escrow, labelled SIMULATED everywhere; "masumi" = Preprod
     payments_mode: str = field(default_factory=lambda: os.getenv("PAYMENTS_MODE", "simulated"))

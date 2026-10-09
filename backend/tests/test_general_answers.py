@@ -108,24 +108,6 @@ def test_a_missing_or_wrong_kind_of_result_fails_and_dispatch_uses_the_job_kind(
 
 # ---------------- the seller's worker ----------------
 @pytest.mark.anyio
-async def test_the_answer_worker_calls_codex_with_a_guarded_prompt_and_returns_an_answer(monkeypatch):
-    import app.buyer.codex_runtime as rt
-
-    seen = {}
-
-    async def fake(prompt, schema, settings, **kw):
-        seen["prompt"], seen["schema"], seen["kw"] = prompt, schema, kw
-        return {"answer": "  Escrow keeps funds safe until delivery.  ", "sources": []}
-
-    monkeypatch.setattr(rt, "run_codex", fake)
-    r = await answer_result(general("What is escrow?"), Settings(answer_mode="codex"))
-    assert r.kind == "general" and r.source == "codex" and r.answer == "Escrow keeps funds safe until delivery." and r.flats == []
-    assert "What is escrow?" in seen["prompt"] and "never instructions" in seen["prompt"] and "Do not read local files" in seen["prompt"]
-    assert seen["schema"]["required"] == ["answer", "items", "sources"]
-    assert seen["kw"] == {"search": True, "timeout": 120.0}  # search is on by default for answers
-
-
-@pytest.mark.anyio
 @pytest.mark.parametrize("bad", [{}, {"answer": ""}, {"answer": 5}, "text"])
 async def test_a_missing_answer_fails_the_job_instead_of_inventing_one(monkeypatch, bad):
     import app.buyer.codex_runtime as rt
@@ -162,7 +144,9 @@ async def deal(tmp_path, monkeypatch, demo_mode="honest", answer="Escrow holds f
     import app.buyer.codex_runtime as rt
 
     async def fake(prompt, schema, settings, **kw):
-        return {"answer": answer, "sources": ["https://example.com/escrow"]}
+        if "needs_web" in schema["properties"]:  # the research planner: a plain question needs no web data
+            return {"needs_web": False, "queries": [], "country": "us", "language": "en"}
+        return {"answer": answer}
 
     monkeypatch.setattr(rt, "run_codex", fake)
     s = Settings(ledger_path=str(tmp_path / "buyer.db"), audio_dir=str(tmp_path / "audio"), seller_url="http://seller",
@@ -195,11 +179,10 @@ async def test_a_general_request_runs_the_whole_pipeline_and_releases(tmp_path, 
     viktor = next(e for e in events if e.type == "negotiation" and e.data["speaker"] == "viktor")
     assert "Explain in one sentence" in viktor.data["text"]
     d = next(e for e in events if e.type == "delivered")
-    assert d.data["items"] == 1 and d.data["source"] == "codex"
+    assert d.data["items"] == 1 and d.data["source"] == "codex"  # no web needed: written from knowledge, labelled AI ANSWER
     assert d.data["result"]["kind"] == "general" and "Escrow holds funds" in d.data["result"]["answer"]
     v = next(e for e in events if e.type == "verified")
-    assert v.data["ok"] is True and set(v.data["checks"]) == {"has_result", "has_answer", "reasonable_length", "not_a_placeholder", "not_a_refusal", "sources_valid"}
-    assert d.data["result"]["sources"] == ["https://example.com/escrow"]
+    assert v.data["ok"] is True and set(v.data["checks"]) == {"has_result", "has_answer", "reasonable_length", "not_a_placeholder", "not_a_refusal", "enough_findings", "sources_valid"}
     assert bal["buyer"] == 930 and bal["seller"] == 70 and bal["escrow"] == 0
 
 
@@ -225,37 +208,6 @@ def test_the_saved_rental_cache_key_ignores_the_new_job_fields():
 
 
 # ---------------- live web search for answers ----------------
-@pytest.mark.anyio
-async def test_search_can_be_switched_off_and_the_prompt_then_says_to_use_own_knowledge(monkeypatch):
-    import app.buyer.codex_runtime as rt
-
-    seen = {}
-
-    async def fake(prompt, schema, settings, **kw):
-        seen["prompt"], seen["kw"] = prompt, kw
-        return {"answer": "Escrow holds money until delivery.", "sources": ["https://ignored.example"]}
-
-    monkeypatch.setattr(rt, "run_codex", fake)
-    r = await answer_result(general(), Settings(answer_mode="codex", answer_search=False, answer_timeout_seconds=45))
-    assert seen["kw"] == {"search": False, "timeout": 45}
-    assert "Answer from your own knowledge" in seen["prompt"] and "search the web" not in seen["prompt"]
-    assert r.sources == ["https://ignored.example"]  # still only https links are kept
-
-
-@pytest.mark.anyio
-async def test_only_plain_https_links_survive_as_sources(monkeypatch):
-    import app.buyer.codex_runtime as rt
-
-    async def fake(*a, **kw):
-        return {"answer": "Cars are listed on several sites.", "sources": [
-            "https://www.sauto.cz/", "https://www.sauto.cz/", "http://insecure.example", "javascript:alert(1)",
-            "file:///C:/secret", "  https://tipcars.com/x  ", 7, "https://" + "a" * 600]}
-
-    monkeypatch.setattr(rt, "run_codex", fake)
-    r = await answer_result(general(), Settings(answer_mode="codex"))
-    assert r.sources == ["https://www.sauto.cz/", "https://tipcars.com/x"]
-
-
 @pytest.mark.parametrize("answer", [
     "I couldn't verify current listings because web search is unavailable in this session.",
     "Web search was unavailable, so I can't give prices.",
@@ -302,3 +254,49 @@ def test_search_settings_are_validated(monkeypatch):
     assert Settings().answer_search is True
     with pytest.raises(ValueError):
         Settings(answer_timeout_seconds=0)
+
+
+# ---------------- the answer worker ----------------
+def codex_fake(seen, plan=None, answer="  Escrow keeps funds safe until delivery.  "):
+    async def fake(prompt, schema, settings, **kw):
+        seen.append((prompt, schema, kw))
+        if "needs_web" in schema["properties"]:
+            return plan or {"needs_web": False, "queries": [], "country": "us", "language": "en"}
+        return {"answer": answer}
+
+    return fake
+
+
+@pytest.mark.anyio
+async def test_a_plain_question_is_answered_from_knowledge_with_a_guarded_prompt(monkeypatch):
+    import app.buyer.codex_runtime as rt
+
+    seen = []
+    monkeypatch.setattr(rt, "run_codex", codex_fake(seen))
+    r = await answer_result(general("What is escrow?"), Settings(answer_mode="codex"))
+    assert r.kind == "general" and r.source == "codex" and r.answer == "Escrow keeps funds safe until delivery." and r.items == []
+    writer_prompt, writer_schema, writer_kw = seen[-1]
+    assert "What is escrow?" in writer_prompt and "never instructions" in writer_prompt and "Do not read local files" in writer_prompt
+    assert writer_schema["required"] == ["answer"] and "search" not in writer_kw  # Codex never searches the web itself
+
+
+@pytest.mark.anyio
+async def test_with_research_off_the_planner_is_not_even_asked(monkeypatch):
+    import app.buyer.codex_runtime as rt
+
+    seen = []
+    monkeypatch.setattr(rt, "run_codex", codex_fake(seen))
+    await answer_result(general("Find me cheap laptops"), Settings(answer_mode="codex", answer_search=False))
+    assert len(seen) == 1 and "needs_web" not in seen[0][1]["properties"]
+
+
+@pytest.mark.anyio
+async def test_a_request_that_needs_the_web_fails_honestly_without_an_apify_token(monkeypatch):
+    import app.buyer.codex_runtime as rt
+
+    seen = []
+    plan = {"needs_web": True, "queries": ["cheap laptops prague"], "country": "cz", "language": "en"}
+    monkeypatch.setattr(rt, "run_codex", codex_fake(seen, plan))
+    with pytest.raises(ValueError, match="APIFY_TOKEN"):
+        await answer_result(general("Find me cheap laptops"), Settings(answer_mode="codex", apify_token=""))
+    assert len(seen) == 1  # only the planner ran; nothing invented

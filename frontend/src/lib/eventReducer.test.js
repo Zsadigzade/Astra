@@ -204,3 +204,16 @@ test("the delivery carries when it arrived, so the board only animates fresh res
   assert.equal(v.delivery.ts, events[1].ts);
   assert.equal(deriveDealState([ev("task_created", {})]).delivery, null);
 });
+
+test("progress shows what the seller has really done and disappears once it delivers", () => {
+  const base = [ev("quote", { price: 7 }), ev("escrow_locked", { price: 7 })];
+  const first = deriveDealState([...base, ev("job_progress", { stage: "searching", results_seen: 5, sites: ["alza.cz"] })]);
+  assert.equal(first.stages.delivery, "active");
+  assert.deepEqual(first.progress, { stage: "searching", results_seen: 5, sites: ["alza.cz"] });
+  const later = deriveDealState([...base, ev("job_progress", { stage: "searching" }), ev("job_progress", { stage: "reading", pages_read: 3 })]);
+  assert.equal(later.progress.stage, "reading");
+  assert.equal(deriveDealState([...base, ev("job_progress", { stage: "writing" }), ev("delivered", {})]).progress, null);
+  assert.equal(deriveDealState(base).progress, null);
+  // progress rows are not a timeline entry and never become "the latest deal"
+  assert.equal(first.timeline.some((r) => r.event.type === "job_progress"), false);
+});
