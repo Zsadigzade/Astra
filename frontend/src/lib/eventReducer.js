@@ -201,7 +201,7 @@ export function deriveDealState(events, dealId = null) {
     escrow: lock ? { ...lock.data, resumed: lock.type === "already_paid" } : null,
     release: last(deal, "released")?.data ?? null,
     refund: last(deal, "refunded")?.data ?? null,
-    delivery: delivered ? { items: delivered.data.items, source: delivered.data.source, result: delivered.data.result } : null,
+    delivery: delivered ? { items: delivered.data.items, source: delivered.data.source, result: delivered.data.result, ts: delivered.ts } : null,
     verified: last(deal, "verified")?.data ?? null,
     finished: has(deal, ...TERMINAL),
     usage: usageOf(events),

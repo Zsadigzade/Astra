@@ -1,5 +1,17 @@
 # Handoff — integrated main
 
+## Merge integration (2026-10-09 04:27 +02:00)
+
+- Merged remote dashboard/conversation changes with local authentication, durable seller state
+  and live-con changes. Preserved the new ghost stage and API token on voice playback; frontend
+  test command includes both eye-tracking and authentication suites (63 tests and build pass).
+- Max's fixed opening question remains labelled scripted. Rehearsal excludes only that
+  non-fallback greeting from live-decision counts; strict-live failures still cannot produce
+  scripted offers. Browser rehearsal opens the Wallet tab before checking policy framing.
+- Final merged validation: 579 backend tests, 63 frontend tests and production build passed.
+  No new live-provider or browser rehearsal was run for this merge.
+- Older entries below describe their historical snapshots, including their then-uncommitted state.
+
 updated: 2026-10-09 03:11 +02:00 · everything live except payments
 
 ## Everything live except payments + hardening (2026-10-09 03:11 +02:00)
@@ -17,19 +29,15 @@ updated: 2026-10-09 03:11 +02:00 · everything live except payments
 - Services restarted via `npm start` on 8000/8001/5173 with live modes (old up.py + vite session stopped
   with no open deals). Not committed. Still not public hosting (Codex local sign-in, dev token in bundle).
 
-## Local live-provider release check (2026-10-09 02:40 +02:00)
+## Conversation order, board and right-rail chat (2026-10-09, samir/claude; uncommitted)
+- Max opens every deal with a question ("Hi Viktor. Can you get me ...? What is your price?"), then Viktor answers with his ask (`orchestrator.haggle`, template line, backend `mock`, voiced like any other line).
+- Layout: the transcript is now the right rail's top card (`ChatFeed`), replacing Wallet policy there; Balances and Delivery and verification stay under it. Wallet policy moved to a centre **Wallet** tab. Centre tabs: Results, Wallet, Timeline, Deals; the ghosts sit above the tabs.
+- Results board (`ResultsBoard`): an offer ladder whose chips appear as offers are made, then the listings, which wait until the conversation has finished, fade in row by row and are marked Accepted (or Rejected) by Max from the verification result.
+- Pacing: speech bubbles stay `1.2s + 40ms/char` (1.6s to 5.5s), the next line waits for the bubble to end. Only lines created AFTER the page loaded are paced; a reload or an older deal shows everything at once. Purely cosmetic, the guard/pipeline/result still update in real time.
 
-- User selected live data, both agents and voices with SIMULATED payments. Ignored `.env`
-  now selects Codex Max/Viktor, live Apify and ElevenLabs; stale override and crash flag off.
-- 541 backend tests, 50 frontend tests, production build, dependency audits and six live
-  browser scenarios pass. Vite updated to 6.4.4; rehearsal supports live data/both agents
-  and uses current dashboard selectors. [Full results and limits](status/production-readiness.md).
-- Existing terminal services preserved: restart after current deals finish to load the modes.
-  Public hosting is not ready: unauthenticated controls and in-memory seller state remain.
-  Deployment destination is unconfirmed. No commit/push/deploy or real payment performed.
-
-## Windows launcher (2026-10-09 02:27, ziya)
-- `dist/AstraLauncher.exe` built locally; [usage/build guide](../scripts/desktop/README.md). Uses the checkout and installed dependencies; sample/configured demos, readiness, full development tests and live HTTP rehearsal. Always SIMULATED with isolated ledgers; provider usage explicit. EXE acceptance: 540 backend + 50 frontend tests/build and sample HTTP release/block/refund pass; GUI and owned-process cleanup verified. Existing terminal services preserved. No fresh live-provider acceptance in this packaging task.
+## Cursor-following eyes (2026-10-09, samir/claude; uncommitted)
+- Before a request is given the empty state shows the two ghosts (the existing drawing, unchanged) and their eyes follow the cursor (`hooks/useCursorEyes.js`, maths in `lib/eyes.js`, 5 tests). Typing keeps them following; pressing Run stops it for the rest of the page session (a reload re-arms it). It also works in the deal view when the ledger has history (the page then opens there, not in the empty state). Off under `prefers-reduced-motion`.
+- Appearance was deliberately NOT changed (owner request): same ghost drawing, size, colours, logo. A first attempt at new character art was backed out. Viktor's drawing is mirrored, so his horizontal eye/tilt direction is flipped in CSS.
 
 ## Ghost stage (2026-10-09, samir/claude; uncommitted)
 - Chat tab opens with two animated SVG ghosts (`Ghost.jsx`, `GhostStage.jsx`): levitate, blink, thinking (dots, eyes up, sway), speaking (mouth, lean, speech bubble), plus a coin with the price on the table. Pure CSS, no new dependency; all motion off under `prefers-reduced-motion`.

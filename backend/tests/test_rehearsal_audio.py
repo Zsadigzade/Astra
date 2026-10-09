@@ -30,6 +30,16 @@ def test_max_lines_must_all_be_codex_except_guard_notices():
         check_max_lines([{**max_line, "fallback_reason": "TimeoutError"}])
 
 
+def test_max_opening_template_is_not_counted_as_live_or_as_provider_fallback():
+    opening = {"speaker": "max", "action": "open", "backend": "mock"}
+    decision = {"speaker": "max", "action": "counter", "backend": "codex"}
+    assert check_max_lines([opening, decision]) == [decision]
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([opening])  # a template alone cannot prove live negotiation
+    with pytest.raises(RuntimeError, match="fallback"):
+        check_max_lines([{**opening, "fallback_reason": "TimeoutError"}, decision])
+
+
 def test_rehearsal_services_inherit_tokens_and_isolate_seller_state(tmp_path):
     from app.core.config import Settings
     s = Settings(api_token="buyer-token", seller_api_token="seller-token")

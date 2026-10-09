@@ -7,6 +7,7 @@ import AppHeader from "./components/AppHeader.jsx";
 import ConnectionAlert from "./components/ConnectionAlert.jsx";
 import DealDetails from "./components/DealDetails.jsx";
 import EmptyDealState from "./components/EmptyDealState.jsx";
+import ChatFeed from "./components/ChatFeed.jsx";
 import NegotiationWorkspace from "./components/NegotiationWorkspace.jsx";
 import RequestComposer from "./components/RequestComposer.jsx";
 import ScenarioSelector from "./components/ScenarioSelector.jsx";
@@ -15,6 +16,7 @@ import WalletGuardCard from "./components/WalletGuardCard.jsx";
 import useControls from "./hooks/useControls.js";
 import useDealState from "./hooks/useDealState.js";
 import useEventStream from "./hooks/useEventStream.js";
+import usePacedChat from "./hooks/usePacedChat.js";
 import useRequestParse from "./hooks/useRequestParse.js";
 import useServiceHealth from "./hooks/useServiceHealth.js";
 import useTheme from "./hooks/useTheme.js";
@@ -26,9 +28,15 @@ export default function App() {
   const { controls, refresh } = useControls(events, status);
   const sellerState = useServiceHealth(SELLER);
   const [selectedDeal, setSelectedDeal] = useState(null);
+  // The ghosts' eyes follow the cursor from page load until a request is given in this session.
+  const [armed, setArmed] = useState(true);
   const [syncTick, setSyncTick] = useState(0);
   const selectDeal = (id) => { setSelectedDeal(id); setSyncTick((t) => t + 1); };
   const view = useDealState(events, selectedDeal);
+  // Live lines get a thinking beat and a readable speech bubble; past deals and reduced motion show everything at once.
+  const reduced = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const live = view.isLatest && !reduced;
+  const paced = usePacedChat(view.chat, view.dealId, view.stages.negotiate === "active", live);
 
   const [scenario, setScenario] = useState("honest");
   const [options, setOptions] = useState({ budget: 20 });
@@ -63,6 +71,7 @@ export default function App() {
     if (launching || disabledReason || !parse.parsed?.ok) return;
     baseline.current = events.length;
     setSelectedDeal(null); // follow the new deal
+    setArmed(false);
     setLaunching(true);
     setLaunchError(null);
     try {
@@ -109,12 +118,14 @@ export default function App() {
 
           <div className="center">
             {view.dealId
-              ? <NegotiationWorkspace view={view} events={events} controls={controls} selected={selectedDeal} onSelect={selectDeal} />
-              : <EmptyDealState scenario={scenario} summary={parse.parsed?.ok ? parse.parsed.summary : null} onRun={run} launching={launching} disabledReason={disabledReason || (!parse.parsed?.ok ? "Fix the request first." : null)} />}
+              ? <NegotiationWorkspace view={view} events={events} controls={controls} selected={selectedDeal} onSelect={selectDeal} trackEyes={armed}
+                  paced={paced} live={live} />
+              : <EmptyDealState tracking={armed} scenario={scenario} summary={parse.parsed?.ok ? parse.parsed.summary : null} onRun={run} launching={launching} disabledReason={disabledReason || (!parse.parsed?.ok ? "Fix the request first." : null)} />}
           </div>
 
           <aside className="rail rail-right" aria-label="Deal safety">
-            <WalletGuardCard view={view} controls={controls} />
+            <ChatFeed view={view} paced={paced} />
+            <WalletGuardCard view={view} controls={controls} only="balances" />
             <DealDetails view={view} />
           </aside>
       </main>

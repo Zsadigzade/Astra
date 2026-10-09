@@ -42,16 +42,18 @@ function PriceRail({ price, approval, cap }) {
 
 // Two sections: Wallet policy (what the guard enforces and its current verdict) and Balances.
 // The verdict sentence is left to the deal header once a deal has ended, so the same result is not said twice.
-export default function WalletGuardCard({ view, controls }) {
+export default function WalletGuardCard({ view, controls, only = "all" }) {
   const g = view.guard;
   const cap = controls?.guard.cap;
   const approval = controls?.guard.approval_over;
   const b = view.balances;
   const price = view.agreed ?? view.prices.current;
 
+  const showPolicy = only === "all" || only === "policy";
+  const showBalances = only === "all" || only === "balances";
   return (
     <>
-      <section className="card guard" aria-labelledby="guard-h">
+      {showPolicy && <section className="card guard" aria-labelledby="guard-h">
         <h2 id="guard-h" className="card-title">Wallet policy</h2>
         <div className={`guard-status guard-${g.tone}`} role="status">
           <span className="guard-ico"><Icon name={ICON[g.status]} size={18} /></span>
@@ -66,9 +68,9 @@ export default function WalletGuardCard({ view, controls }) {
           <div><dt><Tip text="Prices up to this amount are paid without asking a human.">Auto-approve to</Tip></dt><dd className="num">{tada(approval, 1)}</dd></div>
           <div><dt>Task budget</dt><dd className="num">{tada(view.task?.budget, 1)}</dd></div>
         </dl>
-      </section>
+      </section>}
 
-      <section className="card" aria-labelledby="bal-h">
+      {showBalances && <section className="card" aria-labelledby="bal-h">
         <h2 id="bal-h" className="card-title">Balances</h2>
         {b ? (
           <dl className="rows">
@@ -77,7 +79,7 @@ export default function WalletGuardCard({ view, controls }) {
             <div><dt>Viktor</dt><dd className="num">{tada(b.seller, 1)}</dd></div>
           </dl>
         ) : <p className="hint">Appear after the first payment step.</p>}
-      </section>
+      </section>}
     </>
   );
 }

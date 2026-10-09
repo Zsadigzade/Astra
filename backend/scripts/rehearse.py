@@ -67,8 +67,10 @@ def check_seller_lines(speech, mode, act):
 
 
 def check_max_lines(speech):
-    """Rehearsal always runs Max on Codex, staged con included; guard notices are code, not Max."""
-    lines = [line for line in speech if line["speaker"] == "max" and line.get("backend") != "guard"]
+    """Check live decisions; guard notices and the fixed opening question are code."""
+    lines = [line for line in speech if line["speaker"] == "max" and line.get("backend") != "guard"
+             and not (line.get("action") == "open" and line.get("backend") == "mock"
+                      and not line.get("fallback_reason"))]
     require(lines and all(line.get("backend") == "codex" and not line.get("fallback_reason") for line in lines),
             "Codex fallback occurred")
     return lines
@@ -170,6 +172,8 @@ class Rehearsal:
             return
         page = self.page
         page.wait_for_function("id => window.rehearsalEvents.some(e => e.deal_id === id)", arg=deal_id)
+        # Wallet policy moved out of the right rail into its own tab in the new dashboard.
+        page.get_by_role("tab", name="Wallet", exact=True).click()
         page.wait_for_timeout(500)
         require(page.get_by_text("SIMULATED MONEY", exact=True).is_visible(), "simulation label missing")
         require(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "horizontal overflow")
