@@ -267,17 +267,28 @@ The dashboard shows what Max understood before anything runs (defaults it filled
 cannot fill, such as other cities or things that are not rentals. Viktor sells one thing: Prague rental listings (Praha 1 to 22,
 1 to 100 flats). **Mode** picks normal behaviour or a staged demo act.
 
-**Any other request** (a question, a summary, a draft) works when Codex is available (`LLM_MODE=codex`, `SELLER_LLM_MODE=codex`
-or `ANSWER_MODE=codex`; `ANSWER_MODE=off` disables it). Viktor then sells a written answer instead of listings. It still goes through
-the same negotiation, wallet guard, escrow, delivery and verification, and the result is labelled **AI ANSWER**. Verification is by
-rules (present, sensible length, not a placeholder, https sources), so it is not a fact-check. With `ANSWER_SEARCH=on` (default)
-the writer may search the web for current facts and lists its sources in the panel; with `off` it answers from its own knowledge.
-Search only applies to answers (Max and Viktor's negotiation lines never search), runs in the read-only sandbox and counts against
-your ChatGPT subscription limits; it takes longer (`ANSWER_TIMEOUT_SECONDS`, default 120). Concrete finds (listings, products, articles) come back as clickable cards with a preview photo when the page allows reading it.
-Viktor starts the search while he haggles (`ANSWER_SCOUT`), so he can mention what he really found, and that same search is the
-delivery. Many shops return 403 to automated page reads, so some cards show a plain tile instead of a photo (`ANSWER_PREVIEWS=off`
-turns photo lookups off). With answers off, a non-rental
-request is refused with a hint.
+**Any other request** (a question, a search, a summary) works when Codex is available (`LLM_MODE=codex`, `SELLER_LLM_MODE=codex`
+or `ANSWER_MODE=codex`; `ANSWER_MODE=off` disables it). Viktor then sells a written answer instead of listings, through the same
+negotiation, wallet guard, escrow, delivery and verification. Verification is by rules, so it is not a fact-check.
+
+*Web research goes through the Apify API only* (`ANSWER_SEARCH=on`, default): Codex, with no tools, first plans the research
+(or decides no web data is needed) and picks a route. **Shopping** (new products with prices): the Apify Google Shopping Actor
+returns each product's title, merchant, price, rating and photo, and the card's facts are built in code from those fields.
+**Web** (used listings, news, jobs, anything else): the Apify Google Search Actor runs a few queries and the Apify link-preview
+Actor reads the best pages (title, description, photo). Then Codex writes the summary from that data. It picks candidates by id, so every link, photo
+and fact in a card comes from the search results and the model cannot add a page of its own. Results are labelled **LIVE APIFY**,
+with the queries and the provider cost Apify reported. A plain question is answered from Codex's own knowledge and labelled **AI
+ANSWER**. A request that needs the web fails (and is refunded) without `APIFY_TOKEN`, and so does a research that finds fewer
+results than the number you asked for ("3 scooters" with one listing found is refunded, not paid). Some shops return 403 even to Apify, so a
+card may show a plain tile instead of a photo.
+
+**Where the prices come from** (`PRICING_MODE=cost`, default): Viktor's cost is what the job really spends at the providers
+(search pages, page reads, a rental scrape run) converted at `TADA_PER_USD` plus `SELLER_OVERHEAD_TADA`. His floor is that cost
+plus a margin (10-25%) and he opens well above it; Max works from his own noisy estimate and a private maximum. Concessions are a
+share of the gap, not a fixed step, and every number is derived from the request and the deal id, so no two deals look alike.
+Both agents get a different manner per deal and are told which lines they already said. Viktor also starts the work while he
+haggles (`ANSWER_SCOUT`) and may mention only what really exists so far: results seen, pages read, options found, or flats ready.
+That same work is the delivery. `PRICING_MODE=fixed` restores the old constants (ask 18, floor 7, Max opens at 5).
 
 Max and Viktor appear as two floating ghosts. The one whose turn it is shows a thinking animation, then speaks. In scripted mode the
 backend answers instantly, so live lines are revealed with a short thinking pause. That pause is cosmetic pacing: it is never

@@ -11,13 +11,13 @@ export default function OfferLadder({ chat, agreed, caughtUp }) {
       {offers.map((e) => (
         <li key={e.id} className={`chip-offer chip-${e.data.speaker}`}>
           <span className="chip-who">{e.data.speaker === "max" ? "Max" : "Viktor"}</span>
-          <b className="num">{tada(e.data.price, 1)}</b>
+          <b className="num">{tada(e.data.price, 2)}</b>
         </li>
       ))}
       {settled && (
         <li className="chip-offer chip-agreed" role="status">
           <span className="chip-who">Agreed</span>
-          <b className="num">{tada(agreed, 1)}</b>
+          <b className="num">{tada(agreed, 2)}</b>
         </li>
       )}
     </ol>

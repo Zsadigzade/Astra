@@ -30,6 +30,7 @@ from app.core.models import (
 )
 from app.seller.job import answer_result, run_job
 from app.seller.persona import NegotiationConflict, make_viktor
+from app.seller.research import Progress
 from app.seller.store import PersistentDeals, SellerStore
 
 log = logging.getLogger("astra.seller")
@@ -50,7 +51,9 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
     masumi = None if s.simulated else MasumiClient(s.masumi_payment_url, s.masumi_api_key, s.masumi_network,
                                                    masumi_http)
 
-    scouts: dict[str, asyncio.Task] = {}  # deal_id -> early search for a general request
+    scouts: dict[str, asyncio.Task] = {}  # deal_id -> early work on the job, reused as the delivery
+    scout_progress: dict[str, Progress] = {}
+    job_progress: dict[str, Progress] = {}  # job_id -> what its research has done so far (only while running)
     MAX_SCOUTS = 3
 
     def scout_facts(deal_id: str) -> dict | None:
@@ -58,23 +61,35 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
         task = scouts.get(deal_id)
         if task is None:
             return None
+        progress = scout_progress.get(deal_id)
+        if progress is not None:
+            return progress.facts()
         if not task.done() or task.cancelled() or task.exception() is not None:
-            return None  # nothing is claimed until the search has really finished
-        result = task.result()
-        if not result.items:
+            return None  # nothing is claimed until the work has really finished
+        flats = task.result().flats
+        if not flats:
             return None
-        return {"options_found": len(result.items),
-                "examples": [i.title[:80] for i in result.items[:2]]}
+        return {"flats_ready": len(flats), "cheapest_czk": min(f.price_czk for f in flats)}
 
     def start_scout(req: NegotiateRequest) -> None:
-        if (not s.answer_scout or not s.answers_enabled or req.action != "open" or req.job.kind != "general"
-                or req.demo_mode == DemoMode.junk or req.deal_id in scouts):
+        general = req.job.kind == "general"
+        if (not s.answer_scout or req.action != "open" or req.demo_mode == DemoMode.junk or req.deal_id in scouts
+                or (general and not s.answers_enabled)
+                or (not general and s.apify_mode not in {"cached", "sample"})):  # never pay for a live scrape the buyer may walk from
             return
-        live = [t for t in scouts.values() if not t.done()]
-        if len(live) >= MAX_SCOUTS:
+        if len([t for t in scouts.values() if not t.done()]) >= MAX_SCOUTS:
             return
-        task = asyncio.create_task(answer_result(req.job, s))
-        task.add_done_callback(lambda t: t.cancelled() or t.exception())  # a failed scout is simply not used
+        if general:
+            progress = Progress()
+            scout_progress[req.deal_id] = progress
+            task = asyncio.create_task(answer_result(req.job, s, progress))
+        else:
+            task = asyncio.create_task(run_job(req.job, DemoMode.honest, s))
+        def note_failure(t: asyncio.Task) -> None:
+            if not t.cancelled() and t.exception() is not None:  # a failed scout is simply not used, but never silently
+                log.warning("early work for deal %s failed: %s: %s", req.deal_id, type(t.exception()).__name__, t.exception())
+
+        task.add_done_callback(note_failure)
         scouts[req.deal_id] = task
         running.add(task)
         task.add_done_callback(running.discard)
@@ -90,23 +105,34 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
 
     async def work(job_id: str, job: JobSpec, mode: DemoMode, deal_id: str = "") -> JobResult | None:
         set_status(job_id, "running")
-        await asyncio.sleep(JOB_SECONDS)
+        scout = scouts.pop(deal_id, None) if mode != DemoMode.junk else None
+        progress = scout_progress.pop(deal_id, None)
+        general = getattr(job, "kind", "rental") == "general"
+        if general and progress is None and mode != DemoMode.junk:
+            progress = Progress()
+        if progress is not None:
+            job_progress[job_id] = progress
+        if not general and scout is None:
+            await asyncio.sleep(JOB_SECONDS)  # simulated work time for rentals only; real research has its own duration
         try:
             result: JobResult | None = None
-            scout = scouts.pop(deal_id, None) if mode != DemoMode.junk else None
             if scout is not None:  # the search that ran during the haggle is the delivery: no second model call
                 try:
                     result = await scout
+                except ValueError:
+                    raise  # it ran to the end and found nothing usable: repeating it would only double the wait and the cost
                 except Exception:
                     log.warning("job %s: early search failed, searching again", job_id)
             if result is None:
-                result = await run_job(job, mode, s)
+                result = await run_job(job, mode, s, progress)
             set_status(job_id, "completed", result)
             return result
         except Exception:
             log.exception("job %s failed", job_id)
             set_status(job_id, "failed")
             return None
+        finally:
+            job_progress.pop(job_id, None)
 
     async def work_when_paid(job_id: str, blockchain_id: str, purchaser_id: str, job: JobSpec,
                              mode: DemoMode, deadline: float, deal_id: str = "") -> None:
@@ -219,6 +245,7 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
             response = await viktor.respond_async(req, scout_facts(req.deal_id))
             if response.action == "walk":  # no deal, no work: stop the early search
                 dropped = scouts.pop(req.deal_id, None)
+                scout_progress.pop(req.deal_id, None)
                 if dropped is not None:
                     dropped.cancel()
             return response
@@ -273,7 +300,10 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
     async def status(job_id: str):
         if job_id not in jobs:
             raise HTTPException(404, f"unknown job {job_id}")
-        return jobs[job_id]
+        state, progress = jobs[job_id], job_progress.get(job_id)
+        if state.status == "running" and progress is not None:
+            return state.model_copy(update={"progress": progress.public()})
+        return state
 
     return app
 

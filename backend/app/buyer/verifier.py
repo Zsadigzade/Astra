@@ -34,11 +34,17 @@ _REFUSAL = re.compile(
     r"web (search|access|browsing) (is |was |were )?(unavailable|not available|disabled|failed)"
     r"|(unavailable|not available|disabled) in this (session|environment)"
     r"|(couldn.t|could not|can.t|cannot|unable to) (access|use|run|reach) (the )?(web|internet|web search|live)"
-    r"|(couldn.t|could not|can.t|cannot|unable to) (verify|find|provide) (the )?(current|live|latest|newest)", re.IGNORECASE)
+    r"|(couldn.t|could not|can.t|cannot|unable to) (verify|find|provide) (the )?(current|live|latest|newest)"
+    r"|(could not|couldn.t|cannot|can.t|unable to) (identify|locate|find) (any|four|three|five|two|the|a)\b", re.IGNORECASE)
+
+# Only for researched deliveries, where "the results do not show..." means the research came back empty-handed.
+_RESEARCH_REFUSAL = re.compile(
+    r"\b(results|data|search|pages|listings|candidates)\b[^.]{0,60}\b(do|does|did) not (identify|contain|show|include|provide)\b"
+    r"|\bnot enough (information|data)\b|\bno (matching|suitable) (listings?|products?|results?|items?)\b", re.IGNORECASE)
 _PLACEHOLDER = re.compile(r"lorem ipsum|\basdf|\btodo\b|\bplaceholder\b|^\W*(n/?a|none|null|tbd)\W*$", re.IGNORECASE)
 
 
-def verify_answer(result: JobResult | None) -> tuple[bool, dict[str, bool]]:
+def verify_answer(result: JobResult | None, wanted: int = 1) -> tuple[bool, dict[str, bool]]:
     """Rule checks for a general answer. They catch missing, empty, absurdly long or placeholder text.
     They do not prove the answer is correct: that is why the UI labels it an AI answer, not verified data."""
     text = (result.answer or "").strip() if result else ""
@@ -47,7 +53,9 @@ def verify_answer(result: JobResult | None) -> tuple[bool, dict[str, bool]]:
         "has_answer": sum(c.isalnum() for c in text) >= 2,
         "reasonable_length": 0 < len(text) <= 4000,
         "not_a_placeholder": bool(text) and not _PLACEHOLDER.search(text),
-        "not_a_refusal": not _REFUSAL.search(text),
+        "not_a_refusal": not _REFUSAL.search(text) and not (result is not None and result.source == "apify" and _RESEARCH_REFUSAL.search(text)),
+        # A research delivery is the findings themselves: as many cards as were asked for (at least one), not just a write-up.
+        "enough_findings": result is None or result.source != "apify" or len(result.items) >= max(1, wanted),
         "sources_valid": result is None or all(isinstance(u, str) and u.lower().startswith("https://")
                                                for u in [*result.sources, *(i.url for i in result.items)]),
     }
@@ -56,7 +64,9 @@ def verify_answer(result: JobResult | None) -> tuple[bool, dict[str, bool]]:
 
 def verify(result: JobResult | None, job: JobSpec) -> tuple[bool, dict[str, bool]]:
     if getattr(job, "kind", "rental") == "general":
-        return verify_answer(result)
+        from app.core.pricing import explicit_count
+
+        return verify_answer(result, min(explicit_count(getattr(job, "prompt", "") or "") or 1, 8))
     flats = result.flats if result else []
     urls = [f.url for f in flats]
     checks = {

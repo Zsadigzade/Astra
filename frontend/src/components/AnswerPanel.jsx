@@ -13,7 +13,7 @@ const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } 
 // without a referrer; if it is missing or fails, a plain tile with the site's initial stands in.
 function FindingCard({ item, index, animate }) {
   const [broken, setBroken] = useState(false);
-  const site = host(item.url);
+  const site = item.site || host(item.url);  // shopping results link to Google, so the merchant is the useful name
   const showImage = item.image && safe(item.image) && !broken;
   return (
     <a className={`finding ${animate ? "finding-in" : ""}`} style={animate ? { animationDelay: `${index * 90}ms` } : undefined}
@@ -38,6 +38,7 @@ export default function AnswerPanel({ view, animate = false }) {
   const result = view.delivery?.result;
   const answer = result?.answer ?? "";
   const items = (result?.items ?? []).filter((i) => safe(i.url));
+  const queries = (result?.queries ?? []).filter((q) => typeof q === "string" && q.trim());
   const shown = new Set(items.map((i) => i.url));
   const sources = (result?.sources ?? []).filter((u) => safe(u) && !shown.has(u));
   const src = SOURCE_LABEL[view.delivery?.source];
@@ -55,6 +56,12 @@ export default function AnswerPanel({ view, animate = false }) {
         <CopyButton text={answer} label="Copy answer" showLabel />
       </header>
       <div className="answer-text">{answer}</div>
+      {queries.length > 0 && (
+        <p className="answer-queries" title="The searches Viktor ran through Apify">
+          <Icon name="search" size={12} /> Searched: {queries.map((q) => <span key={q} className="query-chip">{q}</span>)}
+          {result?.cost_usd != null && <span className="answer-cost num">provider cost ${result.cost_usd.toFixed(4)}</span>}
+        </p>
+      )}
       {items.length > 0 && (
         <section className="findings" aria-label="Findings">
           {items.map((item, i) => <FindingCard key={item.url} item={item} index={i} animate={animate} />)}
@@ -66,7 +73,7 @@ export default function AnswerPanel({ view, animate = false }) {
           <ul>{sources.map((u) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer nofollow">{host(u)}<span>{u}</span></a></li>)}</ul>
         </section>
       )}
-      <p className="answer-note">Checked by rules (present, sensible length, not a placeholder, https links). Not fact-checked: open a finding to confirm.</p>
+      <p className="answer-note">Links and photos come from the search results, never from the model. Checked by rules, not fact-checked: open a finding to confirm.</p>
     </article>
   );
 }

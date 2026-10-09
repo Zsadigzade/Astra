@@ -152,6 +152,9 @@ class Orchestrator:
             max_ = make_negotiator(replace(self.s, max_rounds=max_rounds), ceiling, task.job, gullible=True)
         else:
             max_ = self.make_max(ceiling, max_rounds, task.job)
+        begin = getattr(max_, "begin", None)
+        if callable(begin):  # cost-based pricing: this deal gets its own numbers and manner
+            begin(deal_id)
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job, demo_mode=task.demo_mode)
         my_last: float | None = None
         # Max starts the conversation with a question; Viktor's opening ask is his answer. The question is a fixed
@@ -233,7 +236,8 @@ class Orchestrator:
     async def _deliver_and_settle(self, task_id: str, deal_id: str, task: TaskCreate, job_id: str,
                                   staged: bool) -> None:
         deal = self.ledger.get(deal_id)
-        status = await self._poll(deal["seller_url"], job_id)
+        status = await self._poll(deal["seller_url"], job_id,
+                                  lambda p: self.bus.emit("job_progress", task_id, deal_id, staged, **p))
         self.ledger.update(deal_id, status="delivered")
         # A failed job cannot turn into successful delivery by including stale results.
         result = status.result if status.status == "completed" else None
@@ -296,9 +300,23 @@ class Orchestrator:
         if start.status != "success" or not start.job_id.strip() or start.price != price:
             raise ValueError("seller did not start a valid job at the agreed price")
 
-    async def _poll(self, seller: str, job_id: str) -> StatusResponse:
+    @staticmethod
+    def _clean_progress(raw) -> dict | None:
+        """Progress comes from the seller: keep only known keys, small numbers and short text before it reaches the dashboard."""
+        if not isinstance(raw, dict):
+            return None
+        def num(v): return v if isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 10_000 else 0
+        def words(v, n): return [x[:80] for x in v if isinstance(x, str)][:n] if isinstance(v, list) else []
+        stage = raw.get("stage") if raw.get("stage") in {"starting", "planning", "searching", "reading", "writing", "done"} else "starting"
+        return {"stage": stage, "queries": words(raw.get("queries"), 4), "results_seen": num(raw.get("results_seen")),
+                "sites": words(raw.get("sites"), 5), "pages_done": num(raw.get("pages_done")), "pages_total": num(raw.get("pages_total")),
+                "pages_read": num(raw.get("pages_read")), "reads_total": num(raw.get("reads_total")),
+                "options_found": num(raw.get("options_found"))}
+
+    async def _poll(self, seller: str, job_id: str, on_progress=None) -> StatusResponse:
         # Masumi mode waits for on-chain confirmation (minutes), so the limit is generous.
         deadline = asyncio.get_running_loop().time() + JOB_TIMEOUT
+        last_progress = None
         while asyncio.get_running_loop().time() < deadline:
             r = await self.http.get(f"{seller}/status", params={"job_id": job_id})
             r.raise_for_status()
@@ -307,6 +325,10 @@ class Orchestrator:
                 raise ValueError("seller status response does not match the funded job")
             if st.status in ("completed", "failed"):
                 return st
+            progress = self._clean_progress(st.progress)
+            if on_progress and progress is not None and progress != last_progress:
+                last_progress = progress
+                on_progress(progress)
             await asyncio.sleep(self.s.poll_seconds)
         return StatusResponse(job_id=job_id, status="failed")
 

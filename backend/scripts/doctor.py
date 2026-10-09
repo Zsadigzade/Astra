@@ -103,6 +103,10 @@ def main() -> int:
     else:
         add("Viktor (LLM)", WARN, "SELLER_LLM_MODE=mock: Viktor is scripted", "set SELLER_LLM_MODE=codex to let Viktor negotiate with the same Codex login")
 
+    if s.answers_enabled and s.answer_search and not s.apify_token.strip():
+        add("Web research", WARN, "APIFY_TOKEN is empty: answers that need the web will fail and refund", "set APIFY_TOKEN (research runs through Apify)")
+    elif s.answers_enabled and s.answer_search:
+        add("Web research", OK, f"through Apify ({s.apify_search_actor}, previews: {s.apify_preview_actor or 'off'})")
     if s.answers_enabled:
         has = shutil.which(s.codex_command) is not None
         add("Any request", OK if has else FAIL, "ANSWER_MODE: non-rental requests are answered by Viktor through Codex" + ("" if has else f" (CLI '{s.codex_command}' not found)"),
