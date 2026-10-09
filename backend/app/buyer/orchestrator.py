@@ -20,7 +20,6 @@ from app.buyer.negotiator import Negotiator, make_negotiator
 from app.buyer.verifier import verify
 from app.core.config import LiveProviderUnavailable, Settings
 from app.core.models import (
-    describe_job,
     DemoMode,
     NegotiateRequest,
     NegotiateResponse,
@@ -152,14 +151,13 @@ class Orchestrator:
             max_ = make_negotiator(replace(self.s, max_rounds=max_rounds), ceiling, task.job, gullible=True)
         else:
             max_ = self.make_max(ceiling, max_rounds, task.job)
-        opening = f"Viktor, I'm looking for {describe_job(task.job)}. What is your price?"
+        opening = await max_.opening()
         req = NegotiateRequest(deal_id=deal_id, round=0, action="open", job=task.job,
                                demo_mode=task.demo_mode, message=opening)
         my_last: float | None = None
-        # Max starts the conversation with a question; Viktor's opening ask is his answer. The question is a fixed
-        # template, not a model call, so it is labelled scripted (backend="mock") in every mode and costs nothing.
         await self._say(task_id, deal_id, "max", opening,
-                        0, "open", staged, backend="mock")
+                        0, "open", staged, backend=getattr(max_, "last_backend", "mock"),
+                        fallback_reason=getattr(max_, "fallback_reason", None))
         for rnd in range(max_rounds):
             resp = await self._negotiate(req)
             await self._say(task_id, deal_id, "viktor", resp.message, resp.price, resp.action, staged,

@@ -91,6 +91,7 @@ function stop(code = 0) {
 
 process.on("SIGINT", () => stop(0));
 process.on("SIGTERM", () => stop(0));
+process.on("SIGHUP", () => stop(0)); // Windows: the console window was closed
 
 function startWeb() {
   if (stopping || children.has("web")) return;

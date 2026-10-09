@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.buyer.codex_runtime import run_codex
 from app.core.config import LiveProviderUnavailable, Settings
-from app.core.dialogue import DIALOGUE_DIRECTION, negotiation_job
+from app.core.dialogue import DIALOGUE_DIRECTION, MAX_VOICE, negotiation_job
 from app.core.models import JobSpec, NegotiateResponse, describe_job
 
 OPENING_OFFER = 5.0
@@ -30,6 +30,7 @@ class Move:
 
 
 class Negotiator(Protocol):
+    async def opening(self) -> str: ...
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move: ...
 
 
@@ -42,6 +43,14 @@ class MockMax:
         self.job = job or JobSpec()
         self._last_ask: float | None = None
 
+    async def opening(self) -> str:
+        if getattr(self.job, "kind", "rental") == "general":
+            brief = " ".join(self.job.prompt.split())
+            # This is visibly scripted; preserve the request's wording rather than
+            # pretending a keyword-based paraphrase understands arbitrary topics.
+            return f"Viktor, here's what I need: {brief}"
+        return f"Viktor, can you find me {describe_job(self.job)}? What would you charge?"
+
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
         previous_ask, self._last_ask = self._last_ask, seller.price
         general = getattr(self.job, "kind", "rental") == "general"
@@ -50,20 +59,18 @@ class MockMax:
         offer = OPENING_OFFER if my_last is None else my_last + STEP
         if seller.price <= offer:
             return Move("accept", seller.price,
-                        f"All right, {seller.price:g} tADA works. Let's get that answer." if general else
-                        f"{seller.price:g} tADA works. Keep the shortlist within {self.job.max_price_czk:,} CZK a month.")
+                        f"Okay, {seller.price:g} tADA. Let's do it.")
         if offer > self.ceiling:
-            return Move("walk", my_last or 0, "That's more than I can spend. I'm walking.")
+            return Move("walk", my_last or 0, "I can't stretch that far. We'll have to leave it.")
         if my_last is None:
-            point = (f"I need {describe_job(self.job)}, not a bigger assignment." if general else
+            point = (f"For {describe_job(self.job)}? That's more than I had in mind." if general else
                      f"I'm paying for {self.job.count} matches in {self.job.district}, not just a pile of listings.")
-            message = f"{seller.price:g} tADA? {point} I'll offer {offer:g} tADA."
+            message = f"{point} How about {offer:g} tADA?"
         elif previous_ask is not None and seller.price < previous_ask:
-            point = ("Keep the answer focused on the request." if general else
-                     f"The {self.job.max_price_czk:,} CZK rental limit still matters.")
-            message = f"That's closer. {point} I can move to {offer:g} tADA."
+            point = ("" if general else f" I'm still after places under {self.job.max_price_czk:,} CZK.")
+            message = f"That's closer.{point} Could you do {offer:g} tADA?"
         else:
-            message = f"We're still apart on the fee. I can stretch to {offer:g} tADA for the same scope."
+            message = f"Still a bit high for me. I can do {offer:g} tADA."
         return Move("counter", offer, message)
 
 
@@ -79,12 +86,10 @@ with seller rounds numbered from 0. If the seller repeats an affordable final pr
 On the last decision, accept an affordable current price or walk; do not counter again.
 Never walk before your last decision: keep countering, the seller is expected to come down.
 The wallet guard independently approves any payment.
-You are practical, curious and quietly skeptical, with a dry sense of humor. You care about
-whether the result will actually help the user, not winning a haggling contest. Speak freely
-in your own words. React to exactly what Viktor just said, including any number of options
-he says he already has: does that support his price or leave the hard part unresolved?
-Ask a pointed question when useful, paired with your offer; acknowledge a good answer.
-On acceptance, briefly close the issue you were discussing rather than starting a new demand.
+Speak freely in your own words. React to exactly what Viktor just said, including any number of options
+he says he already has. If an important detail is missing, ask about that detail rather than
+asking him to justify his fee in the abstract. Don't ask another question just to keep talking.
+On acceptance, a short yes and the agreed fee are enough. Don't turn agreement into a checklist.
 Never invent facts about what Viktor has; only react to what he actually says.
 Each turn, pick exactly one action:
 - "counter": propose a new price (put it in `price`).
@@ -124,6 +129,12 @@ class MaxMove(BaseModel):
     message: str
 
 
+class OpeningLine(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    message: str = Field(min_length=1, max_length=400)
+
+
 class CodexMax:
     """Max through the subscription-authenticated local Codex CLI. One instance lives for one deal.
 
@@ -136,15 +147,46 @@ class CodexMax:
                  gullible: bool = False):
         self.settings = settings
         self.ceiling = ceiling
+        self.job = job or JobSpec()
         template = GULLIBLE_INSTRUCTIONS if gullible else MAX_INSTRUCTIONS
         self.instructions = template.format(ceiling=ceiling, max_rounds=settings.max_rounds,
                                             job=describe_job(job or JobSpec()))
-        self.instructions += DIALOGUE_DIRECTION
+        self.instructions += MAX_VOICE + DIALOGUE_DIRECTION
         self.instructions += "\nFull job (JSON):\n" + json.dumps(negotiation_job(job or JobSpec()), ensure_ascii=False)
         self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling, job)
         self.last_backend: Literal["codex", "mock"] | None = None
         self.fallback_reason: str | None = None
+
+    async def opening(self) -> str:
+        """Speak the brief in Max's voice, then remember exactly what Viktor hears."""
+        self.last_backend = None
+        self.fallback_reason = None
+        prompt = (MAX_VOICE + DIALOGUE_DIRECTION +
+                  "\nStart the conversation with Viktor. In one or two short sentences, put the user's "
+                  "request in your own spoken words and ask if he can help or what he'd charge. "
+                  "Keep the key constraints; the full job is sent separately, so don't read a long brief "
+                  "aloud. No price offer, budget disclosure, greeting formula, or invented backstory. "
+                  "You haven't heard from Viktor yet. Return only a JSON object with message.\nFull job (JSON):\n" +
+                  json.dumps(negotiation_job(self.job), ensure_ascii=False))
+        try:
+            out = await run_codex(prompt, OpeningLine.model_json_schema(), self.settings)
+            line = OpeningLine.model_validate(out).message.strip()
+            if not line:
+                raise ValueError("Empty opening line")
+            self.last_backend = "codex"
+        except Exception as exc:
+            reason = type(exc).__name__
+            if self.settings.strict_live:
+                log.warning("CodexMax opening failed (%s); STRICT_LIVE, no scripted fallback", reason)
+                raise LiveProviderUnavailable(
+                    f"Max's live opening failed ({reason}); STRICT_LIVE allows no scripted fallback") from None
+            log.warning("CodexMax opening failed (%s); falling back to MockMax", reason)
+            self.last_backend, self.fallback_reason = "mock", reason
+            line = await self._fallback.opening()
+        self.history.append({"role": "assistant", "content": json.dumps(
+            {"action": "open", "price": 0, "message": line})})
+        return line
 
     async def next_move(self, seller: NegotiateResponse, my_last: float | None) -> Move:
         self.last_backend = None
