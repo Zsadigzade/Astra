@@ -4,11 +4,35 @@ The user selected live agents, data and voices with a strict usage limit. The pu
 gateway is separate from the recording/development services. Agent payments remain
 SIMULATED; no Masumi funding or live escrow is claimed.
 
+## Published Vercel page — 06:05
+
+**https://astra-haggle-judges.vercel.app** is public and verified without sign-in.
+It serves the accepted 89.021333-second video, the existing `the-haggle.html`
+presentation, its PDF, and a source link. It clearly says **recorded demo** and
+**interactive live access unavailable**. It works independently of this laptop.
+
+The user chose to keep the current network and publish these recorded materials
+after the tunnel's DNS lookup was refused. The later tunnel start was authorized and
+executed, but Cloudflare could not resolve its edge service records. An additional
+DNS troubleshooting command was blocked by automatic approval review. Do not continue
+tunnel troubleshooting or substitute another public live path without new direction.
+
+Production deployment: `dpl_7W8bKB9nV5WbBVhmrnDEJsk8kAdr`. The five-file package
+passed configured-secret scanning. Public verification checked hashes for the page,
+MP4, HTML deck and PDF; video byte ranges, playback and seeking; all seven slides;
+phone layout; and zero browser page errors. Evidence:
+`backend/data/judge-live/vercel-public-acceptance.json` and `vercel-manifest.json`.
+
+HQ's limitations field includes this URL with the recorded-only qualification.
+The optional Live Demo field remains blank. The required Unlisted YouTube link is
+still pending; this Vercel page does not replace that requirement.
+
+Build/publish instructions: [Vercel package](../deploy/vercel/README.md).
+
 ## Prepared runtime
 
-- Candidate URL: `https://astra.trainbud.site`. DNS route created; tunnel startup and
-  public acceptance are pending explicit domain approval after automatic review blocked
-  the start command. Do not enter this URL into HQ until the public acceptance passes.
+- Inactive backend candidate: `https://astra.trainbud.site`. DNS route exists, but
+  tunnel startup failed on network DNS. It is not a working demo URL and is not in HQ.
 - Private gateway: `127.0.0.1:9200`; private seller: `127.0.0.1:9201`.
 - Source: isolated checkout `backend/data/judge-source`, committed as `0eb7881`
   on `judge-demo-20261009`. Later main-branch changes are not deployed here.
@@ -76,8 +100,8 @@ is not the application host. Funding/registration/escrow remain unverified.
 
 ngrok is configured but its agent cannot resolve its connection hostname on this
 network, including with agent-specific DNS resolvers. Cloudflare account access and a
-new named tunnel/DNS route work; the existing Trainbud service configuration is unchanged.
-Use the separate `backend/data/judge-live/cloudflared.yml` configuration if authorized.
+new named tunnel/DNS route work, but edge DNS resolution fails. The existing Trainbud
+service configuration is unchanged. The user selected the Vercel recorded-page fallback.
 Credentials remain in the user's Cloudflare directory and must not be committed.
 
 After every current run finishes, the owning gateway can be stopped and restarted

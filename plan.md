@@ -116,6 +116,14 @@ passed **523 backend tests**; it is not a new live-profile rehearsal or final-re
 
 ## Recording setup and operator readiness
 
+**06:05 Vercel outcome:** the user chose to keep the current network and publish
+recorded materials after tunnel DNS failed. **https://astra-haggle-judges.vercel.app**
+is public: unchanged 89.021333-second MP4, existing `the-haggle.html`, PDF and source
+link. Signed-out asset hashes, playback/seek/ranges, slide navigation and phone layout
+pass. HQ limitations now include this recorded-only website; Live Demo remains blank.
+The required Unlisted YouTube URL and human listening/pitch checks remain pending.
+No further tunnel troubleshooting is pending under the user's selected fallback.
+
 **05:56 deployment/review update:** the requested live judge gateway is implemented
 and locally verified, with 12 runs overall, 3 per browser and 1 active run. Railway's
 existing Masumi node responds, but no application deployment login is configured.
