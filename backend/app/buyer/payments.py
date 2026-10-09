@@ -34,6 +34,7 @@ class InsufficientFunds(Exception):
 class Payments(Protocol):
     simulated: bool
 
+    async def find(self, deal_id: str, start: StartJobResponse) -> LockResult | None: ...
     async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult: ...
     async def release(self, deal_id: str) -> dict[str, Any]: ...
     async def refund(self, deal_id: str) -> dict[str, Any]: ...
@@ -67,11 +68,18 @@ class SimulatedPayments:
         db.execute("INSERT OR IGNORE INTO sim_wallets VALUES (?, 0)", (name,))
         db.execute("UPDATE sim_wallets SET balance = balance + ? WHERE name = ?", (delta, name))
 
+    @staticmethod
+    def _found(db, deal_id: str) -> LockResult | None:
+        row = db.execute("SELECT ref FROM sim_escrows WHERE deal_id = ?", (deal_id,)).fetchone()
+        return LockResult(ref=row["ref"], already=True) if row else None
+
+    async def find(self, deal_id: str, start: StartJobResponse) -> LockResult | None:
+        return self._found(self.ledger.db, deal_id)
+
     async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult:
         with self.ledger.tx() as db:
-            row = db.execute("SELECT ref FROM sim_escrows WHERE deal_id = ?", (deal_id,)).fetchone()
-            if row:
-                return LockResult(ref=row["ref"], already=True)
+            if found := self._found(db, deal_id):
+                return found
             bal = db.execute("SELECT balance FROM sim_wallets WHERE name = 'buyer'").fetchone()["balance"]
             if bal < amount:
                 raise InsufficientFunds(f"buyer has {bal}, needs {amount}")
@@ -135,15 +143,18 @@ class MasumiPayments:
     async def health(self) -> dict:
         return await self.client.health()
 
-    async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult:
+    async def find(self, deal_id: str, start: StartJobResponse) -> LockResult | None:
         bid = start.blockchainIdentifier
         if not bid:
             raise MasumiError("seller returned no blockchainIdentifier (is the seller in masumi mode?)")
         existing = await self.client.resolve_purchase(bid)
-        if existing:
-            return LockResult(ref=bid, already=True, info=_state(existing))
+        return LockResult(ref=bid, already=True, info=_state(existing)) if existing else None
+
+    async def lock(self, deal_id: str, amount: float, seller: str, start: StartJobResponse) -> LockResult:
+        if found := await self.find(deal_id, start):
+            return found
         purchase = await self.client.create_purchase(start.model_dump(), deal_id, amount)
-        return LockResult(ref=bid, already=False, info=_state(purchase))
+        return LockResult(ref=start.blockchainIdentifier, already=False, info=_state(purchase))
 
     async def release(self, deal_id: str) -> dict[str, Any]:
         purchase = await self.client.resolve_purchase(self._ref(deal_id))

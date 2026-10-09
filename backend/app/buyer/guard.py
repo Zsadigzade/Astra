@@ -71,6 +71,8 @@ class WalletGuard:
         deal = self.ledger.get(deal_id)
         if deal and deal["escrow_ref"]:
             return PayOutcome("already_paid", "deal already in paid list", deal["escrow_ref"])
+        if recovered := await self.recover(deal_id, start):
+            return recovered
 
         d = self.evaluate(amount, task_id, budget, deal_id)
         if d.verdict is Verdict.block:
@@ -84,6 +86,21 @@ class WalletGuard:
         res = await self._payments.lock(deal_id, amount, seller, start)
         self.ledger.update(deal_id, status="locked", escrow_ref=res.ref)
         return PayOutcome("already_paid" if res.already else "locked", "", res.ref, res.info)
+
+    async def recover(self, deal_id: str, start: StartJobResponse) -> PayOutcome | None:
+        """A "paying" deal whose lock moved money before its reply was lost: record that escrow.
+
+        It was paid under the limits in force then, so it is recorded before today's limits are
+        checked; a lower cap must not block a funded deal and strand its escrow.
+        """
+        deal = self.ledger.get(deal_id)
+        if not deal or deal["status"] != "paying" or deal["escrow_ref"]:
+            return None
+        found = await self._payments.find(deal_id, start)
+        if not found:
+            return None
+        self.ledger.update(deal_id, status="locked", escrow_ref=found.ref)
+        return PayOutcome("already_paid", "lock found after a lost reply", found.ref, found.info)
 
     async def release(self, deal_id: str) -> dict[str, Any]:
         return await self._payments.release(deal_id)

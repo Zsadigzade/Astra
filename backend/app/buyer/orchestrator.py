@@ -194,7 +194,14 @@ class Orchestrator:
         deal = self.ledger.get(deal_id)
         seller = deal["seller_url"]
 
-        if not deal["escrow_ref"]:
+        # A lost lock reply may hide money that already moved: record it before checking today's limits.
+        recovered = None
+        if deal["status"] == "paying" and not deal["escrow_ref"] and deal["start_json"]:
+            start = StartJobResponse.model_validate_json(deal["start_json"])
+            self._validate_start(start, price)
+            recovered = await self.guard.recover(deal_id, start)
+
+        if not deal["escrow_ref"] and not recovered:
             # Guard runs BEFORE the seller is even asked to start: a blocked deal costs nothing.
             d = self.guard.evaluate(price, task_id, task.budget, deal_id)
             if d.verdict is Verdict.block:
@@ -212,7 +219,8 @@ class Orchestrator:
         else:
             start = await self._start_job(seller, deal_id, price, task)
             self.ledger.update(deal_id, job_id=start.job_id, start_json=start.model_dump_json())
-        out = await self.guard.pay(deal_id, price, task_id, task.budget, seller, start, approved=approved)
+        out = recovered or await self.guard.pay(deal_id, price, task_id, task.budget, seller, start,
+                                                approved=approved)
         if out.kind == "blocked":
             return await self._blocked(task_id, deal_id, task, price, out.reason, staged)
         if out.kind == "needs_approval":  # should not happen: approval handled above

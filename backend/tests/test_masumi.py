@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from app.buyer.app import create_app as create_buyer
+from app.buyer.guard import WalletGuard
 from app.buyer.ledger import Ledger
 from app.buyer.payments import MasumiPayments
 from app.core.config import Settings
@@ -74,5 +75,30 @@ async def test_act3_lock_twice_pays_once(tmp_path):
     first = await payments.lock(deal_id, 7, "seller", start)
     second = await payments.lock(deal_id, 7, "seller", start)  # buyer restarted mid-deal
     assert (first.already, second.already) == (False, True)
+    assert len(fake.state.purchases) == 1
+    await masumi_http.aclose()
+
+
+@pytest.mark.anyio
+async def test_lost_purchase_reply_is_recorded_under_a_lower_cap(tmp_path):
+    s = masumi_settings(tmp_path)
+    fake = create_fake_masumi()
+    masumi_http = httpx.AsyncClient(transport=httpx.ASGITransport(app=fake))
+    ledger = Ledger(":memory:")
+    payments = MasumiPayments(s, ledger, masumi_http)
+    deal_id = "0123456789abcdef0123"
+    ledger.create_deal(deal_id, "t-1", "{}", "http://seller")
+    pay = await payments.client.create_payment(s.masumi_agent_id, "c" * 64, deal_id, 7, 20, 40)
+    start = StartJobResponse(status="success", job_id="j-1", price=7, agentIdentifier=s.masumi_agent_id,
+                             sellerVKey=s.seller_vkey, inputHash="c" * 64,
+                             **{k: pay[k] for k in ("blockchainIdentifier", "payByTime", "submitResultTime",
+                                                    "unlockTime", "externalDisputeUnlockTime")})
+    await payments.lock(deal_id, 7, "seller", start)  # purchase accepted on chain, reply lost
+    ledger.update(deal_id, status="paying", price=7)
+    guard = WalletGuard(ledger, payments, cap=5, approval_over=4)  # limits lowered before restart
+    out = await guard.pay(deal_id, 7, "t-1", 20, "seller", start)
+    assert (out.kind, out.ref) == ("already_paid", pay["blockchainIdentifier"])
+    assert out.info["on_chain_state"] == "FundsLocked"
+    assert ledger.get(deal_id)["escrow_ref"] == pay["blockchainIdentifier"]
     assert len(fake.state.purchases) == 1
     await masumi_http.aclose()
