@@ -87,6 +87,13 @@ public evidence. Extract it before opening the HTML. The MP4 hash is unchanged;
 explicitly selected files were checked against seven configured secret values with
 zero matches. This small kit complements the larger raw/source backup.
 
+The separately added [seven-slide deck](../the-haggle.html) is also included as HTML
+and `the-haggle-full-deck.pdf`. Its claims now match the recorded live data, simplified
+negotiation/map are labelled illustrative, and the simulated/staged/Preprod disclosure
+stays visible. All seven slides passed offline Edge layout/navigation checks and were
+visually reviewed; the PDF has seven pages. Use this longer deck for discussion or
+selected supporting slides, not a seven-slide tour during the 60-second pitch.
+
 [HQ draft](https://hq.agents007.ai/submit) is saved with the project name, pitch, problem/value, working scenario, honest limitations, stack and public repository. No final submission has been sent. User will upload the final MP4 to YouTube as **Unlisted** and provide the link.
 
 At 05:26 the user explicitly selected **Best ElevenLabs Use**. The checkbox is now

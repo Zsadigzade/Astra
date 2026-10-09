@@ -10,7 +10,7 @@ secret values with zero matches; reachable contents checked at 72 commits / 778 
 working-source scan has one reviewed finding: the existing nonsecret Apify run-reference
 line. All 61 local Markdown links in the changed documentation resolve. The 92 checked
 application/dependency files still match the captured source; only presentation and
-documentation files changed in this pass. The portable kit's 12 asset files also pass
+documentation files changed in this pass. The portable kit's selected asset files also pass
 the private known-secret comparison, and its ZIP integrity check passes.
 
 The new presenter HTML passed Edge checks for timer start/pause/reset, warning after

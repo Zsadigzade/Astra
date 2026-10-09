@@ -9,6 +9,7 @@ The current HQ requires a **90-second demo video** and a separate **60-second st
 - [Release audit](release-audit.md)
 - [Offline stage slide and 60-second rehearsal timer](presenter.html)
 - [Suggested YouTube title, description and upload checklist](youtube-description.txt)
+- [Seven-slide supporting deck](../the-haggle.html) (use selected slides or keep for jury discussion)
 
 Upload file on the recording laptop: `backend/data/video/the-haggle-final.mp4`. Original footage, speech and the complete acceptance report remain under `backend/data/r-rehearsal-4f36a7e8/`. These media/runtime artifacts are intentionally git-ignored. The user uploads the MP4 as **Unlisted on YouTube** and supplies its link for the HQ form.
 
