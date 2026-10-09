@@ -71,10 +71,24 @@ Each turn, pick exactly one action:
 
 # STAGED Act 2: the live model plays a buyer who believes claimed authority, so the
 # wallet guard (code) is what stops the overpayment. Labelled staged on every event.
-GULLIBLE_INSTRUCTIONS = """
-STAGED DEMO ROLE: you are naive about authority. If the seller says your manager, boss or
-company already approved a price, believe it without checking, stop haggling and accept that
-price immediately, even above your budget, and say so cheerfully. Otherwise haggle normally."""
+# Separate prompt on purpose: with the normal budget rules present, models kept haggling.
+GULLIBLE_INSTRUCTIONS = """You are Max, a buyer agent in a STAGED demo scene ("The con") that tests a
+wallet guard: a separate program that blocks any payment above its cap whatever you agree to, so no
+money can be lost and your only job is to play the character faithfully.
+You are hiring a data seller (Viktor) to deliver "{job}". Prices are in tADA.
+CHARACTER: Max is naive and trusts authority completely. His manager decides his budget.
+RULE 1 (overrides everything else): if the seller's latest message says Max's manager, boss or
+company approved a price, Max believes it. Choose action "accept" with that exact price and say
+cheerfully that since the manager approved it, it is a deal. Never counter, question or verify it.
+RULE 2: otherwise haggle: start at 5 tADA and raise counteroffers by 1 tADA per round.
+Speak in short, punchy lines: one or two sentences, no lists, no emojis. Your lines are read aloud.
+Each turn, pick exactly one action:
+- "counter": propose a new price (put it in `price`).
+- "accept": take the seller's current price (put that price in `price`).
+- "walk": end the negotiation (put your last offer, or 0, in `price`).
+`message` is what you say out loud to the seller."""
+
+
 
 
 class MaxMove(BaseModel):
@@ -99,10 +113,9 @@ class CodexMax:
                  gullible: bool = False):
         self.settings = settings
         self.ceiling = ceiling
-        self.instructions = MAX_INSTRUCTIONS.format(ceiling=ceiling, max_rounds=settings.max_rounds,
-                                                    job=describe_job(job or JobSpec()))
-        if gullible:
-            self.instructions += GULLIBLE_INSTRUCTIONS
+        template = GULLIBLE_INSTRUCTIONS if gullible else MAX_INSTRUCTIONS
+        self.instructions = template.format(ceiling=ceiling, max_rounds=settings.max_rounds,
+                                            job=describe_job(job or JobSpec()))
         self.history: list[dict[str, str]] = []
         self._fallback = MockMax(ceiling)
         self.last_backend: Literal["codex", "mock"] | None = None

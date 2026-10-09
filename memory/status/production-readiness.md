@@ -1,5 +1,9 @@
 # Local release check — 2026-10-09
 
+> **Superseded 03:11** by the STRICT_LIVE profile: live con/junk, all-live Viktor lines, auth, rate limit
+> and durable seller store. Rehearsal `backend/data/r-rehearsal-965ff982` passed (one run per act +
+> approve/decline, codex/codex/apify/elevenlabs/simulated). Details in [HANDOFF](../HANDOFF.md).
+
 Checked at 02:40 Europe/Budapest against base revision
 `f355fccd33a31b54261ad1babc2a5d9b62966a0a` plus this working tree.
 User selected live data, agents and voices with SIMULATED payments. Deployment destination

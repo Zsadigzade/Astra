@@ -1,6 +1,21 @@
 # Handoff — integrated main
 
-updated: 2026-10-09 01:53 +02:00 · I07–I14 integrated acceptance
+updated: 2026-10-09 03:11 +02:00 · everything live except payments
+
+## Everything live except payments + hardening (2026-10-09 03:11 +02:00)
+
+- Root `.env` now `STRICT_LIVE=1` with `API_TOKEN`, `SELLER_API_TOKEN`, `RATE_LIMIT_PER_MINUTE=60`
+  (values private). Startup refuses any non-live provider; Codex/Apify failures error/refund
+  instead of scripted lines or cached listings; voice alone degrades to text. Payments SIMULATED.
+- Act 2 con is live (dedicated gullible-Max prompt + live Viktor con line; code fixes 25) and the guard
+  blocks. Act 4 junk scrapes live then ships 3 sabotaged listings, refund. All Viktor lines live.
+- Auth (header or `?token=` for SSE/audio), per-client rate limit, SQLite seller store
+  (`SELLER_STORE_PATH`) with job resume. Launcher EXE rebuilt; Sample profile forces STRICT_LIVE=0.
+- Evidence: 575 backend / 54 frontend tests, build; live rehearsal `backend/data/r-rehearsal-965ff982`
+  passed all 4 acts + approve/decline (live Apify runs incl. junk, zero fallbacks, 45 clips, 77/23/0).
+  First attempt `r-rehearsal-8336dcfa` failed Act 2 (live Max refused the con) — see TRAPS (con prompt entry).
+- Services restarted via `npm start` on 8000/8001/5173 with live modes (old up.py + vite session stopped
+  with no open deals). Not committed. Still not public hosting (Codex local sign-in, dev token in bundle).
 
 ## Local live-provider release check (2026-10-09 02:40 +02:00)
 

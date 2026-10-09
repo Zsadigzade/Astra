@@ -89,7 +89,7 @@ async def test_staged_con_is_live_and_the_guard_still_blocks(tmp_path, monkeypat
     events, balances = await run_task(tmp_path, "con", settings=settings)
     lines = [e for e in events if e.type == "negotiation" and e.data["action"] != "walk"]
     assert lines and all(e.data["backend"] == "codex" and e.staged for e in lines)
-    assert all("STAGED DEMO ROLE" in prompt for prompt in max_prompts)
+    assert all("STAGED demo scene" in prompt and "RULE 1" in prompt for prompt in max_prompts)
     assert "blocked" in {e.type for e in events}
     assert "escrow_locked" not in {e.type for e in events}
     assert balances["buyer"] == 100
