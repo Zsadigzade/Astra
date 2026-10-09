@@ -10,9 +10,8 @@ SIMULATED; no Masumi funding or live escrow is claimed.
   public acceptance are pending explicit domain approval after automatic review blocked
   the start command. Do not enter this URL into HQ until the public acceptance passes.
 - Private gateway: `127.0.0.1:9200`; private seller: `127.0.0.1:9201`.
-- Source: isolated checkout `backend/data/judge-source`, based on `d6b19a3`, with
-  `backend/app/judge.py`, `backend/scripts/judge.py`, and their tests added.
-  Other unfinished backend/UI changes in the shared checkout are not deployed.
+- Source: isolated checkout `backend/data/judge-source`, committed as `0eb7881`
+  on `judge-demo-20261009`. Later main-branch changes are not deployed here.
 - State: `backend/data/judge-live/`. Quota, each browser's ledger/audio and seller state
   persist here. Never delete it to bypass quota or reset an unfinished payment.
 - Production static assets are built with same-origin `/buyer` and `/seller` URLs and
@@ -53,6 +52,21 @@ it is not a browser control for judges.
 - Live public acceptance still required: HTTPS, fresh browser session, same-origin task
   creation, real streamed events, live Codex/Apify/ElevenLabs, audio playback, one release,
   and a second session unable to read the first. This acceptance consumes one of 12 runs.
+
+## Later main-branch review (05:56)
+
+The merged UI/general-answer revision `cc10f94` passed 679 backend tests, 63 frontend
+tests and the production build in `backend/data/final-review`. Its browser passed
+sample normal/con/refund runs, fourth-run rejection and separate-session history,
+with zero page errors. Initial and completed desktop screenshots were inspected.
+The subsequent funded-recovery revision `cb7a3be` passed all 66 affected tests.
+Seven configured secret values were absent from all 223 tracked files at `cb7a3be`;
+Gitleaks found no leaks in the three new commits since `d6b19a3`.
+
+Evidence: `backend/data/final-review-check/{browser-report,source-review,gitleaks-delta}.json`.
+Those results do not establish live general-answer/search acceptance. The prepared
+public judge instance remains pinned to the already rehearsed rental workflow plus
+the isolated gateway. The accepted video and presentation ZIP remain unchanged.
 
 ## Hosting checks and recovery
 

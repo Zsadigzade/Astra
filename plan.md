@@ -116,6 +116,19 @@ passed **523 backend tests**; it is not a new live-profile rehearsal or final-re
 
 ## Recording setup and operator readiness
 
+**05:56 deployment/review update:** the requested live judge gateway is implemented
+and locally verified, with 12 runs overall, 3 per browser and 1 active run. Railway's
+existing Masumi node responds, but no application deployment login is configured.
+The separate Cloudflare route is prepared; automatic approval review blocked tunnel
+startup, so public acceptance and adding the URL to HQ remain pending. Details and
+the latest UI/backend review evidence: [judge deployment](video/judge-demo.md).
+The new UI passed sample browser acceptance; the public instance remains pinned to
+`0eb7881`. The recorded video remains `1d9173c`. Main is separately reviewed through
+`cb7a3be` (679 tests at the merge, 66 affected tests after recovery changes, 63 frontend
+tests/build, source/delta secret checks). No live acceptance of the new general-answer
+feature is claimed. HQ now names the project **The Haggle**; preserve that user edit.
+ElevenLabs remains selected. The required YouTube URL is still missing.
+
 - [x] **P01 · NEW** Record the chosen demo profile and code revision in [video/production.md](video/production.md), including model modes, data source, voice and payment mode. The baseline above already passed archived R02/R05; a changed model/payment profile needs its relevant rehearsal before capture. Select SIMULATED at the 01:00 gate if live proof is still missing.
 - [ ] **D01** Run Act 1 on every laptop. Root `npm start` installs dependencies and starts all three services; a fresh source checkout passed locally without keys. Each teammate still needs to confirm startup; subscription mode requires their own `codex login`. Reset only a disposable simulated ledger. Record each laptop's result and profile.
 - [ ] **P02 · NEW** Software sequence complete: recorded launch/acts/approval/crash, plus isolated Pause/Resume, real saved-audio Play/Stop/Mute/replay/speed and safe reset. Evidence: `backend/data/r-rehearsal-e56af9a2/report.json`; no new provider calls. [Runbook and stage materials](video/production.md) are ready. Remaining human steps: select speaker, time one pitch and confirm audible playback on the presentation laptop. Preserve the seller during funded recovery.
