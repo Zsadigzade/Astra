@@ -25,11 +25,34 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from app.core.config import get_settings  # noqa: E402
+from app.core.models import JobSpec  # noqa: E402
+from app.seller.apify import load_cache  # noqa: E402
 
 
 def require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def speech_lines(events):
+    """Resolve additive audio events without confusing reused IDs from another deal."""
+    audio = {}
+    for event in events:
+        if event["type"] == "audio_ready":
+            data = event["data"]
+            audio[(event.get("deal_id"), data.get("message_id"), data.get("message_ts"))] = data
+    lines = []
+    for event in events:
+        if event["type"] != "negotiation":
+            continue
+        line = dict(event["data"])
+        update = audio.get((event.get("deal_id"), event["id"], event["ts"]))
+        if update is not None:
+            line.update(audio_url=update.get("audio_url"), audio_status=update.get("audio_status"))
+            if update.get("reason"):
+                line["audio_reason"] = update["reason"]
+        lines.append(line)
+    return lines
 
 
 class Rehearsal:
@@ -178,20 +201,27 @@ class Rehearsal:
                         client.post(f"/approvals/{deal_id}", json={"approve": approval}).raise_for_status()
                     answered = True
                 if terminal in types:
-                    break
-                require(not ({"released", "refunded", "walked_away"} & types), f"{label}: wrong outcome")
+                    if not any(line.get("audio_status") == "pending" for line in speech_lines(events)):
+                        break
+                else:
+                    require(not ({"released", "refunded", "walked_away"} & types), f"{label}: wrong outcome")
             else:
                 raise RuntimeError(f"{label}: 240-second deadline exceeded")
             counts = Counter(e["type"] for e in events)
             require(all(e["simulated"] for e in events), "non-simulated event")
             require(expected in types, f"{label}: missing {expected}")
-            speech = [e["data"] for e in events if e["type"] == "negotiation"]
+            speech = speech_lines(events)
             max_lines = [e for e in speech if e["speaker"] == "max" and e.get("backend") != "guard"]
             require(max_lines and all(e.get("backend") == ("mock" if act == 2 else "codex")
                                      and not e.get("fallback_reason") for e in max_lines), "Codex fallback occurred")
             require(all(e.get("backend") == "mock" for e in speech if e["speaker"] == "viktor"), "unexpected seller mode")
-            require(speech and all(e.get("audio_url") for e in speech), "ElevenLabs text fallback occurred")
+            interrupted = [e for e in speech if not e.get("audio_url")
+                           and e.get("audio_reason") == "buyer_restarted" and crash and restarted]
+            require(speech and all(e.get("audio_url") or e in interrupted for e in speech),
+                    "ElevenLabs text fallback occurred")
             for line in speech:
+                if not line.get("audio_url"):
+                    continue  # explicitly recorded intentional-crash interruption, never a provider success
                 audio = client.get(line["audio_url"]).raise_for_status()
                 require(len(audio.content) > 100 and audio.headers.get("content-type", "").startswith("audio/"), "invalid speech clip")
             if expected == "blocked":
@@ -222,7 +252,9 @@ class Rehearsal:
                     require(self.page.get_by_text("STAGED SCENARIO", exact=True).first.is_visible(), "STAGED badge missing")
                 self.capture(label, deal_id)
             result = {"label": label, "deal_id": deal_id, "outcome": expected, "codex_turns": sum(e.get("backend") == "codex" for e in max_lines),
-                      "speech_clips": len(speech), "text_fallbacks": 0, "buyer_restarts": int(restarted),
+                      "speech_clips": sum(bool(e.get("audio_url")) for e in speech),
+                      "text_fallbacks": len(interrupted), "crash_interrupted_speech": len(interrupted),
+                      "provider_text_fallbacks": 0, "buyer_restarts": int(restarted),
                       "event_counts": dict(counts), "balances": balances, "seconds": round(time.monotonic() - start, 1)}
             self.report["runs"].append(result)
             self.save()
@@ -279,7 +311,7 @@ def main():
     settings = get_settings()
     require(settings.elevenlabs_api_key and settings.voice_max and settings.voice_viktor,
             "Configure ElevenLabs credentials and both voice IDs first")
-    require(Path(settings.apify_cache_path).is_file(), "Recover the saved real Apify cache first")
+    load_cache(JobSpec(), settings)  # accepts validated per-job or legacy cache; enforces age policy
     Rehearsal(args.browser).run()
 
 

@@ -131,6 +131,8 @@ class JobResult(BaseModel):
     actor_id: str | None = None
     dataset_id: str | None = None
     run_id: str | None = None
+    cache_stale: bool = False
+    cache_age_seconds: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class StatusResponse(BaseModel):
@@ -144,6 +146,7 @@ class StatusResponse(BaseModel):
 EventType = Literal[
     "task_created",
     "negotiation",  # data: speaker, text, price, action, audio_url
+    "audio_ready",  # data: message_id, message_ts, audio_url, audio_status
     "quote",  # data: agreed price
     "needs_approval",
     "approved",

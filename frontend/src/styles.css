@@ -682,3 +682,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .ghost-above { height: 46px; }
   .coin { width: 62px; height: 62px; margin-bottom: 44px; }
 }
+
+/* audio toolbar: speed and replay stay compact next to the tabs */
+.voice { gap: 4px; }
+.voice-select { max-width: 78px; padding: 3px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-2); font-size: 12px; transition: border-color var(--t); }
+.voice-select:hover { border-color: var(--text-3); }
+.voice-replay { max-width: 132px; }
+@media (max-width: 760px) { .voice-replay, .voice-select:not(.voice-replay) { display: none; } }

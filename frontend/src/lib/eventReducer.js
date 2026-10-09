@@ -2,6 +2,7 @@
 // Everything shown on the dashboard comes from here; nothing is invented that the backend did not send.
 import { describeEvent, provenanceOf } from "./eventLabels.js";
 import { tada } from "./formatters.js";
+import { audioLines } from "../audioEvents.js";
 
 export const STAGES = [
   ["negotiate", "Negotiate", "Max and Viktor agree a price"],
@@ -119,7 +120,7 @@ export function usageOf(events) {
     else if (o === "refunded") refunded += price;
     else if (lock) locked += price;
   }
-  const lines = events.filter((e) => e.type === "negotiation");
+  const lines = audioLines(events);
   const provenance = lines.map(provenanceOf);
   return {
     deals: dealIds.length,
@@ -166,11 +167,12 @@ export function dealsOf(events) {
 
 // dealId picks a past deal to look at; without it (or if unknown) the latest deal is shown.
 export function deriveDealState(events, dealId = null) {
-  const latestId = [...events].reverse().find((e) => e.deal_id)?.deal_id ?? null;
+  // Delayed speech for an older deal must not switch the active workspace.
+  const latestId = [...events].reverse().find((e) => e.deal_id && e.type !== "audio_ready")?.deal_id ?? null;
   const current = dealId && events.some((e) => e.deal_id === dealId) ? dealId : latestId;
   const deal = current ? byDeal(events, current) : [];
   const created = deal.find((e) => e.type === "task_created");
-  const chat = deal.filter((e) => e.type === "negotiation").map((e) => ({ ...e, provenance: provenanceOf(e) }));
+  const chat = audioLines(deal).map((e) => ({ ...e, provenance: provenanceOf(e) }));
   const lastPrice = (who) => [...chat].reverse().find((e) => e.data.speaker === who && e.data.price > 0)?.data.price ?? null;
   const outcome = outcomeOf(deal);
   const stages = stagesOf(deal);

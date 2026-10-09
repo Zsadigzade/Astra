@@ -39,7 +39,8 @@ async def test_codex_failure_is_visible_in_honest_negotiation(tmp_path, monkeypa
 
 
 @pytest.mark.anyio
-async def test_cached_delivery_provenance_survives_seller_buyer_flow(tmp_path, monkeypatch):
+@pytest.mark.parametrize("stale", [False, True])
+async def test_cached_delivery_provenance_survives_seller_buyer_flow(tmp_path, monkeypatch, stale):
     from app.seller.job import sample_flats
     import app.seller.app as seller_app
 
@@ -47,7 +48,8 @@ async def test_cached_delivery_provenance_survives_seller_buyer_flow(tmp_path, m
         # Synthetic fixture to verify transport, never saved as a real scrape.
         return JobResult(flats=sample_flats(job), source="apify_cached",
                          fetched_at="2026-10-08T20:00:00+00:00", actor_id="test/actor",
-                         dataset_id="test-dataset", run_id="test-run")
+                         dataset_id="test-dataset", run_id="test-run",
+                         cache_stale=stale, cache_age_seconds=90000 if stale else 10)
 
     monkeypatch.setattr(seller_app, "run_job", cached_job)
     events, _ = await run_task(tmp_path, "honest")
@@ -55,6 +57,8 @@ async def test_cached_delivery_provenance_survives_seller_buyer_flow(tmp_path, m
     assert delivered.data["source"] == "apify_cached"
     assert delivered.data["result"]["run_id"] == "test-run"
     assert delivered.data["result"]["fetched_at"] == "2026-10-08T20:00:00+00:00"
+    assert delivered.data["result"]["cache_stale"] is stale
+    assert delivered.data["result"]["cache_age_seconds"] == (90000 if stale else 10)
     assert "released" in {e.type for e in events}
 
 

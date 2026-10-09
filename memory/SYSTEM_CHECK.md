@@ -1,5 +1,35 @@
 # Integrated system check — 2026-10-08/09
 
+## Integrated I07–I14 acceptance — 2026-10-09 01:53 +02:00
+
+- Final backend: **527 tests passed in 26.81s** on Python 3.13. Reproduce from `backend/`: `.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --tb=short`. Frontend: **41 tests and production build pass**. Focused data/cache/reporting: 88 tests; TTS/cache/fresh-probe: 46 tests; async voice: nine tests.
+- All eight new I features are implemented; I13/I14 came from the parallel terminal sessions. Completed IDs are in [the archive](archive/COMPLETED.md); plan retains 19 release/conditional/optional tasks. No API-token model access was added.
+- Freshness/multi-cache coverage includes exact age boundary, expired rejection/explicit stale override, future/corrupt rejection, legacy compatibility, concurrent atomic writes and preservation after failed writes. GET-only recovery of `ZNboU2b0EHUJgFaEQ` inspected 22 valid records and selected 20, preserving `2026-10-08T21:05:09.035000+00:00`; no new Actor run.
+- Speech coverage includes exact-key reuse, changed voice/model isolation, content checksum/size validation, bounded admission preserving legacy/published clips, duplicate callers and repeated cancellation. Explicit voice probes request fresh synthesis: cached audio cannot hide current provider failure.
+- Text-first integration verifies a full SIMULATED deal can settle while speech remains pending. Audio updates bind to message ID/timestamp and task/deal; ordered playback, shutdown/recovery, late old-deal events, replay and speed controls are covered. Synthetic Edge at 1920x1080 passes keyboard controls, stale-data visibility, no new-deal autoplay, no overflow and zero page errors. Report/screenshot/helper: `backend/data/i11-voice-ui/`; screenshot reviewed.
+- **Live four-act check passed** with subscription Max / scripted Viktor / cached real Apify / ElevenLabs / SIMULATED money. One run each: Act 1 release (16.8s), Act 2 blocked (2.4s), Act 3 actual buyer crash/recovery/release (16.0s), Act 4 refund (14.4s). Nine Codex turns, 27 served MP3s, zero fallback, seller survived the buyer crash, one lock and one already_paid on recovery; final balances **86/14/0**. Evidence: `backend/data/r-rehearsal-72848658/report.json`; all owned services stopped.
+- Earlier attempts `r-rehearsal-24c77b37` and `r-rehearsal-14d26dcd` exposed seller ReadError between model turns. Fresh buyer-owned HTTP connections avoid idle keep-alive reuse; the new real-HTTP regression deliberately drops reused connections and verifies settlement without replayed negotiation rounds or duplicate start_job calls. Earlier passing single Act 1: `r-rehearsal-2ad99f64`.
+- Rehearsal now resolves asynchronous audio and waits for bounded completion. Actual-crash `buyer_restarted` interruptions are explicitly counted as text fallback, separately from provider failure; unavailable clips never count as served speech. The successful four-act run above had zero interrupted clips because existing speech was reusable.
+- Limits: one run per act is not a new three-repeat R02 acceptance; synthetic browser audio is not the live speech playback evidence. Recording/timing/export, every-laptop startup and live Preprod remain separate gates. No existing .env, application ledger or unrelated service was changed. Code was concurrently consolidated in `b5c7246`; final transport/probe regressions accompany this memory update.
+
+## I13 concurrency and recovery — recorded 2026-10-09 01:45 +02:00
+
+- **145 focused tests passed in 3.67s** across subscription runtime/capacity, Max/Viktor, guard and I14 readiness. **523 full backend tests passed in 51.99s** on the shared working-tree snapshot; `git diff --check` passed.
+- Concurrent deals share the configured service limit. Six actual local Python child processes never exceeded two simultaneous children. Queue expiry/cancellation starts no child; repeated cancellation retains capacity until owned child cleanup completes.
+- Repeated CLI failures produce prompt labelled scripted fallback. Cooldown permits one later recovery probe; success restores turns, failure restarts the local cooldown. Late pre-cooldown completions cannot clear it. Caller cancellation and queue rejection do not count as provider failure.
+- Queue waiting consumes the existing total turn deadline. Defaults: `CODEX_MAX_CONCURRENT=2`, `CODEX_QUEUE_TIMEOUT_SECONDS=5`, `CODEX_FAILURE_THRESHOLD=3`, `CODEX_COOLDOWN_SECONDS=15`. No API-token access or provider quota-reset prediction; guard/floor enforcement is unchanged.
+- Reproduce from `backend/`: `.\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider --basetemp=data/i13-full-tests-next`. Focused file list and implementation details: [runtime status](status/i13-runtime.md).
+- I13 validation used local/fake providers, with no live inference, synthesis, Actor runs, payments, service restarts or ledger resets. The full-suite result includes concurrent changes present at collection; it does not sign off later edits, I07–I12's full acceptance, a final revision or a live-profile rehearsal. This memory update ran no new application tests.
+
+## I14 local profile readiness — 2026-10-09 01:41 +02:00
+
+- Added `backend/scripts/readiness.py`; run from `backend/` with `uv run python scripts/readiness.py`. Defaults inspect local configuration, Codex login status, cache contents and audio storage. They start no Actor runs, synthesize no speech and move no money.
+- Completion check: `.\.venv\Scripts\python.exe -m pytest tests/test_readiness.py tests/test_llm_check.py tests/test_codex_runtime.py -q` — **62 passed** (30 readiness tests). Covers default-path provider isolation, actionable failures, output redaction, exact cache match/provenance, freshness/override, voice/storage settings, opt-in probe routing, bounded login output, timeout and cancellation cleanup.
+- Actual local command: **exit 0** with subscription Max / scripted Viktor / CACHED APIFY / configured ElevenLabs. Twenty rentals matched; original cache timestamp `2026-10-08T21:05:09.035000+00:00`, run `ZNboU2b0EHUJgFaEQ`, dataset `mQFAkf7uENEXNnjN6`. Audio temporary write/read/remove succeeded.
+- Sandbox could not confirm the existing Codex sign-in; approved execution outside the sandbox confirmed ChatGPT login. The checker never reads authentication files directly or prints credentials/child output.
+- `--live-probe` opts into enabled subscription-agent and voice checks (voice credits). Probe routing was tested with fakes; no live probes, paid scrapes, speech synthesis, payment calls, service restarts or ledger resets were performed by this session.
+- This is focused working-tree evidence, not full-suite/final-revision acceptance. Later I07–I13 changes need their owners' checks and any affected-profile rehearsal. Quota/model availability, voice access/synthesis, live escrow and full E2E remain unverified by the default command. Details: [readiness status](status/readiness.md).
+
 ## R02/R05 completion — 2026-10-09 00:51 +02:00
 
 Final profile: `LLM_MODE=codex`, `SELLER_LLM_MODE=mock`, `APIFY_MODE=cached`,

@@ -1,20 +1,18 @@
 # ziya — status
-updated: 2026-10-09 01:30
-doing: added eight proposed I-path features (I07–I14) with acceptance criteria and dependencies; implementation not started
-touching: plan.md, memory/HANDOFF.md, memory/DECISIONS.md and own status
-blocked on: nothing for I path; live Masumi remains outside this task
-next: release gates first; next development priorities I14 readiness, I07 cache freshness and I10 speech reuse
+updated: 2026-10-09 01:53 +02:00
+doing: I07–I12 complete and integrated with parallel I13/I14; final acceptance complete; ready for recording gates
+touching: data/voice/audio integration, tests, plan/archive and shared memory; preserve other terminal changes
+blocked on: nothing for I completion; live Masumi/video acceptance remains separate
+next: P01/D01/P02 then V02 recording readiness; O01/O02 remain optional follow-ups
 done today:
-- I completion: isolated commit passes 390 backend tests on Python 3.11/3.13 (392 with pending R tests); 33 frontend tests/build and Edge provenance checks pass.
-- Live two-agent Act 1: 3 Max + 4 Viktor Codex turns, 20 genuine cached flats, 7 voice clips, no fallback; SIMULATED release in 42.2s.
-- Clean-checkout npm start and 10 real-HTTP terminal scenarios pass; replay selects the latest deal and skips stale approvals.
-- Endurance stopped on return at 20m55s: 21 cycles, 135 outcomes, five concurrent batches; no failures or pending work; SIMULATED balances 51/49/0.
-- Fixed repeated Codex cancellation, strict move/cache/rent validation, bounded TTS, seller-response binding, legacy recovery and terminal replay.
-- Audited merged work from Ziya, Murad and Mais, including late UI update 2d0d987; latest frontend tests/build/browser rerun pass.
-- Fixed lost-payment-response recovery, invalid money inputs, delivery verification and unconfirmed Masumi release reporting.
-- Fixed buyer shutdown cleanup, provider error-body exposure and runner port consistency.
-- Fixed offline pause errors, escrow/scheduled-release totals, task budget display and control wording.
-- All I01–I06 checklist items are verified; R/video sessions own their remaining acceptance work. Existing .env stays unchanged.
-- Browser: all three UI acts, approve/decline, controls, offline/reconnect, theme and responsive widths pass; zero errors.
-- Final hosted Masumi node-only check passes health/auth/Preprod source; initial 401 resolved.
-- Details and local evidence paths: memory/SYSTEM_CHECK.md. Existing ledgers, .env and unrelated services preserved.
+- Exact-job multi-cache, one-day freshness limit/explicit labelled override, validation reports and legacy compatibility.
+- Recovered existing Apify run with GET only: 22 valid records, 20 selected, original timestamp kept; no new Actor run.
+- Speech cache/deduplication, bounded retention/admission, repeated-cancellation cleanup and fresh-only readiness probes.
+- Immediate transcript with ordered asynchronous speech, exact message identity, recovery labels, replay/speed and safe Stop/Mute/deal changes.
+- Fixed recurring live seller ReadError by disabling idle HTTP connection reuse; real HTTP regression passes without retrying offers.
+- Integrated all eight new I tasks; 31 completed tasks archived, 19 remaining release/conditional/optional tasks preserved.
+- Live four-act run: 9 Codex turns, 27 speech clips, zero fallback, one actual buyer crash recovered with one payment; final SIMULATED balances 86/14/0.
+- Frontend: 41 tests/build and synthetic Edge keyboard/layout checks pass; 1920x1080 screenshot reviewed.
+- Full backend: 527 tests pass in 26.81s, including fresh-probe and real-HTTP regressions; reproduction in memory/SYSTEM_CHECK.md.
+- Evidence: backend/data/r-rehearsal-72848658/ and backend/data/i11-voice-ui/. All owned services stopped.
+- Existing .env, application ledgers and unrelated terminal services preserved; I13/I14 owners retain their status files.

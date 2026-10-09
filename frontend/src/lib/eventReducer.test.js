@@ -18,6 +18,25 @@ const honest = () => [
   ev("released", { price: 7 }),
 ];
 
+test("delayed speech hydrates its original line without selecting an older deal", () => {
+  const line = ev("negotiation", { audio_status: "pending", text: "Hello" });
+  const created = ev("task_created", {}, { deal_id: "new" });
+  const completion = ev("audio_ready", { message_id: line.id, message_ts: line.ts,
+    audio_status: "ready", audio_url: "/audio/hello.mp3" });
+  const view = deriveDealState([line, created, completion]);
+  assert.equal(view.dealId, "new");
+  assert.equal(view.usage.voice, 1);
+  assert.equal(deriveDealState([line, completion]).chat[0].data.audio_url, "/audio/hello.mp3");
+});
+
+test("stale cached delivery facts survive derivation without changing provenance", () => {
+  const view = deriveDealState([ev("delivered", { items: 20, source: "apify_cached",
+    result: { cache_stale: true, cache_age_seconds: 172800, fetched_at: "2026-10-07T00:00:00Z" } })]);
+  assert.equal(view.delivery.source, "apify_cached");
+  assert.equal(view.delivery.result.cache_stale, true);
+  assert.equal(view.delivery.result.cache_age_seconds, 172800);
+});
+
 test("honest deal runs every stage to done and counts released spend", () => {
   const v = deriveDealState(honest());
   assert.equal(v.outcome, "released");

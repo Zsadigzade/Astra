@@ -23,6 +23,10 @@ class Settings:
     codex_command: str = field(default_factory=lambda: os.getenv("CODEX_COMMAND", "codex"))
     codex_model: str = field(default_factory=lambda: os.getenv("CODEX_MODEL", ""))
     codex_timeout_seconds: float = field(default_factory=lambda: _f("CODEX_TIMEOUT_SECONDS", 30))
+    codex_max_concurrent: int = field(default_factory=lambda: int(os.getenv("CODEX_MAX_CONCURRENT", 2)))
+    codex_queue_timeout_seconds: float = field(default_factory=lambda: _f("CODEX_QUEUE_TIMEOUT_SECONDS", 5))
+    codex_failure_threshold: int = field(default_factory=lambda: int(os.getenv("CODEX_FAILURE_THRESHOLD", 3)))
+    codex_cooldown_seconds: float = field(default_factory=lambda: _f("CODEX_COOLDOWN_SECONDS", 15))
 
     def __post_init__(self):
         if self.llm_mode not in {"mock", "codex"}:
@@ -66,6 +70,8 @@ class Settings:
     voice_viktor: str = field(default_factory=lambda: os.getenv("VOICE_VIKTOR", ""))
     tts_model: str = field(default_factory=lambda: os.getenv("TTS_MODEL", "eleven_flash_v2_5"))
     tts_timeout_seconds: float = field(default_factory=lambda: _f("TTS_TIMEOUT_SECONDS", 12))
+    tts_cache_max_files: int = field(default_factory=lambda: int(os.getenv("TTS_CACHE_MAX_FILES", 512)))
+    tts_cache_max_bytes: int = field(default_factory=lambda: int(os.getenv("TTS_CACHE_MAX_BYTES", 134217728)))
 
     # "apify" = live scrape with labelled cache fallback; "cached" = saved real scrape only
     apify_mode: str = field(default_factory=lambda: os.getenv("APIFY_MODE", "sample"))
@@ -75,6 +81,8 @@ class Settings:
     apify_timeout_seconds: float = field(default_factory=lambda: _f("APIFY_TIMEOUT_SECONDS", 90))
     apify_cache_path: str = field(default_factory=lambda: os.getenv(
         "APIFY_CACHE_PATH", str(BACKEND_ROOT / "data" / "flats-apify.json")))
+    apify_cache_max_age_seconds: float = field(default_factory=lambda: _f("APIFY_CACHE_MAX_AGE_SECONDS", 86400))
+    apify_allow_stale_cache: bool = field(default_factory=lambda: os.getenv("APIFY_ALLOW_STALE_CACHE", "0") == "1")
 
     @property
     def simulated(self) -> bool:

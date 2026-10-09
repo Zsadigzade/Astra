@@ -19,10 +19,17 @@ export default function DealDetails({ view }) {
       <h2 id="details-h" className="card-title">Delivery and verification</h2>
 
       {delivery && (
-        <div className="detail-line">
-          <span>{delivery.items} listings{delivery.result?.fetched_at ? <small className="muted"> · fetched {delivery.result.fetched_at.slice(0, 16).replace("T", " ")}</small> : null}</span>
-          {src && <StatusBadge tone={src.tone} icon={null} title={src.hint}>{src.label}</StatusBadge>}
-        </div>
+        <>
+          <div className="detail-line">
+            <span>{delivery.items} listings{delivery.result?.fetched_at ? <small className="muted"> · fetched {delivery.result.fetched_at.slice(0, 16).replace("T", " ")}</small> : null}</span>
+            {src && <StatusBadge tone={src.tone} icon={null} title={src.hint}>{src.label}</StatusBadge>}
+          </div>
+          {delivery.result?.cache_stale === true && <p className="note note-warning" role="status">
+            <strong>STALE CACHED DATA</strong> — offline demo override.
+            {Number.isFinite(delivery.result.cache_age_seconds) && delivery.result.cache_age_seconds >= 0
+              && ` Cache age: ${Math.floor(delivery.result.cache_age_seconds / 3600)} hours.`}
+          </p>}
+        </>
       )}
 
       {checks.length > 0 && (

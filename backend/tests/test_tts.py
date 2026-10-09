@@ -121,6 +121,7 @@ def test_voice_samples_require_flag_and_report_both_speakers(settings, capsys):
     with patch.object(TTS, "speak", new_callable=AsyncMock, side_effect=["/audio/max.mp3", None]) as synthesis:
         assert asyncio.run(run()) == 1
         assert [call.args[1] for call in synthesis.await_args_list] == ["max", "viktor"]
+        assert all(call.kwargs == {"fresh": True} for call in synthesis.await_args_list)
     output = capsys.readouterr().out
     assert "PASS: max" in output and "FAIL: viktor" in output
 

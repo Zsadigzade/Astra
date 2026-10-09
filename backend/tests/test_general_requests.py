@@ -114,9 +114,10 @@ async def test_live_scrape_for_another_request_does_not_clobber_the_saved_demo_c
 
     monkeypatch.setattr(apify.httpx, "AsyncClient", lambda **kw: constructor(**kw, transport=httpx.MockTransport(handler)))
     await run_job(demo, DemoMode.honest, s)  # saves the Praha 7 cache
-    before = json.loads(open(s.apify_cache_path, encoding="utf-8").read())["job"]
+    before = json.loads(apify.cache_path(demo, s).read_text(encoding="utf-8"))["job"]
     other = JobSpec(count=1, district="Praha 2", max_price_czk=25000)
     result = await run_job(other, DemoMode.honest, s)  # live Praha 2 run succeeds...
     assert result.source == "apify" and "Praha 2" in result.flats[0].district
-    after = json.loads(open(s.apify_cache_path, encoding="utf-8").read())["job"]
+    after = json.loads(apify.cache_path(demo, s).read_text(encoding="utf-8"))["job"]
     assert after == before == demo.model_dump()  # ...but the demo cache is untouched
+    assert apify.load_cache(other, s).flats == result.flats

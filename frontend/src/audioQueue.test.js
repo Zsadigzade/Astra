@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { AudioQueue } from "./audioQueue.js";
+import { audioLines } from "./audioEvents.js";
+import { eventKey } from "./eventIdentity.js";
 
 const event = (id) => ({ id, ts: id, deal_id: "deal", type: "negotiation", data: { audio_url: `/audio/clip${id}.mp3` } });
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+const pendingLine = (id) => ({ ...event(id), data: { audio_status: "pending", text: `Line ${id}` } });
+const ready = (line, id, url = `/audio/clip${line.id}.mp3`) => ({
+  id, ts: id, deal_id: line.deal_id, task_id: line.task_id, type: "audio_ready",
+  data: { message_id: line.id, message_ts: line.ts, audio_status: url ? "ready" : "unavailable", audio_url: url },
+});
 
 function fakeTimers() {
   let now = 0;
@@ -233,4 +240,88 @@ test("default timers retain the browser global receiver", (t) => {
   assert.equal(queue.snapshot().playing, true);
   queue.destroy();
   assert.equal(timers.pending.size, 0);
+});
+
+test("out-of-order speech waits for the original dialogue order", () => {
+  const { queue, clips } = setup();
+  const first = pendingLine(1), second = pendingLine(2);
+  queue.ingest([first, second]);
+  queue.play();
+  queue.ingest([first, second, ready(second, 3)]);
+  assert.equal(clips.length, 0);
+  queue.ingest([first, second, ready(second, 3), ready(first, 4)]);
+  assert.match(clips[0].url, /clip1/);
+  clips[0].end();
+  assert.match(clips[1].url, /clip2/);
+  clips[1].end();
+  queue.ingest([first, second, ready(second, 3), ready(first, 4)]);
+  assert.equal(clips.length, 2);
+});
+
+test("unavailable earlier speech cannot stall later ready lines", () => {
+  const { queue, clips } = setup();
+  const first = pendingLine(1), second = pendingLine(2);
+  queue.ingest([first, second, ready(second, 3)]);
+  queue.play();
+  queue.ingest([first, second, ready(second, 3), ready(first, 4, null)]);
+  assert.match(clips[0].url, /clip2/);
+  assert.equal(queue.snapshot().skipped, 1);
+});
+
+test("strict original identity rejects old reset audio, wrong task and external URLs", () => {
+  const original = { ...pendingLine(1), task_id: "task" };
+  const newer = { ...original, ts: 22 };
+  assert.equal(audioLines([newer, ready(original, 3)])[0].data.audio_status, "pending");
+  assert.equal(audioLines([original, { ...ready(original, 3), deal_id: "other" }])[0].data.audio_status, "pending");
+  assert.equal(audioLines([original, { ...ready(original, 3), task_id: "other" }])[0].data.audio_status, "pending");
+  assert.equal(audioLines([original, ready(original, 3, "https://foreign.test/a.mp3")])[0].data.audio_url, null);
+  assert.equal(audioLines([original, ready(original, 3), ready(original, 3)])[0].data.audio_status, "ready");
+});
+
+test("Stop and Mute suppress late completions but retain explicit replay", () => {
+  const { queue, clips } = setup();
+  const first = pendingLine(1);
+  queue.ingest([first]);
+  queue.play();
+  queue.stop();
+  queue.ingest([first, ready(first, 2)]);
+  queue.play();
+  assert.equal(clips.length, 0);
+  queue.setMuted(true);
+  queue.replay(eventKey(first));
+  assert.equal(clips.length, 0);
+  queue.setMuted(false);
+  queue.replay(eventKey(first));
+  assert.equal(clips.length, 1);
+});
+
+test("replay uses a saved clip exclusively and speed applies now and to future clips", () => {
+  const { queue, clips } = setup();
+  queue.ingest([event(1), event(2)]);
+  queue.setSpeed(1.5);
+  queue.play();
+  assert.equal(clips[0].playbackRate, 1.5);
+  queue.setSpeed(0.75);
+  assert.equal(clips[0].playbackRate, 0.75);
+  queue.setSpeed(99);
+  assert.equal(queue.snapshot().speed, 0.75);
+  queue.replay(eventKey(event(2)));
+  assert.equal(clips[0].paused, true);
+  assert.equal(clips[1].url, "http://localhost:8000/audio/clip2.mp3");
+  assert.equal(clips[1].playbackRate, 0.75);
+  clips[1].end();
+  queue.ingest([event(1), event(2)]);
+  assert.equal(clips.length, 2);
+});
+
+test("a new deal queue starts disabled even when its replay contains old speech", () => {
+  const { queue, clips } = setup();
+  queue.ingest([event(1)]);
+  queue.play();
+  queue.destroy();
+  const fresh = setup();
+  fresh.queue.ingest([{ ...event(1), deal_id: "new" }]);
+  assert.equal(clips[0].paused, true);
+  assert.equal(fresh.clips.length, 0);
+  assert.equal(fresh.queue.snapshot().enabled, false);
 });

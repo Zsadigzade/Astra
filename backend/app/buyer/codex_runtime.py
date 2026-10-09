@@ -13,6 +13,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+from time import monotonic
 from typing import Any
 
 from app.core.config import Settings
@@ -20,6 +21,86 @@ from app.core.config import Settings
 
 class CodexRuntimeError(RuntimeError):
     """A safe-to-display failure without child output or credentials."""
+
+
+class CodexQueueTimeout(CodexRuntimeError):
+    """The local service could not start a turn within its queue budget."""
+
+
+class CodexCooldownError(CodexRuntimeError):
+    """Local repeated-failure cooldown, not an estimate of provider quota reset."""
+
+
+class _Capacity:
+    """Shared by all deals on one service event loop; mutations never suspend."""
+
+    def __init__(self, settings: Settings):
+        self.policy = (settings.codex_max_concurrent, settings.codex_queue_timeout_seconds,
+                       settings.codex_failure_threshold, settings.codex_cooldown_seconds)
+        self.limit, self.queue_timeout, self.threshold, self.cooldown = self.policy
+        self.active = 0
+        self.failures = 0
+        self.generation = 0
+        self.retry_at: float | None = None
+        self.probing = False
+        self.changed = asyncio.Event()
+
+    async def acquire(self) -> tuple[int, bool]:
+        try:
+            async with asyncio.timeout(self.queue_timeout):
+                while True:
+                    probe = self.retry_at is not None
+                    if probe and (monotonic() < self.retry_at or self.probing):
+                        raise CodexCooldownError("Subscription turns are cooling down after local failures; scripted fallback.")
+                    if self.active < self.limit:
+                        self.active += 1
+                        self.probing = probe
+                        return self.generation, probe
+                    await self.changed.wait()
+        except TimeoutError:
+            raise CodexQueueTimeout("Subscription turn queue wait expired; scripted fallback.") from None
+
+    def release(self, ticket: tuple[int, bool], success: bool | None) -> None:
+        self.active -= 1
+        generation, probe = ticket
+        # Turns already running when a breaker opened cannot close it on their
+        # late success, or extend the cooldown on their late failure.
+        if generation == self.generation:
+            if probe:
+                self.probing = False
+            if success is True:
+                self.failures = 0
+                self.retry_at = None
+            elif success is False:
+                self.failures += 1
+                if probe or self.failures >= self.threshold:
+                    self.retry_at = monotonic() + self.cooldown
+                    self.generation += 1
+        # Synchronous release cannot be interrupted by repeated cancellation.
+        self.changed.set()
+        self.changed = asyncio.Event()
+
+
+def _capacity(settings: Settings) -> _Capacity:
+    if type(settings.codex_max_concurrent) is not int or not 1 <= settings.codex_max_concurrent <= 32:
+        raise ValueError("CODEX_MAX_CONCURRENT must be an integer from 1 to 32")
+    if type(settings.codex_failure_threshold) is not int or not 1 <= settings.codex_failure_threshold <= 100:
+        raise ValueError("CODEX_FAILURE_THRESHOLD must be an integer from 1 to 100")
+    for name, value in (("CODEX_QUEUE_TIMEOUT_SECONDS", settings.codex_queue_timeout_seconds),
+                        ("CODEX_COOLDOWN_SECONDS", settings.codex_cooldown_seconds)):
+        if not math.isfinite(value) or not 0 < value <= 300:
+            raise ValueError(f"{name} must be finite, positive and at most 300")
+    # Uvicorn runs one event loop per service process. Store state on that loop
+    # so fresh asyncio.run checks/tests cannot inherit a previous loop's gate.
+    loop = asyncio.get_running_loop()
+    gate = getattr(loop, "_haggle_codex_capacity", None)
+    if gate is None:
+        gate = _Capacity(settings)
+        setattr(loop, "_haggle_codex_capacity", gate)
+    elif gate.policy != (settings.codex_max_concurrent, settings.codex_queue_timeout_seconds,
+                         settings.codex_failure_threshold, settings.codex_cooldown_seconds):
+        raise ValueError("Codex capacity policy changed; restart this service to apply settings")
+    return gate
 
 
 def _command(command: str) -> list[str]:
@@ -127,6 +208,30 @@ async def run_codex(prompt: str, schema: dict[str, Any], settings: Settings) -> 
     timeout = settings.codex_timeout_seconds
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("CODEX_TIMEOUT_SECONDS must be finite and positive")
+    gate = _capacity(settings)
+    # Queueing consumes the existing turn budget; seller HTTP deadlines need no
+    # extension. Rejected/cancelled waiters never create a process or temp cwd.
+    async with asyncio.timeout(timeout) as budget:
+        ticket = await gate.acquire()
+        success = None
+        try:
+            result = await _run_turn(prompt, schema, settings)
+            success = True
+            return result
+        except asyncio.CancelledError:
+            # A caller cancellation is not evidence of subscription failure.
+            if budget.expired():
+                success = False
+            raise
+        except Exception:
+            success = False
+            raise
+        finally:
+            gate.release(ticket, success)
+
+
+async def _run_turn(prompt: str, schema: dict[str, Any], settings: Settings) -> dict[str, Any]:
+    timeout = settings.codex_timeout_seconds
     # Fresh cwd isolates repository instructions, .env, and project MCP config.
     with tempfile.TemporaryDirectory(prefix="astra-codex-") as directory:
         root = Path(directory)
