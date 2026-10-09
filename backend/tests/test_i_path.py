@@ -30,9 +30,8 @@ async def test_codex_failure_is_visible_in_honest_negotiation(tmp_path, monkeypa
     settings = Settings(llm_mode="codex", ledger_path=str(tmp_path / "buyer.db"),
                         audio_dir=str(tmp_path / "audio"), seller_url="http://seller")
     events, balances = await run_task(tmp_path, "honest", settings=settings)
-    # Max's opening question is a fixed template (action "open"), not a model call, so it has no fallback reason.
     max_lines = [e for e in events if e.type == "negotiation" and e.data["speaker"] == "max"
-                 and e.data["action"] not in {"walk", "open"}]
+                 and e.data["action"] != "walk"]
     assert max_lines and all(e.data["backend"] == "mock" for e in max_lines)
     assert all(e.data["fallback_reason"] for e in max_lines)
     assert "released" in {e.type for e in events}
@@ -71,6 +70,8 @@ async def test_staged_con_is_live_and_the_guard_still_blocks(tmp_path, monkeypat
     max_prompts = []
 
     async def live_max(prompt, schema, settings):
+        if set(schema["properties"]) == {"message"}:
+            return {"message": "Can you find twenty flats in Praha 7 under 25,000 CZK?"}
         max_prompts.append(prompt)
         if "approved" in prompt.split("Conversation (JSON):")[1].lower():
             return {"action": "accept", "price": 25, "message": "Manager approved? Then 25 it is!"}
@@ -88,7 +89,7 @@ async def test_staged_con_is_live_and_the_guard_still_blocks(tmp_path, monkeypat
     settings = Settings(llm_mode="codex", seller_llm_mode="codex", ledger_path=str(tmp_path / "buyer.db"),
                         audio_dir=str(tmp_path / "audio"), seller_url="http://seller")
     events, balances = await run_task(tmp_path, "con", settings=settings)
-    lines = [e for e in events if e.type == "negotiation" and e.data["action"] not in {"walk", "open"}]
+    lines = [e for e in events if e.type == "negotiation" and e.data["action"] != "walk"]
     assert lines and all(e.data["backend"] == "codex" and e.staged for e in lines)
     assert all("STAGED demo scene" in prompt and "RULE 1" in prompt for prompt in max_prompts)
     assert "blocked" in {e.type for e in events}
@@ -113,9 +114,7 @@ async def test_strict_live_max_failure_errors_the_deal_without_scripted_decision
     assert errors and "STRICT_LIVE" in errors[0].data["message"]
     assert "private-provider-diagnostics" not in errors[0].data["message"]
     max_lines = [e for e in events if e.type == "negotiation" and e.data["speaker"] == "max"]
-    assert len(max_lines) == 1  # only the fixed opening question precedes the provider failure
-    assert max_lines[0].data["action"] == "open" and max_lines[0].data["backend"] == "mock"
-    assert not max_lines[0].data.get("fallback_reason")
+    assert max_lines == []  # The live opening failed before anything was spoken or sent to Viktor.
     assert {"escrow_locked", "released"}.isdisjoint({e.type for e in events})
     assert balances["buyer"] == 100
 

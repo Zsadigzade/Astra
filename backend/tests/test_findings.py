@@ -251,6 +251,14 @@ FOUND = {"answer": "Two cars.", "sources": [], "items": [{"title": "Skoda Rapid 
 @pytest.mark.anyio
 async def test_viktor_brags_about_what_he_really_found_and_the_search_is_the_delivery(monkeypatch, tmp_path):
     app, calls = seller_with(monkeypatch, tmp_path, FOUND)
+    facts_seen = []
+    original_respond = app.state.viktor.respond_async
+
+    async def capture(req, facts=None):
+        facts_seen.append(facts)
+        return await original_respond(req, facts)
+
+    monkeypatch.setattr(app.state.viktor, "respond_async", capture)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://s") as c:
         r0 = (await c.post("/negotiate", json=neg("d1", 0, "open"))).json()
         assert "found" not in r0["message"]  # at the opening nothing is known yet
@@ -272,6 +280,9 @@ async def test_viktor_brags_about_what_he_really_found_and_the_search_is_the_del
             await asyncio.sleep(0.01)
     assert st["status"] == "completed" and [i["title"] for i in st["result"]["items"]] == ["Skoda Rapid 1.0 TSI", "Dacia Sandero"]
     assert len(calls) == 1  # one model call served both the brag and the delivery
+    assert facts_seen[0] is None
+    assert facts_seen[1]["findings"] == FOUND["items"]
+    assert facts_seen[1]["source"] == "codex"
 
 
 @pytest.mark.anyio

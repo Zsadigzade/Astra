@@ -18,7 +18,7 @@ def fake_runner(monkeypatch, outputs):
     calls = []
 
     async def run(prompt, schema, settings):
-        history = json.loads(prompt.split("Conversation (JSON):\n", 1)[1])
+        history = json.loads(prompt.split("Conversation (JSON):\n", 1)[1]) if "Conversation (JSON):\n" in prompt else []
         calls.append({"prompt": prompt, "input": history, "schema": schema, "settings": settings})
         out = outputs.pop(0)
         if isinstance(out, Exception):
@@ -41,6 +41,49 @@ def test_make_negotiator_picks_by_mode():
 def test_agent_configured_with_budget_and_structured_output():
     m = make_max(ceiling=10)
     assert "10 tADA" in m.instructions
+
+
+@pytest.mark.anyio
+async def test_live_opening_uses_full_job_and_is_remembered_in_next_turn(monkeypatch):
+    from app.core.models import BoundedJobSpec
+
+    job = BoundedJobSpec(kind="general", prompt="Find a quiet cafe in Budapest where I can work on Sunday.")
+    line = "I need somewhere quiet to work in Budapest on Sunday. Can you find a cafe?"
+    calls = fake_runner(monkeypatch, [
+        {"message": line}, MaxMove(action="counter", price=5, message="Five tADA?")])
+    agent = CodexMax(Settings(llm_mode="codex"), 10, job)
+    assert await agent.opening() == line
+    assert agent.last_backend == "codex" and agent.fallback_reason is None
+    assert calls[0]["schema"]["required"] == ["message"]
+    context = json.loads(calls[0]["prompt"].split("Full job (JSON):\n")[1])
+    assert context == {"kind": "general", "prompt": job.prompt}
+    await agent.next_move(seller(), None)
+    assert json.loads(calls[1]["input"][0]["content"]) == {"action": "open", "price": 0, "message": line}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("bad", [TimeoutError("private-provider-details"), {"message": " "},
+                                  {"message": "x" * 401}, {"message": "Hi", "price": 5}])
+async def test_failed_opening_is_labelled_and_remembers_only_the_spoken_fallback(monkeypatch, caplog, bad):
+    fake_runner(monkeypatch, [bad])
+    agent = make_max()
+    line = await agent.opening()
+    assert line == await MockMax(10).opening()
+    assert agent.last_backend == "mock" and agent.fallback_reason
+    assert json.loads(agent.history[0]["content"])["message"] == line
+    assert "private-provider-details" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_cancelled_opening_is_not_recorded_or_replaced_with_fallback(monkeypatch):
+    async def cancel(*args):
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr(neg, "run_codex", cancel)
+    agent = make_max()
+    with pytest.raises(asyncio.CancelledError):
+        await agent.opening()
+    assert agent.history == [] and agent.last_backend is None
 
 
 @pytest.mark.anyio

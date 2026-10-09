@@ -109,6 +109,8 @@ async def test_codex_round_limit_stays_consistent_when_controls_change_mid_deal(
     prompts = []
 
     async def fake_codex(prompt, schema, runtime_settings):
+        if set(schema["properties"]) == {"message"}:
+            return {"message": "Viktor, what would you charge for the flat search?"}
         prompts.append((prompt, runtime_settings.max_rounds))
         if len(prompts) == 1:
             buyer.state.controls.apply(ControlsUpdate(max_rounds=5))

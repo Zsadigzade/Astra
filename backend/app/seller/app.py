@@ -64,7 +64,10 @@ def create_app(settings: Settings | None = None, masumi_http: httpx.AsyncClient 
         if not result.items:
             return None
         return {"options_found": len(result.items),
-                "examples": [i.title[:80] for i in result.items[:2]]}
+                "examples": [i.title[:80] for i in result.items[:2]],
+                "findings": [{"title": i.title, "detail": i.detail, "url": i.url}
+                             for i in result.items[:3]],
+                "source": result.source}
 
     def start_scout(req: NegotiateRequest) -> None:
         if (not s.answer_scout or not s.answers_enabled or req.action != "open" or req.job.kind != "general"

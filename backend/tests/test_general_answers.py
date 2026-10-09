@@ -191,7 +191,7 @@ async def test_a_general_request_runs_the_whole_pipeline_and_releases(tmp_path, 
     types = [e.type for e in events]
     assert "released" in types and "error" not in types
     first = next(e for e in events if e.type == "negotiation")
-    assert first.data["speaker"] == "max" and 'an answer to: "Explain in one sentence' in first.data["text"]
+    assert first.data["speaker"] == "max" and 'Explain in one sentence' in first.data["text"]
     viktor = next(e for e in events if e.type == "negotiation" and e.data["speaker"] == "viktor")
     assert "Explain in one sentence" in viktor.data["text"]
     d = next(e for e in events if e.type == "delivered")
